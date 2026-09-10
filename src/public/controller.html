@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Tablet Controller - Panjat Pinang</title>
+  <link rel="stylesheet" href="/css/controller.css">
+</head>
+<body>
+
+  <!-- Modal Pemilihan Tim Saat Tablet Pertama Kali Buka -->
+  <div class="team-selector-modal" id="team-modal">
+    <div class="team-selector-card">
+      <h2 style="margin-bottom: 8px;">📱 Pilih Tim Tablet Ini</h2>
+      <p style="color: #94a3b8; margin-bottom: 20px;">Pilih tim yang akan dikendalikan oleh tablet ini:</p>
+      <div id="team-buttons-container">
+        <!-- Diisi otomatis dari state -->
+      </div>
+      <div style="margin-top: 20px; font-size: 11px; color: #64748b;">
+        © 2026 Nandur Studio. All rights reserved.
+      </div>
+    </div>
+  </div>
+
+  <!-- Header Info Giliran & Tim -->
+  <div class="ctrl-header">
+    <div class="team-badge" onclick="openTeamSelector()" style="cursor: pointer;" title="Klik untuk ganti tim">
+      <span class="team-dot" id="team-dot"></span>
+      <span id="team-name">PILIH TIM</span>
+      <span style="font-size: 12px; background: #334155; padding: 2px 8px; border-radius: 6px; color: #94a3b8; margin-left: 6px;">Ganti Tim ▾</span>
+    </div>
+    <div class="turn-badge" id="turn-badge">GILIRAN: -</div>
+  </div>
+
+  <!-- Kontainer Pertanyaan & Pilihan Jawaban -->
+  <div class="question-container">
+    <div class="question-box">
+      <div class="question-text" id="question-text">Menunggu soal dari arena...</div>
+    </div>
+
+    <div class="options-grid" id="options-grid">
+      <button class="opt-btn" onclick="submitAnswer(0)">
+        <span class="opt-letter">A</span>
+        <span class="opt-text" id="opt-0">-</span>
+      </button>
+      <button class="opt-btn" onclick="submitAnswer(1)">
+        <span class="opt-letter">B</span>
+        <span class="opt-text" id="opt-1">-</span>
+      </button>
+      <button class="opt-btn" onclick="submitAnswer(2)">
+        <span class="opt-letter">C</span>
+        <span class="opt-text" id="opt-2">-</span>
+      </button>
+      <button class="opt-btn" onclick="submitAnswer(3)">
+        <span class="opt-letter">D</span>
+        <span class="opt-text" id="opt-3">-</span>
+      </button>
+    </div>
+    <div style="text-align: center; margin-top: 16px; font-size: 12px; color: #475569;">
+      © 2026 Nandur Studio. All rights reserved.
+    </div>
+  </div>
+
+  <!-- Overlay Feedback Pop-up -->
+  <div class="feedback-overlay" id="feedback-overlay">
+    <div class="feedback-title" id="feedback-title">BENAR!</div>
+    <div class="feedback-sub" id="feedback-sub">Karaktermu naik ke tiang!</div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    let currentTeamId = null;
+    let gameState = null;
+    let isSubmitting = false;
+
+    const teamModal = document.getElementById('team-modal');
+    const teamButtonsContainer = document.getElementById('team-buttons-container');
+    const teamNameEl = document.getElementById('team-name');
+    const teamDotEl = document.getElementById('team-dot');
+    const turnBadgeEl = document.getElementById('turn-badge');
+    const questionTextEl = document.getElementById('question-text');
+    const feedbackOverlay = document.getElementById('feedback-overlay');
+    const feedbackTitle = document.getElementById('feedback-title');
+    const feedbackSub = document.getElementById('feedback-sub');
+
+    // Baca parameter URL
+    const urlParams = new URLSearchParams(window.location.search);
+    let paramTeam = urlParams.get('team');
+
+    socket.on('STATE_UPDATE', (state) => {
+      gameState = state;
+
+      // Jika ada paramTeam valid dan belum pernah disetel
+      if (paramTeam && gameState.teams && gameState.teams[paramTeam] && !currentTeamId) {
+        selectTeam(paramTeam, false);
+      } else if (!currentTeamId) {
+        // Jika TIDAK ADA parameter, atau parameter tidak valid: Tampilkan popup modal pemilihan tim
+        openTeamSelector();
+      }
+
+      updateUI();
+    });
+
+    socket.on('ANSWER_RESULT', (res) => {
+      if (res.teamId === currentTeamId) {
+        showFeedback(res);
+      }
+    });
+
+    function openTeamSelector() {
+      if (!gameState || !gameState.teams) return;
+      teamButtonsContainer.innerHTML = '';
+      const teams = Object.entries(gameState.teams);
+
+      if (teams.length === 0) {
+        teamButtonsContainer.innerHTML = '<p style="color:#ef4444;">Belum ada tim yang terdaftar di Admin.</p>';
+      } else {
+        teams.forEach(([tId, team]) => {
+          const btn = document.createElement('button');
+          btn.className = 'team-pick-btn';
+          btn.style.backgroundColor = team.color;
+          btn.textContent = `${team.name} (${team.members?.length || 0} Anggota)`;
+          btn.onclick = () => selectTeam(tId, true);
+          teamButtonsContainer.appendChild(btn);
+        });
+      }
+
+      teamModal.style.display = 'flex';
+    }
+
+    function selectTeam(tId, updateUrl = true) {
+      if (!gameState?.teams?.[tId]) return;
+      currentTeamId = tId;
+      teamModal.style.display = 'none';
+
+      // Update URL query parameter tanpa reload halaman
+      if (updateUrl) {
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.set('team', tId);
+        window.history.replaceState({}, '', newUrl.toString());
+        paramTeam = tId;
+      }
+
+      socket.emit('JOIN_ROLE', { role: 'CONTROLLER', teamId: tId });
+      updateUI();
+    }
+
+    function updateUI() {
+      if (!gameState || !currentTeamId) return;
+      const myTeam = gameState.teams[currentTeamId];
+      if (!myTeam) return;
+
+      teamNameEl.textContent = myTeam.name;
+      teamDotEl.style.backgroundColor = myTeam.color;
+
+      const currentMember = myTeam.members[myTeam.currentTurnIndex];
+      turnBadgeEl.textContent = `GILIRAN: ${currentMember ? currentMember.name.toUpperCase() : '-'}`;
+
+      if (gameState.status !== 'PLAYING') {
+        questionTextEl.textContent = gameState.status === 'FINISHED' 
+          ? "Permainan Selesai!" 
+          : "Menunggu Game Master Memulai Pertandingan...";
+        document.getElementById('options-grid').style.opacity = '0.3';
+        document.getElementById('options-grid').style.pointerEvents = 'none';
+        return;
+      }
+
+      document.getElementById('options-grid').style.opacity = '1';
+      document.getElementById('options-grid').style.pointerEvents = 'auto';
+
+      if (myTeam.activeQuestion) {
+        questionTextEl.textContent = myTeam.activeQuestion.question;
+        myTeam.activeQuestion.options.forEach((opt, idx) => {
+          const el = document.getElementById(`opt-${idx}`);
+          if (el) el.textContent = opt;
+        });
+      }
+    }
+
+    function submitAnswer(idx) {
+      if (isSubmitting || gameState?.status !== 'PLAYING') return;
+      isSubmitting = true;
+
+      // Efek getar di tablet (Haptic Feedback)
+      if (navigator.vibrate) navigator.vibrate(60);
+
+      socket.emit('SUBMIT_ANSWER', {
+        teamId: currentTeamId,
+        selectedIndex: idx
+      });
+
+      // Kunci tombol sejenak
+      document.getElementById('options-grid').style.pointerEvents = 'none';
+    }
+
+    function showFeedback(res) {
+      feedbackOverlay.classList.remove('feedback-correct', 'feedback-wrong');
+
+      if (res.isCorrect) {
+        feedbackOverlay.classList.add('feedback-correct');
+        feedbackTitle.textContent = "✅ JAWABAN BENAR!";
+        feedbackSub.textContent = `${res.answeredBy} berhasil memanjat!`;
+      } else {
+        feedbackOverlay.classList.add('feedback-wrong');
+        feedbackTitle.textContent = "💥 JAWABAN SALAH!";
+        feedbackSub.textContent = "Karakter runtuh semua ke tanah!";
+        if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+      }
+
+      feedbackOverlay.classList.add('show');
+
+      setTimeout(() => {
+        feedbackOverlay.classList.remove('show');
+        isSubmitting = false;
+        document.getElementById('options-grid').style.pointerEvents = 'auto';
+        updateUI();
+      }, 1800);
+    }
+  </script>
+</body>
+</html>

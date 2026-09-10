@@ -1,0 +1,87 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body, html {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #1a252f;
+  font-family: 'Courier New', Courier, monospace;
+}
+
+#arena-canvas {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+}
+
+/* Header HUD */
+.arena-hud {
+  position: absolute;
+  top: 15px;
+  left: 20px;
+  right: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: none;
+}
+
+.hud-badge {
+  background: rgba(0, 0, 0, 0.75);
+  border: 2px solid #f39c12;
+  color: #f1c40f;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 18px;
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+
+.hud-title {
+  background: rgba(0, 0, 0, 0.8);
+  border: 3px solid #e74c3c;
+  color: #ffffff;
+  padding: 10px 24px;
+  border-radius: 12px;
+  font-size: 24px;
+  font-weight: 900;
+  text-shadow: 2px 2px 0 #c0392b;
+}
+
+/* Event Ticker (Notifikasi Real-time) */
+.event-ticker {
+  position: absolute;
+  bottom: 25px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.85);
+  border: 2px solid #2ecc71;
+  color: #2ecc71;
+  padding: 10px 30px;
+  border-radius: 30px;
+  font-size: 18px;
+  font-weight: bold;
+  pointer-events: none;
+  transition: all 0.3s ease;
+  opacity: 0;
+}
+
+.event-ticker.show {
+  opacity: 1;
+}
+
+.event-ticker.wipeout {
+  border-color: #e74c3c;
+  color: #ff7675;
+  animation: shake 0.5s;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(-50%); }
+  20%, 60% { transform: translateX(-55%); }
+  40%, 80% { transform: translateX(-45%); }
+}

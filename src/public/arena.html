@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arena Panjat Pinang Virtual - Educamp</title>
+  <link rel="stylesheet" href="/css/arena.css">
+</head>
+<body>
+
+  <!-- Layar Arena Pixel Art Canvas -->
+  <canvas id="arena-canvas"></canvas>
+
+  <!-- HUD Atas -->
+  <div class="arena-hud">
+    <div class="hud-badge" id="mode-badge">MODE: VERSUS BATTLE</div>
+    <div class="hud-title">🌴 PANJAT PINANG VIRTUAL EDUCAMP 🌴</div>
+    <div class="hud-badge" id="status-badge">STATUS: STANDBY</div>
+  </div>
+
+  <!-- Event Ticker Notifikasi (Bawah) -->
+  <div class="event-ticker" id="event-ticker">Selamat bertanding! Jaga kekompakan tim!</div>
+
+  <!-- Watermark Copyright Nandur Studio -->
+  <div style="position: absolute; bottom: 10px; right: 15px; color: rgba(255, 255, 255, 0.4); font-size: 12px; pointer-events: none; font-family: 'Courier New', monospace;">
+    © 2026 Nandur Studio
+  </div>
+
+  <!-- Scripts -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/audio-fx.js"></script>
+  <script src="/js/pixel-sprites.js"></script>
+  <script src="/js/arena-canvas.js"></script>
+  <script>
+    const socket = io();
+    const canvasEl = document.getElementById('arena-canvas');
+    const arena = new ArenaCanvas(canvasEl);
+
+    const modeBadge = document.getElementById('mode-badge');
+    const statusBadge = document.getElementById('status-badge');
+    const ticker = document.getElementById('event-ticker');
+
+    function showTicker(msg, isWipeout = false) {
+      ticker.textContent = msg;
+      ticker.className = `event-ticker show ${isWipeout ? 'wipeout' : ''}`;
+      setTimeout(() => {
+        ticker.classList.remove('show');
+      }, 3500);
+    }
+
+    // Sambung ke WebSocket sebagai Layar Arena
+    socket.emit('JOIN_ROLE', { role: 'ARENA' });
+
+    // Terima State Update dari Server
+    socket.on('STATE_UPDATE', (state) => {
+      arena.updateState(state);
+      modeBadge.textContent = `MODE: ${state.mode} (${state.wipeoutMode})`;
+      statusBadge.textContent = `STATUS: ${state.status}`;
+    });
+
+    // Jawaban Masuk
+    socket.on('ANSWER_RESULT', (res) => {
+      if (res.eventType === 'TOTAL_WIPEOUT') {
+        arena.triggerFall(res.teamId);
+        showTicker(`💥 ${res.teamName.toUpperCase()} SALAH JAWAB! RUNTUH SEMUA KE TANAH!`, true);
+      } else if (res.eventType === 'CLIMB_SUCCESS') {
+        arena.triggerClimb(res.teamId);
+        showTicker(`✅ ${res.answeredBy} (${res.teamName}) BENAR! Naik 1 tingkat!`);
+      } else if (res.eventType === 'VICTORY') {
+        arena.triggerVictory(res.teamName);
+        showTicker(`🏆 LUAR BIASA! ${res.teamName.toUpperCase()} MENCAPAI PUNCAK PINANG!`);
+      }
+    });
+
+    // Auto audio unlock saat interaksi pertama
+    window.addEventListener('click', () => {
+      if (window.soundFX) window.soundFX.init();
+    }, { once: true });
+  </script>
+</body>
+</html>

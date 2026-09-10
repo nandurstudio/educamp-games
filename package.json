@@ -1,0 +1,28 @@
+{
+  "name": "educamp-games",
+  "version": "1.0.0",
+  "description": "Platform Game Web Interaktif Educamp & Team Building dengan Controller Tablet, Multi-Game Hub & Google AI Studio (Nandur Studio)",
+  "main": "src/server/app.js",
+  "scripts": {
+    "start": "node src/server/app.js",
+    "dev": "node --watch src/server/app.js"
+  },
+  "keywords": [
+    "educamp",
+    "games",
+    "interactive-games",
+    "panjat-pinang",
+    "team-building",
+    "socketio",
+    "google-ai-studio",
+    "gemini"
+  ],
+  "author": "Nandang Duryat",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1"
+  }
+}

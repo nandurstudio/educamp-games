@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Game Master - Educamp Panjat Pinang</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: #0f172a; color: #f8fafc; padding: 24px; }
+    .container { max-width: 1100px; margin: 0 auto; }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #334155; }
+    h1 { font-size: 26px; color: #38bdf8; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+    .card h2 { font-size: 18px; margin-bottom: 16px; color: #f1c40f; display: flex; align-items: center; gap: 8px; }
+    .btn { padding: 10px 18px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; }
+    .btn-green { background: #22c55e; color: white; }
+    .btn-red { background: #ef4444; color: white; }
+    .btn-blue { background: #3b82f6; color: white; }
+    .btn-purple { background: #8b5cf6; color: white; }
+    .btn-sm { padding: 6px 12px; font-size: 13px; border-radius: 6px; }
+    .btn-add { background: #0284c7; color: white; margin-top: 10px; width: 100%; }
+    .btn-del { background: #dc2626; color: white; padding: 0 10px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+    .btn:hover { filter: brightness(1.1); }
+    .form-group { margin-bottom: 14px; }
+    label { display: block; font-size: 13px; color: #94a3b8; margin-bottom: 6px; }
+    input, select, textarea { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: white; font-size: 14px; }
+    .team-member-row { display: grid; grid-template-columns: 2fr 1.8fr 1.5fr 40px; gap: 8px; margin-bottom: 8px; align-items: center; }
+    .badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+    .links-bar { display: flex; gap: 12px; margin-top: 10px; }
+    .links-bar a { color: #38bdf8; text-decoration: none; font-size: 14px; padding: 6px 12px; background: #334155; border-radius: 6px; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div>
+      <h1>⚙️ Admin Game Master - Panjat Pinang</h1>
+      <div class="links-bar" id="header-links-bar">
+        <a href="/arena.html" target="_blank">🖥️ Buka Layar Arena (Proyektor)</a>
+      </div>
+    </div>
+    <div style="display: flex; gap: 10px;">
+      <button class="btn btn-green" onclick="startGame()">▶️ MULAI GAME</button>
+      <button class="btn btn-red" onclick="resetGame()">🔄 RESET GAME</button>
+    </div>
+  </header>
+
+  <div class="grid">
+    <!-- Kolom Kiri: AI Studio Generator & Aturan Game -->
+    <div>
+      <!-- AI Studio Quiz Generator -->
+      <div class="card">
+        <h2>✨ Google AI Studio Quiz Generator (Gemini)</h2>
+        <p style="font-size: 13px; color: #94a3b8; margin-bottom: 14px;">
+          Generate bank soal kuis instan untuk Educamp via Google Gemini API.
+        </p>
+        <div class="form-group">
+          <label>Google AI Studio API Key (Opsional jika sudah di .env):</label>
+          <input type="password" id="gemini-key" placeholder="AIzaSy...">
+        </div>
+        <div class="form-group">
+          <label>Topik / Tema Kuis:</label>
+          <input type="text" id="ai-topic" value="Teamwork, Outbound Fun, Sinergi & Budaya 5R Industri">
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label>Jumlah Soal:</label>
+            <input type="number" id="ai-count" value="10" min="5" max="30">
+          </div>
+          <div class="form-group">
+            <label>Kesulitan:</label>
+            <select id="ai-difficulty">
+              <option value="easy">Mudah (Seru-seruan)</option>
+              <option value="medium" selected>Sedang (Edukasi & Trik)</option>
+              <option value="hard">Tantangan Keras</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-purple" id="btn-generate-ai" style="width: 100%;" onclick="generateAIQuiz()">
+          🚀 Generate Bank Soal via Gemini AI
+        </button>
+        <div id="ai-status" style="margin-top: 10px; font-size: 13px; color: #22c55e;"></div>
+      </div>
+
+      <!-- Mode & Aturan Game -->
+      <div class="card">
+        <h2>🎮 Aturan Pertandingan</h2>
+        <div class="form-group">
+          <label>Mode Permainan:</label>
+          <select id="game-mode" onchange="updateConfig()">
+            <option value="VERSUS">Versus Battle (2+ Tim Balapan)</option>
+            <option value="SINGLE">Single Team (Time Trial)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Mekanika Jika Jawaban Salah:</label>
+          <select id="wipeout-mode" onchange="updateConfig()">
+            <option value="HARDCORE">💥 Total Wipeout (Jatuh Semua ke Titik 0)</option>
+            <option value="SLIP">⚠️ Slip (Turun 1 Karakter Saja)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Kolom Kanan: Setup Karakter Pixel Art Tim Dinamis -->
+    <div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h2 style="font-size: 20px; color: #f1c40f;">👥 Manajemen Tim & Karakter</h2>
+        <button type="button" class="btn btn-blue btn-sm" onclick="addNewTeam()">➕ Tambah Tim Baru</button>
+      </div>
+
+      <!-- Container Kartu Tim-tim Dinamis -->
+      <div id="teams-cards-wrapper"></div>
+    </div>
+  </div>
+
+  <footer style="margin-top: 40px; padding: 20px; text-align: center; color: #64748b; font-size: 14px; border-top: 1px solid #1e293b;">
+    © 2026 Nandur Studio. All rights reserved.
+  </footer>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io();
+  let currentGameState = null;
+  let localTeams = null; // Menyimpan data tim lokal
+
+  const PALETTE = [
+    '#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#e84393'
+  ];
+
+  socket.emit('JOIN_ROLE', { role: 'ADMIN' });
+
+  socket.on('STATE_UPDATE', (state) => {
+    currentGameState = state;
+    if (!localTeams) {
+      localTeams = JSON.parse(JSON.stringify(state.teams));
+    }
+    renderConfig(state);
+  });
+
+  function renderConfig(state) {
+    document.getElementById('game-mode').value = state.mode;
+    document.getElementById('wipeout-mode').value = state.wipeoutMode;
+    renderAllTeamsCards();
+    updateHeaderLinks();
+  }
+
+  function updateHeaderLinks() {
+    const linksBar = document.getElementById('header-links-bar');
+    if (!linksBar || !localTeams) return;
+    let html = `<a href="/arena.html" target="_blank">🖥️ Buka Layar Arena (Proyektor)</a>`;
+    Object.keys(localTeams).forEach((tId, idx) => {
+      const team = localTeams[tId];
+      html += `<a href="/controller.html?team=${tId}" target="_blank">📱 Tablet ${team.name || 'Tim ' + (idx+1)}</a>`;
+    });
+    linksBar.innerHTML = html;
+  }
+
+  function renderAllTeamsCards() {
+    const wrapper = document.getElementById('teams-cards-wrapper');
+    if (!wrapper || !localTeams) return;
+    wrapper.innerHTML = '';
+
+    const teamEntries = Object.entries(localTeams);
+
+    teamEntries.forEach(([tId, team], tIndex) => {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.id = `card-${tId}`;
+      card.style.borderLeft = `5px solid ${team.color || '#e74c3c'}`;
+
+      card.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+          <h2 style="margin: 0; color: ${team.color || '#f1c40f'};">👥 ${team.name || 'Tim ' + (tIndex+1)}</h2>
+          ${teamEntries.length > 1 ? `<button type="button" class="btn btn-red btn-sm" onclick="removeTeam('${tId}')">Hapus Tim</button>` : ''}
+        </div>
+
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-bottom: 12px;">
+          <div class="form-group" style="margin: 0;">
+            <label>Nama Tim:</label>
+            <input type="text" value="${team.name || ''}" id="${tId}-name" onchange="syncAndSave()">
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label>Warna Tim:</label>
+            <input type="color" value="${team.color || '#e74c3c'}" id="${tId}-color" style="height: 42px; padding: 2px; cursor: pointer;" onchange="syncAndSave()">
+          </div>
+        </div>
+
+        <label style="display: block; font-size: 13px; color: #94a3b8; margin-bottom: 6px;">Anggota & Postur Pixel Art:</label>
+        <div id="${tId}-members-container"></div>
+        <button type="button" class="btn btn-add" onclick="addMember('${tId}')">➕ Tambah Anggota ${team.name || ''}</button>
+      `;
+
+      wrapper.appendChild(card);
+      renderMemberInputs(tId, team.members);
+    });
+  }
+
+  function renderMemberInputs(tId, members) {
+    const container = document.getElementById(`${tId}-members-container`);
+    if (!container) return;
+    container.innerHTML = '';
+
+    members.forEach((m, idx) => {
+      const row = document.createElement('div');
+      row.className = 'team-member-row';
+      row.innerHTML = `
+        <input type="text" value="${m.name}" placeholder="Nama ${idx+1}" id="${tId}-name-${idx}" onchange="syncAndSave()">
+        <select id="${tId}-body-${idx}" onchange="syncAndSave()">
+          <option value="tall-skinny" ${m.bodyType==='tall-skinny'?'selected':''}>Tinggi Kurus</option>
+          <option value="short-skinny" ${m.bodyType==='short-skinny'?'selected':''}>Pendek Kurus</option>
+          <option value="tall-chubby" ${m.bodyType==='tall-chubby'?'selected':''}>Tinggi Gemuk</option>
+          <option value="short-chubby" ${m.bodyType==='short-chubby'?'selected':''}>Pendek Gemuk</option>
+        </select>
+        <select id="${tId}-skin-${idx}" onchange="syncAndSave()">
+          <option value="fair" ${m.skinTone==='fair'?'selected':''}>Kulit Cerah</option>
+          <option value="olive" ${m.skinTone==='olive'?'selected':''}>Kuning Langsat</option>
+          <option value="tan" ${m.skinTone==='tan'?'selected':''}>Sawo Matang</option>
+          <option value="deep" ${m.skinTone==='deep'?'selected':''}>Kulit Gelap</option>
+        </select>
+        <button type="button" class="btn btn-del" onclick="removeMember('${tId}', ${idx})" title="Hapus anggota ini">✕</button>
+      `;
+      container.appendChild(row);
+    });
+  }
+
+  function addNewTeam() {
+    if (!localTeams) localTeams = {};
+    const count = Object.keys(localTeams).length + 1;
+    const newId = `team${Date.now()}`;
+    const defaultColor = PALETTE[(count - 1) % PALETTE.length];
+
+    localTeams[newId] = {
+      id: newId,
+      name: `Tim ${count}`,
+      color: defaultColor,
+      members: [
+        { name: `Anggota 1`, bodyType: 'tall-skinny', skinTone: 'fair' },
+        { name: `Anggota 2`, bodyType: 'tall-chubby', skinTone: 'tan' },
+        { name: `Anggota 3`, bodyType: 'short-skinny', skinTone: 'olive' },
+        { name: `Anggota 4`, bodyType: 'short-chubby', skinTone: 'deep' },
+        { name: `Anggota 5`, bodyType: 'tall-skinny', skinTone: 'tan' },
+        { name: `Anggota 6`, bodyType: 'short-skinny', skinTone: 'fair' }
+      ]
+    };
+
+    renderAllTeamsCards();
+    updateHeaderLinks();
+    saveTeams();
+  }
+
+  function removeTeam(tId) {
+    if (!localTeams) return;
+    if (Object.keys(localTeams).length <= 1) {
+      alert("Minimal harus ada 1 tim dalam game!");
+      return;
+    }
+    if (confirm(`Yakin ingin menghapus ${localTeams[tId]?.name || 'tim ini'}?`)) {
+      delete localTeams[tId];
+      renderAllTeamsCards();
+      updateHeaderLinks();
+      saveTeams();
+    }
+  }
+
+  function addMember(tId) {
+    if (!localTeams || !localTeams[tId]) return;
+    const bodyTypes = ['tall-skinny', 'short-skinny', 'tall-chubby', 'short-chubby'];
+    const skinTones = ['fair', 'olive', 'tan', 'deep'];
+    const count = localTeams[tId].members.length + 1;
+
+    localTeams[tId].members.push({
+      name: `Anggota ${count}`,
+      bodyType: bodyTypes[Math.floor(Math.random() * bodyTypes.length)],
+      skinTone: skinTones[Math.floor(Math.random() * skinTones.length)]
+    });
+
+    renderMemberInputs(tId, localTeams[tId].members);
+    saveTeams();
+  }
+
+  function removeMember(tId, index) {
+    if (!localTeams || !localTeams[tId]) return;
+    if (localTeams[tId].members.length <= 1) {
+      alert("Minimal 1 anggota dalam tim!");
+      return;
+    }
+
+    localTeams[tId].members.splice(index, 1);
+    renderMemberInputs(tId, localTeams[tId].members);
+    saveTeams();
+  }
+
+  function syncAndSave() {
+    if (!localTeams) return;
+    Object.keys(localTeams).forEach(tId => {
+      const name = document.getElementById(`${tId}-name`)?.value;
+      const color = document.getElementById(`${tId}-color`)?.value;
+      if (name) localTeams[tId].name = name;
+      if (color) localTeams[tId].color = color;
+
+      localTeams[tId].members.forEach((m, idx) => {
+        const nameEl = document.getElementById(`${tId}-name-${idx}`);
+        const bodyEl = document.getElementById(`${tId}-body-${idx}`);
+        const skinEl = document.getElementById(`${tId}-skin-${idx}`);
+        if (nameEl) m.name = nameEl.value;
+        if (bodyEl) m.bodyType = bodyEl.value;
+        if (skinEl) m.skinTone = skinEl.value;
+      });
+    });
+    saveTeams();
+  }
+
+  function saveTeams() {
+    if (!localTeams) return;
+    socket.emit('UPDATE_CONFIG', { teams: localTeams });
+  }
+
+  function updateConfig() {
+    const mode = document.getElementById('game-mode').value;
+    const wipeoutMode = document.getElementById('wipeout-mode').value;
+    socket.emit('UPDATE_CONFIG', { mode, wipeoutMode });
+  }
+
+  function startGame() {
+    socket.emit('START_GAME');
+  }
+
+  function resetGame() {
+    if (confirm("Reset ulang permainan ke awal?")) {
+      socket.emit('RESET_GAME');
+    }
+  }
+
+  async function generateAIQuiz() {
+    const btn = document.getElementById('btn-generate-ai');
+    const status = document.getElementById('ai-status');
+    const apiKey = document.getElementById('gemini-key').value;
+    const topic = document.getElementById('ai-topic').value;
+    const count = parseInt(document.getElementById('ai-count').value, 10);
+    const difficulty = document.getElementById('ai-difficulty').value;
+
+    btn.disabled = true;
+    btn.textContent = "⏳ Sedang menghubungi Google AI Studio...";
+    status.textContent = "";
+
+    try {
+      const res = await fetch('/api/generate-ai-quiz', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey, topic, count, difficulty })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        status.textContent = `✅ Berhasil men-generate ${data.count} soal kuis baru via Gemini AI!`;
+      } else {
+        status.textContent = `❌ Gagal: ${data.error}`;
+      }
+    } catch (e) {
+      status.textContent = `❌ Error: ${e.message}`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "🚀 Generate Bank Soal via Gemini AI";
+    }
+  }
+</script>
+</body>
+</html>
