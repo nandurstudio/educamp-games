@@ -7,6 +7,7 @@ const { Server } = require('socket.io');
 
 const gameEngine = require('./game-engine');
 const tugEngine = require('./tug-engine');
+const superAdminEngine = require('./super-admin-engine');
 const questionBank = require('./question-bank');
 const { generateQuizQuestions } = require('./gemini-service');
 
@@ -118,7 +119,131 @@ app.get('/api/tug/history', (req, res) => {
 app.post('/api/tug/history/clear', (req, res) => {
   tugEngine.clearHistory();
   io.emit('TUG_STATE_UPDATE', tugEngine.getPublicState());
+  io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
   res.json({ success: true, message: 'Riwayat Tarik Tambang berhasil dikosongkan' });
+});
+
+// === REST API ENDPOINTS (SUPER ADMIN & UNIFIED LEADERBOARD) ===
+// 1. Ambil Unified Leaderboard lengkap
+app.get('/api/super/leaderboard', (req, res) => {
+  res.json(superAdminEngine.getUnifiedLeaderboard());
+});
+
+// 2. Ambil Master Teams
+app.get('/api/super/master-teams', (req, res) => {
+  res.json({ teams: superAdminEngine.getMasterTeams() });
+});
+
+// 3. Ambil daftar Game Non-Digital
+app.get('/api/super/custom-games', (req, res) => {
+  res.json({ games: superAdminEngine.getCustomGames() });
+});
+
+// 4. Tambah Game Non-Digital baru
+app.post('/api/super/custom-games', (req, res) => {
+  try {
+    const newGame = superAdminEngine.addCustomGame(req.body);
+    io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
+    res.json({ success: true, game: newGame, message: 'Game non-digital berhasil ditambahkan' });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// 5. Update Game Non-Digital (Detail & Input Skor Tiap Tim)
+app.put('/api/super/custom-games/:id', (req, res) => {
+  try {
+    const updated = superAdminEngine.updateCustomGame(req.params.id, req.body);
+    io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
+    res.json({ success: true, game: updated, message: 'Game non-digital berhasil diperbarui' });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// 6. Hapus Game Non-Digital
+app.delete('/api/super/custom-games/:id', (req, res) => {
+  try {
+    const removed = superAdminEngine.deleteCustomGame(req.params.id);
+    io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
+    res.json({ success: true, game: removed, message: 'Game non-digital berhasil dihapus' });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// 7. Update Pengaturan Poin Game Digital
+app.post('/api/super/digital-settings', (req, res) => {
+  try {
+    const updated = superAdminEngine.updateDigitalSettings(req.body);
+    io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
+    res.json({ success: true, settings: updated, message: 'Pengaturan poin digital berhasil disimpan' });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// 8. Reset Skor Game Non-Digital
+app.post('/api/super/reset-custom-scores', (req, res) => {
+  superAdminEngine.resetAllCustomScores();
+  io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
+  res.json({ success: true, message: 'Seluruh skor game non-digital berhasil di-reset' });
+});
+
+// 9. Tambah Tim Baru
+app.post('/api/super/teams', (req, res) => {
+  try {
+    const team = superAdminEngine.addTeam(req.body);
+    io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
+    res.json({ success: true, team, message: `Tim ${team.name} berhasil ditambahkan!` });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// 10. Edit Tim
+app.put('/api/super/teams/:id', (req, res) => {
+  try {
+    const team = superAdminEngine.updateTeam(req.params.id, req.body);
+    io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
+    res.json({ success: true, team, message: `Tim ${team.name} berhasil diperbarui!` });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// 11. Hapus Tim
+app.delete('/api/super/teams/:id', (req, res) => {
+  try {
+    const deleted = superAdminEngine.deleteTeam(req.params.id);
+    io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
+    res.json({ success: true, team: deleted, message: `Tim ${deleted.name} berhasil dihapus!` });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// 12. Reset Tim ke Default Preloader (6 Tim)
+app.post('/api/super/teams/reset-default', (req, res) => {
+  try {
+    const teams = superAdminEngine.resetTeamsToDefault();
+    io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
+    res.json({ success: true, teams, message: 'Daftar tim berhasil di-reset ke 6 tim default Educamp!' });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// 13. Direct Set / Edit / Delete Skor Game Fisik
+app.post('/api/super/set-score', (req, res) => {
+  try {
+    const { gameId, teamId, score } = req.body;
+    const result = superAdminEngine.setGameScore(gameId, teamId, score);
+    io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
+    res.json({ success: true, result, message: 'Skor berhasil diperbarui!' });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
 // === REALTIME SOCKET.IO DISPATCHER ===
@@ -127,6 +252,7 @@ io.on('connection', (socket) => {
 
   // Kirim state awal saat client tersambung
   socket.emit('STATE_UPDATE', gameEngine.getPublicState());
+  socket.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
 
   // Bergabung ke room role tertentu (arena, controller-team1, controller-team2, admin)
   socket.on('JOIN_ROLE', ({ role, teamId }) => {
@@ -170,6 +296,7 @@ io.on('connection', (socket) => {
             winner: gameEngine.winner,
             reason: 'TIME_OUT'
           });
+          io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
         }
       } else {
         stopTimer();
@@ -230,6 +357,7 @@ io.on('connection', (socket) => {
         winner: gameEngine.winner,
         reason: 'REACHED_TOP'
       });
+      io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
     }
   });
 
@@ -285,6 +413,7 @@ io.on('connection', (socket) => {
                     reason: tugEngine.winnerReason,
                     ropeOffset: tugEngine.ropeOffset
                   });
+                  io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
                 }
               }
             }
@@ -300,6 +429,7 @@ io.on('connection', (socket) => {
             reason: 'TIME_OUT',
             ropeOffset: tugEngine.ropeOffset
           });
+          io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
         }
       } else {
         stopTugTimer();

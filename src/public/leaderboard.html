@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Grand Leaderboard - Educamp Champions</title>
+  <style>
+    :root {
+      --gold: #f59e0b;
+      --gold-glow: rgba(245, 158, 11, 0.4);
+      --silver: #cbd5e1;
+      --bronze: #d97706;
+      --bg-dark: #070a13;
+      --card-bg: rgba(30, 41, 59, 0.7);
+      --card-border: #334155;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: radial-gradient(circle at 50% 20%, #1e1b4b 0%, #070a13 70%);
+      color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      padding-bottom: 40px;
+    }
+
+    /* Ambient Spotlight Header */
+    .board-header {
+      text-align: center;
+      padding: 30px 20px 20px 20px;
+      position: relative;
+    }
+    .header-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px solid #6366f1;
+      color: #a5b4fc;
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .board-title {
+      font-size: 42px;
+      font-weight: 900;
+      letter-spacing: 1px;
+      background: linear-gradient(135deg, #ffffff 30%, #f59e0b 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 30px rgba(245, 158, 11, 0.3);
+      margin-bottom: 6px;
+    }
+    .board-sub {
+      color: #94a3b8;
+      font-size: 16px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    /* Podium 3 Besar */
+    .podium-section {
+      max-width: 1000px;
+      margin: 20px auto 40px auto;
+      padding: 0 20px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      gap: 20px;
+      position: relative;
+    }
+
+    .podium-pillar {
+      flex: 1;
+      max-width: 290px;
+      border-radius: 20px 20px 14px 14px;
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      border: 2px solid var(--card-border);
+      padding: 24px 18px 20px 18px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+    }
+    .podium-pillar:hover {
+      transform: translateY(-5px);
+    }
+
+    /* First Place (Center - Elevated) */
+    .podium-first {
+      order: 2;
+      border-color: #f59e0b;
+      box-shadow: 0 20px 50px rgba(245, 158, 11, 0.25);
+      padding-top: 36px;
+      padding-bottom: 30px;
+      background: linear-gradient(180deg, rgba(245, 158, 11, 0.1) 0%, rgba(30, 41, 59, 0.85) 100%);
+    }
+    .podium-second {
+      order: 1;
+      border-color: #94a3b8;
+      background: linear-gradient(180deg, rgba(148, 163, 184, 0.08) 0%, rgba(30, 41, 59, 0.85) 100%);
+    }
+    .podium-third {
+      order: 3;
+      border-color: #b45309;
+      background: linear-gradient(180deg, rgba(180, 83, 9, 0.08) 0%, rgba(30, 41, 59, 0.85) 100%);
+    }
+
+    .trophy-badge {
+      position: absolute;
+      top: -24px;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      font-weight: 900;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    }
+    .trophy-first {
+      background: linear-gradient(135deg, #f59e0b, #fbbf24);
+      color: #000;
+      width: 58px;
+      height: 58px;
+      top: -29px;
+      font-size: 28px;
+      animation: floatTrophy 3s infinite ease-in-out;
+    }
+    @keyframes floatTrophy {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+    .trophy-second { background: linear-gradient(135deg, #cbd5e1, #94a3b8); color: #000; }
+    .trophy-third { background: linear-gradient(135deg, #d97706, #78350f); color: #fff; }
+
+    .podium-team-dot {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      margin-bottom: 8px;
+      box-shadow: 0 0 10px currentColor;
+    }
+    .podium-team-name {
+      font-size: 22px;
+      font-weight: 900;
+      color: #ffffff;
+      text-align: center;
+      margin-bottom: 4px;
+      letter-spacing: 0.5px;
+    }
+    .podium-team-members {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-bottom: 16px;
+    }
+    .podium-grand-score {
+      font-family: 'Courier New', monospace;
+      font-size: 38px;
+      font-weight: 900;
+      color: #f59e0b;
+      line-height: 1;
+      text-shadow: 0 0 20px rgba(245, 158, 11, 0.4);
+    }
+    .podium-score-label {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: #64748b;
+      margin-top: 4px;
+    }
+
+    /* Breakdown Matrix Section */
+    .matrix-section {
+      max-width: 1150px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+    .matrix-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4);
+    }
+    .matrix-header {
+      padding: 18px 24px;
+      background: #0f172a;
+      border-bottom: 1px solid #334155;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .matrix-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .matrix-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+    .matrix-table th {
+      background: #111827;
+      padding: 14px 16px;
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #94a3b8;
+      border-bottom: 2px solid #334155;
+    }
+    .matrix-table td {
+      padding: 16px;
+      font-size: 14px;
+      border-bottom: 1px solid #1e293b;
+    }
+    .matrix-table tr:hover {
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .team-badge-flex {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .team-circle {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .score-cell {
+      font-family: 'Courier New', monospace;
+      font-weight: 800;
+      font-size: 15px;
+    }
+    .score-total-cell {
+      font-family: 'Courier New', monospace;
+      font-size: 22px;
+      font-weight: 900;
+      color: #f59e0b;
+      text-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
+    }
+
+    .live-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 800;
+      color: #22c55e;
+      background: rgba(34, 197, 94, 0.1);
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid rgba(34, 197, 94, 0.3);
+    }
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 8px #22c55e;
+      animation: pulseDot 1.5s infinite;
+    }
+    @keyframes pulseDot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.8); }
+    }
+
+    /* Confetti Canvas */
+    #confetti-canvas {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 999;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="confetti-canvas"></canvas>
+
+  <!-- Universal Admin Navigation Bar -->
+  <nav style="background: rgba(13, 21, 39, 0.9); backdrop-filter: blur(8px); border-bottom: 1px solid #1e293b; padding: 6px 16px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; position: relative; z-index: 100;">
+    <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; color: #f59e0b;">
+      <span>🏆</span>
+      <span>EDUCAMP GRAND LEADERBOARD</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+      <a href="/super-admin.html" style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none; color: #fff; background: #4f46e5;">
+        👑 Super Admin
+      </a>
+      <a href="/leaderboard.html" class="active" style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 800; text-decoration: none; color: #000; background: linear-gradient(135deg, #f59e0b, #d97706);">
+        🏆 Layar Grand Leaderboard
+      </a>
+      <a href="/admin.html" style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none; color: #94a3b8; background: #17253d; border: 1px solid #1e293b;">
+        🎋 Admin Pinang
+      </a>
+      <a href="/tug-admin.html" style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none; color: #94a3b8; background: #17253d; border: 1px solid #1e293b;">
+        🪢 Admin Tug
+      </a>
+      <a href="/arena.html" target="_blank" style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none; color: #94a3b8; background: #17253d; border: 1px solid #1e293b;">
+        🌴 Arena Pinang ↗
+      </a>
+      <a href="/tug-arena.html" target="_blank" style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none; color: #94a3b8; background: #17253d; border: 1px solid #1e293b;">
+        🪢 Arena Tug ↗
+      </a>
+      <a href="/index.html" style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none; color: #94a3b8; background: #17253d; border: 1px solid #1e293b;">
+        🏠 Hub Utama
+      </a>
+    </div>
+  </nav>
+
+  <header class="board-header">
+    <div class="header-badge">
+      <span>🏆 EDUCAMP GRAND CHAMPIONSHIP 2026</span>
+    </div>
+    <h1 class="board-title">KLASEMEN AKUMULASI JUARA</h1>
+    <p class="board-sub">Integrasi Poin Game Digital (Panjat Pinang, Tarik Tambang) & Game Non-Digital Outbound</p>
+  </header>
+
+  <!-- PODIUM 3 BESAR -->
+  <section class="podium-section" id="podium-container">
+    <!-- Di-render dinamis lewat JavaScript -->
+  </section>
+
+  <!-- MATRIKS RINCIAN SEMUA PERMAINAN -->
+  <section class="matrix-section">
+    <div class="matrix-card">
+      <div class="matrix-header">
+        <div class="matrix-title">
+          <span>📊 Matriks Perolehan Skor Seluruh Permainan</span>
+        </div>
+        <div class="live-indicator">
+          <span class="live-dot"></span>
+          <span>LIVE AUTO-SYNC</span>
+        </div>
+      </div>
+
+      <div style="overflow-x: auto;">
+        <table class="matrix-table" id="matrix-table">
+          <thead id="matrix-thead">
+            <!-- Diisi kolom game dinamis -->
+          </thead>
+          <tbody id="matrix-tbody">
+            <!-- Diisi perolehan tiap tim -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <footer style="text-align: center; margin-top: 40px; color: #64748b; font-size: 12px; font-family: monospace;">
+    © 2026 Nandur Studio • Powered by Educamp Realtime Engine
+  </footer>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    let prevWinnerTeamId = null;
+
+    function fetchLeaderboard() {
+      fetch('/api/super/leaderboard')
+        .then(r => r.json())
+        .then(data => renderDashboard(data))
+        .catch(err => console.error("Error fetching leaderboard:", err));
+    }
+
+    fetchLeaderboard();
+
+    socket.on('SUPER_LEADERBOARD_UPDATE', (data) => {
+      renderDashboard(data);
+    });
+
+    function renderDashboard(data) {
+      if (!data || !Array.isArray(data.leaderboard)) return;
+
+      const teams = data.leaderboard;
+      const customGames = data.customGames || [];
+
+      // Cek apakah ada perubahan posisi juara 1 untuk confetti
+      if (teams.length > 0) {
+        const topTeamId = teams[0].teamId;
+        if (prevWinnerTeamId && prevWinnerTeamId !== topTeamId) {
+          triggerConfetti();
+        }
+        prevWinnerTeamId = topTeamId;
+      }
+
+      // 1. Render Podium 3 Besar
+      renderPodium(teams);
+
+      // 2. Render Tabel Matriks Skor
+      renderMatrix(teams, customGames);
+    }
+
+    function renderPodium(teams) {
+      const container = document.getElementById('podium-container');
+      if (!container) return;
+
+      if (teams.length === 0) {
+        container.innerHTML = '<div style="color: #64748b; text-align: center;">Belum ada data tim.</div>';
+        return;
+      }
+
+      const first = teams[0] || null;
+      const second = teams[1] || null;
+      const third = teams[2] || null;
+
+      let html = '';
+
+      // Juara 2 (Perak - Kiri)
+      if (second) {
+        html += `
+          <div class="podium-pillar podium-second">
+            <div class="trophy-badge trophy-second">🥈</div>
+            <div class="podium-team-dot" style="background: ${second.teamColor}; color: ${second.teamColor};"></div>
+            <div class="podium-team-name">${second.teamName.toUpperCase()}</div>
+            <div class="podium-team-members">${second.membersCount} Anggota Regu</div>
+            <div class="podium-grand-score">${second.grandTotal}</div>
+            <div class="podium-score-label">TOTAL POIN</div>
+          </div>
+        `;
+      }
+
+      // Juara 1 (Emas - Tengah Tinggi)
+      if (first) {
+        html += `
+          <div class="podium-pillar podium-first">
+            <div class="trophy-badge trophy-first">👑</div>
+            <div class="podium-team-dot" style="background: ${first.teamColor}; color: ${first.teamColor}; width: 20px; height: 20px;"></div>
+            <div class="podium-team-name" style="font-size: 26px; color: #f59e0b;">${first.teamName.toUpperCase()}</div>
+            <div class="podium-team-members" style="color: #fde68a;">${first.membersCount} Anggota Regu</div>
+            <div class="podium-grand-score" style="font-size: 48px;">${first.grandTotal}</div>
+            <div class="podium-score-label" style="color: #f59e0b;">JUARA 1 UTAMA</div>
+          </div>
+        `;
+      }
+
+      // Juara 3 (Perunggu - Kanan)
+      if (third) {
+        html += `
+          <div class="podium-pillar podium-third">
+            <div class="trophy-badge trophy-third">🥉</div>
+            <div class="podium-team-dot" style="background: ${third.teamColor}; color: ${third.teamColor};"></div>
+            <div class="podium-team-name">${third.teamName.toUpperCase()}</div>
+            <div class="podium-team-members">${third.membersCount} Anggota Regu</div>
+            <div class="podium-grand-score">${third.grandTotal}</div>
+            <div class="podium-score-label">TOTAL POIN</div>
+          </div>
+        `;
+      }
+
+      container.innerHTML = html;
+    }
+
+    function renderMatrix(teams, customGames) {
+      const thead = document.getElementById('matrix-thead');
+      const tbody = document.getElementById('matrix-tbody');
+      if (!thead || !tbody) return;
+
+      // Header Kolom: Rank, Nama Tim, Panjat Pinang, Tarik Tambang, [Custom Game 1, 2...], Grand Total
+      let headerHtml = `
+        <tr>
+          <th style="width: 60px;">Rank</th>
+          <th>Nama Tim</th>
+          <th style="text-align: center;">🎋 Panjat Pinang</th>
+          <th style="text-align: center;">🪢 Tarik Tambang</th>
+      `;
+
+      customGames.forEach(g => {
+        headerHtml += `<th style="text-align: center;">${g.emoji || '🎯'} ${g.title}</th>`;
+      });
+
+      headerHtml += `
+          <th style="text-align: right; color: #f59e0b;">🏆 GRAND TOTAL</th>
+        </tr>
+      `;
+      thead.innerHTML = headerHtml;
+
+      // Isi Baris Tim
+      let bodyHtml = '';
+      teams.forEach(t => {
+        let rankBadge = `${t.rank}`;
+        if (t.rank === 1) rankBadge = '🥇 1';
+        else if (t.rank === 2) rankBadge = '🥈 2';
+        else if (t.rank === 3) rankBadge = '🥉 3';
+
+        const pinangScore = t.digital?.pinangScore || 0;
+        const tugScore = t.digital?.tugScore || 0;
+
+        bodyHtml += `
+          <tr>
+            <td style="font-weight: 900; font-size: 15px;">${rankBadge}</td>
+            <td>
+              <div class="team-badge-flex">
+                <span class="team-circle" style="background: ${t.teamColor};"></span>
+                <div>
+                  <strong style="font-size: 16px; color: #ffffff;">${t.teamName.toUpperCase()}</strong>
+                  <div style="font-size: 11px; color: #64748b;">${t.membersCount} Anggota</div>
+                </div>
+              </div>
+            </td>
+            <td style="text-align: center;" class="score-cell">${pinangScore}</td>
+            <td style="text-align: center;" class="score-cell">${tugScore}</td>
+        `;
+
+        customGames.forEach(g => {
+          const score = (t.nonDigitalScores && typeof t.nonDigitalScores[g.id] === 'number')
+            ? t.nonDigitalScores[g.id]
+            : ((g.scores && typeof g.scores[t.teamId] === 'number') ? g.scores[t.teamId] : 0);
+          bodyHtml += `<td style="text-align: center;" class="score-cell">${score}</td>`;
+        });
+
+        bodyHtml += `
+            <td style="text-align: right;" class="score-total-cell">${t.grandTotal}</td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML = bodyHtml;
+    }
+
+    // Efek Confetti Sederhana Prosedural Canvas
+    function triggerConfetti() {
+      const canvas = document.getElementById('confetti-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+
+      const particles = [];
+      const colors = ['#f59e0b', '#ef4444', '#3b82f6', '#10b981', '#8b5cf6', '#ffffff'];
+
+      for (let i = 0; i < 150; i++) {
+        particles.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * -canvas.height,
+          size: Math.random() * 8 + 4,
+          speedY: Math.random() * 3 + 2,
+          speedX: (Math.random() - 0.5) * 2,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          rotation: Math.random() * 360
+        });
+      }
+
+      let frame = 0;
+      function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        particles.forEach(p => {
+          p.y += p.speedY;
+          p.x += p.speedX;
+          p.rotation += 2;
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate((p.rotation * Math.PI) / 180);
+          ctx.fillStyle = p.color;
+          ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+          ctx.restore();
+        });
+
+        frame++;
+        if (frame < 180) {
+          requestAnimationFrame(animate);
+        } else {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+      }
+      animate();
+    }
+  </script>
+</body>
+</html>

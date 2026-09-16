@@ -1,0 +1,1141 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Super Admin & Master Leaderboard - Educamp</title>
+  <link rel="stylesheet" href="/css/admin.css">
+  <style>
+    :root {
+      --super-gold: #f59e0b;
+      --super-accent: #8b5cf6;
+      --super-cyan: #06b6d4;
+      --super-bg: #070a13;
+      --super-bg-card: #131d2e;
+      --super-border: #1e293b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--super-bg);
+      color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      overflow-x: hidden;
+    }
+
+    /* Universal Admin Nav Bar (Compact & Sleek) */
+    .universal-nav {
+      background: #0d1527;
+      border-bottom: 1px solid #1e293b;
+      padding: 6px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 800;
+      color: #f1c40f;
+    }
+    .nav-links-cluster {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .nav-link-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      text-decoration: none;
+      color: #94a3b8;
+      background: #17253d;
+      border: 1px solid #1e293b;
+      transition: all 0.15s ease;
+    }
+    .nav-link-btn:hover {
+      color: #ffffff;
+      background: #1e3a5f;
+      border-color: #38bdf8;
+    }
+    .nav-link-btn.active {
+      background: #4f46e5;
+      color: #ffffff;
+      border-color: #6366f1;
+    }
+    .nav-link-btn.btn-gold {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: #000;
+      font-weight: 800;
+      border: none;
+    }
+
+    /* Container Compact */
+    .super-app-layout {
+      padding: 10px 16px;
+      max-width: 100%;
+      margin: 0 auto;
+    }
+
+    /* Top Strip KPI (Compact Horizontal Strip) */
+    .kpi-strip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #0f1a2e;
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      padding: 6px 16px;
+      margin-bottom: 10px;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .kpi-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .kpi-item-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #94a3b8;
+      letter-spacing: 0.5px;
+    }
+    .kpi-item-val {
+      font-family: 'Courier New', monospace;
+      font-size: 16px;
+      font-weight: 900;
+      color: #38bdf8;
+    }
+
+    /* Tab Selector Bar */
+    .compact-tabs {
+      display: flex;
+      gap: 6px;
+      border-bottom: 2px solid #1e293b;
+      margin-bottom: 10px;
+    }
+    .compact-tab-btn {
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 8px 14px;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -2px;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .compact-tab-btn:hover { color: #f1f5f9; }
+    .compact-tab-btn.active {
+      color: #38bdf8;
+      border-bottom-color: #38bdf8;
+      background: rgba(56, 189, 248, 0.08);
+      border-radius: 6px 6px 0 0;
+    }
+
+    /* Content Area */
+    .tab-view-panel {
+      width: 100%;
+    }
+
+    /* Tab 1: Anti-Scroll Dynamic Leaderboard Table */
+    .dense-table-wrap {
+      background: #0f1a2e;
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    }
+    .dense-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 12.5px;
+    }
+    .dense-table th {
+      background: #09111e;
+      padding: 8px 10px;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #94a3b8;
+      border-bottom: 2px solid #1e293b;
+      white-space: nowrap;
+    }
+    .dense-table td {
+      padding: 8px 10px;
+      border-bottom: 1px solid #172438;
+      white-space: nowrap;
+    }
+    .dense-table tr:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .rank-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      font-weight: 900;
+      font-size: 11px;
+    }
+    .rank-1 { background: #f59e0b; color: #000; box-shadow: 0 0 8px rgba(245, 158, 11, 0.4); }
+    .rank-2 { background: #94a3b8; color: #000; }
+    .rank-3 { background: #b45309; color: #fff; }
+    .rank-other { background: #1e293b; color: #94a3b8; }
+
+    .team-badge-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 800;
+      color: #ffffff;
+      font-size: 13px;
+    }
+    .team-dot-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .score-cell-val {
+      font-family: 'Courier New', monospace;
+      font-weight: 800;
+      font-size: 13px;
+    }
+    .score-inline-btn {
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: background 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      border: 1px solid transparent;
+    }
+    .score-inline-btn:hover {
+      background: #1e293b;
+      border-color: #38bdf8;
+      color: #f1c40f;
+    }
+    .grand-total-val {
+      font-family: 'Courier New', monospace;
+      font-size: 18px;
+      font-weight: 900;
+      color: #f59e0b;
+      text-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
+    }
+
+    /* Tab 2: Non-Digital Games (Dense Grid) */
+    .games-dense-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 10px;
+    }
+    .game-dense-card {
+      background: #0f1a2e;
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 8px;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+    }
+    .game-dense-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .game-dense-emoji {
+      font-size: 22px;
+      background: #09111e;
+      padding: 4px 6px;
+      border-radius: 6px;
+      border: 1px solid #1e293b;
+      line-height: 1;
+    }
+    .game-dense-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: #ffffff;
+      margin: 0;
+    }
+    .game-dense-rules {
+      font-size: 11px;
+      color: #94a3b8;
+      line-height: 1.3;
+      background: #09111e;
+      border-left: 3px solid #f59e0b;
+      padding: 4px 8px;
+      border-radius: 0 4px 4px 0;
+    }
+    .game-scores-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .score-chip {
+      background: #09111e;
+      border: 1px solid #1e293b;
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-size: 11px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* Tab 3: Master Teams (Dense Grid) */
+    .teams-dense-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 10px;
+    }
+    .team-dense-card {
+      background: #0f1a2e;
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .team-dense-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .members-chip-cloud {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .member-tag {
+      background: #09111e;
+      border: 1px solid #1e293b;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      color: #cbd5e1;
+    }
+
+    /* Tab 4: Digital Settings (Compact Box) */
+    .settings-compact-card {
+      background: #0f1a2e;
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      padding: 16px 20px;
+      max-width: 620px;
+    }
+
+    /* Action Buttons */
+    .btn-xs {
+      padding: 4px 8px;
+      font-size: 11px;
+      font-weight: 700;
+      border-radius: 4px;
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      transition: filter 0.15s;
+    }
+    .btn-xs:hover { filter: brightness(1.2); }
+    .btn-blue { background: #2563eb; color: #fff; }
+    .btn-red { background: #dc2626; color: #fff; }
+    .btn-primary-sm { background: #4f46e5; color: #fff; padding: 6px 12px; font-size: 12px; font-weight: 700; border-radius: 6px; border: none; cursor: pointer; }
+    .btn-secondary-sm { background: #1e293b; color: #cbd5e1; padding: 6px 12px; font-size: 12px; font-weight: 700; border-radius: 6px; border: none; cursor: pointer; }
+
+    /* Modals */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(4px);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      padding: 16px;
+    }
+    .modal-box {
+      background: #0f1a2e;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 20px;
+      max-width: 500px;
+      width: 100%;
+      max-height: 92vh;
+      overflow-y: auto;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+    }
+    .form-group-dense { margin-bottom: 12px; }
+    .form-label-dense {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      color: #94a3b8;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .form-input-dense, .form-textarea-dense {
+      width: 100%;
+      background: #070d17;
+      border: 1px solid #1e293b;
+      border-radius: 6px;
+      padding: 8px 10px;
+      color: #ffffff;
+      font-size: 13px;
+      box-sizing: border-box;
+      outline: none;
+    }
+    .form-input-dense:focus, .form-textarea-dense:focus { border-color: #38bdf8; }
+  </style>
+</head>
+<body>
+
+  <!-- Universal Admin Navigation Bar (Hub Antar Seluruh Layar Admin) -->
+  <nav class="universal-nav">
+    <div class="nav-brand">
+      <span>👑</span>
+      <span>EDUCAMP SUPER ADMIN HUB</span>
+    </div>
+
+    <div class="nav-links-cluster">
+      <a href="/super-admin.html" class="nav-link-btn active" title="Super Admin & Master Leaderboard">
+        👑 Super Admin
+      </a>
+      <a href="/leaderboard.html" target="_blank" class="nav-link-btn btn-gold" title="Layar Proyektor Panggung Grand Leaderboard">
+        🏆 Layar Grand Leaderboard ↗
+      </a>
+      <a href="/admin.html" class="nav-link-btn" title="Admin Panjat Pinang">
+        🎋 Admin Pinang
+      </a>
+      <a href="/tug-admin.html" class="nav-link-btn" title="Admin Tarik Tambang">
+        🪢 Admin Tug
+      </a>
+      <a href="/arena.html" target="_blank" class="nav-link-btn" title="Layar Proyektor Panjat Pinang">
+        🌴 Arena Pinang ↗
+      </a>
+      <a href="/tug-arena.html" target="_blank" class="nav-link-btn" title="Layar Proyektor Tarik Tambang">
+        🪢 Arena Tug ↗
+      </a>
+      <a href="/index.html" class="nav-link-btn" title="Kembali ke Beranda Portal">
+        🏠 Hub Utama
+      </a>
+    </div>
+  </nav>
+
+  <div class="super-app-layout">
+
+    <!-- Compact Strip KPI (Hemat Ruang Vertikal) -->
+    <div class="kpi-strip">
+      <div class="kpi-item">
+        <span style="font-size: 18px;">👥</span>
+        <div>
+          <div class="kpi-item-label">Total Tim Master</div>
+          <div class="kpi-item-val" id="kpi-total-teams">6 Tim</div>
+        </div>
+      </div>
+      <div class="kpi-item">
+        <span style="font-size: 18px;">🎮</span>
+        <div>
+          <div class="kpi-item-label">Game Digital</div>
+          <div class="kpi-item-val">2 Game</div>
+        </div>
+      </div>
+      <div class="kpi-item">
+        <span style="font-size: 18px;">🎯</span>
+        <div>
+          <div class="kpi-item-label">Game Non-Digital</div>
+          <div class="kpi-item-val" id="kpi-total-nondigital">0 Game</div>
+        </div>
+      </div>
+      <div class="kpi-item">
+        <span style="font-size: 18px;">⭐</span>
+        <div>
+          <div class="kpi-item-label">Poin Tertinggi Saat Ini</div>
+          <div class="kpi-item-val" id="kpi-top-score" style="color: #f59e0b;">0 Poin</div>
+        </div>
+      </div>
+      <div style="margin-left: auto;">
+        <button class="btn-xs btn-blue" onclick="loadInitialData()" style="padding: 6px 12px; font-size: 12px;">
+          🔄 Sync Data Real-Time
+        </button>
+      </div>
+    </div>
+
+    <!-- Compact Tab Switcher -->
+    <div class="compact-tabs">
+      <button class="compact-tab-btn active" onclick="switchSuperTab('tab-leaderboard')">
+        📊 Klasemen Terpadu (Kolom Game Dinamis)
+      </button>
+      <button class="compact-tab-btn" onclick="switchSuperTab('tab-nondigital')">
+        🎯 Manajemen Game Non-Digital (Outbound)
+      </button>
+      <button class="compact-tab-btn" onclick="switchSuperTab('tab-teams')">
+        👥 Manajemen Tim Master (Tambah/Kurang/Edit)
+      </button>
+      <button class="compact-tab-btn" onclick="switchSuperTab('tab-digital')">
+        ⚙️ Bobot & Integrasi Game Digital
+      </button>
+    </div>
+
+    <!-- TAB 1: KLASEMEN TERPADU (ANTI-SCROLL & KOLOM DINAMIS) -->
+    <div id="tab-leaderboard" class="tab-view-panel">
+      <div class="dense-table-wrap">
+        <table class="dense-table" id="leaderboard-table">
+          <thead id="leaderboard-thead">
+            <!-- Diisi kolom game dinamis -->
+          </thead>
+          <tbody id="leaderboard-tbody">
+            <tr>
+              <td colspan="8" style="text-align: center; color: #64748b; padding: 20px;">
+                Memuat data klasemen...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 2: MANAJEMEN GAME NON-DIGITAL (DENSE GRID ANTI-SCROLL) -->
+    <div id="tab-nondigital" class="tab-view-panel" style="display: none;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <span style="font-size: 13px; font-weight: 800; color: #94a3b8;">🎯 DAFTAR GAME FISIK OUTBOUND</span>
+        <button class="btn-primary-sm" onclick="openGameModal()">
+          ➕ Tambah Game Non-Digital
+        </button>
+      </div>
+      <div class="games-dense-grid" id="custom-games-grid">
+        <!-- Render dinamis via JS -->
+      </div>
+    </div>
+
+    <!-- TAB 3: MANAJEMEN TIM MASTER (DENSE GRID ANTI-SCROLL) -->
+    <div id="tab-teams" class="tab-view-panel" style="display: none;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <span style="font-size: 13px; font-weight: 800; color: #94a3b8;">👥 DAFTAR SELURUH TIM MASTER</span>
+        <div style="display: flex; gap: 6px;">
+          <button class="btn-secondary-sm" onclick="resetTeamsDefault()">
+            🔄 Reset 6 Tim Default
+          </button>
+          <button class="btn-primary-sm" onclick="openTeamModal()">
+            ➕ Tambah Tim Baru
+          </button>
+        </div>
+      </div>
+      <div class="teams-dense-grid" id="master-teams-grid">
+        <!-- Render dinamis via JS -->
+      </div>
+    </div>
+
+    <!-- TAB 4: BOBOT DIGITAL (COMPACT) -->
+    <div id="tab-digital" class="tab-view-panel" style="display: none;">
+      <div class="settings-compact-card">
+        <h4 style="font-size: 14px; margin-bottom: 12px; color: #f1c40f;">⚙️ Pengaturan Bobot Kemenangan Game Digital</h4>
+        <div class="form-group-dense">
+          <label class="form-label-dense">🎋 Bonus Poin Kemenangan Sesi Panjat Pinang</label>
+          <input type="number" id="cfg-pinang-win" class="form-input-dense" value="200" min="0" step="50">
+        </div>
+        <div class="form-group-dense">
+          <label class="form-label-dense">🪢 Bonus Poin Kemenangan Sesi Tarik Tambang</label>
+          <input type="number" id="cfg-tug-win" class="form-input-dense" value="200" min="0" step="50">
+        </div>
+        <div class="form-group-dense" style="display: flex; align-items: center; gap: 8px; margin-top: 10px;">
+          <input type="checkbox" id="cfg-active-score" style="width: 16px; height: 16px;" checked>
+          <label for="cfg-active-score" style="font-size: 12px; color: #cbd5e1; cursor: pointer;">
+            Akumulasikan skor aktif Panjat Pinang yang sedang berjalan
+          </label>
+        </div>
+        <div style="margin-top: 14px;">
+          <button class="btn-primary-sm" onclick="saveDigitalSettings()">
+            💾 Simpan Pengaturan
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- MODAL FORM GAME NON-DIGITAL -->
+  <div class="modal-overlay" id="game-modal">
+    <div class="modal-box">
+      <h3 style="margin: 0 0 12px 0; font-size: 16px; color: #f1f5f9;" id="modal-game-title">
+        🎯 Tambah Game Non-Digital
+      </h3>
+      <input type="hidden" id="modal-game-id" value="">
+
+      <div class="form-group-dense">
+        <label class="form-label-dense">Nama Permainan</label>
+        <input type="text" id="game-name-input" class="form-input-dense" placeholder="Contoh: Pipa Bocor, Laba-laba Beracun...">
+      </div>
+
+      <div class="form-group-dense">
+        <label class="form-label-dense">Emoji Game</label>
+        <div style="display: flex; gap: 6px;">
+          <input type="text" id="game-emoji-input" class="form-input-dense" style="width: 60px; text-align: center; font-size: 18px;" value="🎯">
+          <div style="display: flex; gap: 4px; align-items: center; flex-wrap: wrap;">
+            <button type="button" class="btn-xs btn-secondary-sm" onclick="setGameEmoji('🪣')">🪣</button>
+            <button type="button" class="btn-xs btn-secondary-sm" onclick="setGameEmoji('📣')">📣</button>
+            <button type="button" class="btn-xs btn-secondary-sm" onclick="setGameEmoji('🎈')">🎈</button>
+            <button type="button" class="btn-xs btn-secondary-sm" onclick="setGameEmoji('🪵')">🪵</button>
+            <button type="button" class="btn-xs btn-secondary-sm" onclick="setGameEmoji('🕸️')">🕸️</button>
+            <button type="button" class="btn-xs btn-secondary-sm" onclick="setGameEmoji('🦯')">🦯</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group-dense">
+        <label class="form-label-dense">Deskripsi Permainan</label>
+        <textarea id="game-desc-input" class="form-textarea-dense" rows="2" placeholder="Tantangan kekompakan regu..."></textarea>
+      </div>
+
+      <div class="form-group-dense">
+        <label class="form-label-dense">Aturan Main (Rules)</label>
+        <textarea id="game-rules-input" class="form-textarea-dense" rows="2" placeholder="Aturan main dan larangan perlombaan..."></textarea>
+      </div>
+
+      <div class="form-group-dense">
+        <label class="form-label-dense">Input Skor Tim Untuk Game Ini</label>
+        <div id="modal-team-scores-container" style="background: #070d17; border: 1px solid #1e293b; border-radius: 6px; padding: 8px;">
+          <!-- Diisi otomatis -->
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px;">
+        <button type="button" class="btn-secondary-sm" onclick="closeGameModal()">Batal</button>
+        <button type="button" class="btn-primary-sm" onclick="submitGameForm()">Simpan Game</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL FORM TIM MASTER -->
+  <div class="modal-overlay" id="team-modal">
+    <div class="modal-box">
+      <h3 style="margin: 0 0 12px 0; font-size: 16px; color: #f1f5f9;" id="modal-team-heading">
+        👥 Tambah Tim Master Baru
+      </h3>
+      <input type="hidden" id="modal-team-id" value="">
+
+      <div class="form-group-dense">
+        <label class="form-label-dense">Nama Tim</label>
+        <input type="text" id="team-name-input" class="form-input-dense" placeholder="Contoh: GARUDA, TIGER, dll.">
+      </div>
+
+      <div class="form-group-dense">
+        <label class="form-label-dense">Warna Identitas Tim</label>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <input type="color" id="team-color-picker" value="#38bdf8" style="width: 40px; height: 32px; border: none; background: transparent; cursor: pointer;">
+          <input type="text" id="team-color-hex" class="form-input-dense" value="#38bdf8" style="width: 100px;">
+        </div>
+      </div>
+
+      <div class="form-group-dense">
+        <label class="form-label-dense">Daftar Anggota Tim (1 Nama per Baris)</label>
+        <textarea id="team-members-input" class="form-textarea-dense" rows="5" placeholder="Nama Anggota 1&#10;Nama Anggota 2&#10;Nama Anggota 3"></textarea>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px;">
+        <button type="button" class="btn-secondary-sm" onclick="closeTeamModal()">Batal</button>
+        <button type="button" class="btn-primary-sm" onclick="submitTeamForm()">Simpan Tim</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    let currentLeaderboardData = null;
+    let masterTeamsData = {};
+
+    function switchSuperTab(tabId) {
+      document.querySelectorAll('.tab-view-panel').forEach(c => c.style.display = 'none');
+      document.querySelectorAll('.compact-tab-btn').forEach(b => b.classList.remove('active'));
+
+      const target = document.getElementById(tabId);
+      if (target) target.style.display = 'block';
+
+      event.currentTarget.classList.add('active');
+    }
+
+    function setGameEmoji(emoji) {
+      document.getElementById('game-emoji-input').value = emoji;
+    }
+
+    document.getElementById('team-color-picker').addEventListener('input', (e) => {
+      document.getElementById('team-color-hex').value = e.target.value;
+    });
+    document.getElementById('team-color-hex').addEventListener('input', (e) => {
+      document.getElementById('team-color-picker').value = e.target.value;
+    });
+
+    function loadInitialData() {
+      fetch('/api/super/leaderboard')
+        .then(r => r.json())
+        .then(data => {
+          currentLeaderboardData = data;
+          renderAll(data);
+        })
+        .catch(err => console.error("Leaderboard load err:", err));
+
+      fetch('/api/super/master-teams')
+        .then(r => r.json())
+        .then(d => {
+          if (d && d.teams) {
+            masterTeamsData = d.teams;
+            renderMasterTeams(masterTeamsData);
+          }
+        })
+        .catch(err => console.error("Master teams load err:", err));
+    }
+
+    loadInitialData();
+
+    socket.on('SUPER_LEADERBOARD_UPDATE', (data) => {
+      currentLeaderboardData = data;
+      renderAll(data);
+      fetch('/api/super/master-teams').then(r => r.json()).then(d => {
+        if (d && d.teams) {
+          masterTeamsData = d.teams;
+          renderMasterTeams(masterTeamsData);
+        }
+      });
+    });
+
+    function renderAll(data) {
+      if (!data) return;
+
+      // 1. KPI Strip
+      document.getElementById('kpi-total-teams').textContent = `${data.totalTeams || 0} Tim`;
+      document.getElementById('kpi-total-nondigital').textContent = `${data.customGames?.length || 0} Game`;
+      const topScore = data.leaderboard?.[0]?.grandTotal || 0;
+      document.getElementById('kpi-top-score').textContent = `${topScore} Poin`;
+
+      // 2. Render Klasemen Dinamis Anti-Scroll
+      renderDenseLeaderboard(data.leaderboard, data.customGames || []);
+
+      // 3. Render Custom Games Cards
+      renderCustomGames(data.customGames || []);
+
+      // 4. Update Digital Settings
+      if (data.digitalSettings) {
+        document.getElementById('cfg-pinang-win').value = data.digitalSettings.pinangPointsPerWin || 200;
+        document.getElementById('cfg-tug-win').value = data.digitalSettings.tugPointsPerWin || 200;
+        document.getElementById('cfg-active-score').checked = data.digitalSettings.includeActiveScore !== false;
+      }
+    }
+
+    function renderDenseLeaderboard(rows, customGames) {
+      const thead = document.getElementById('leaderboard-thead');
+      const tbody = document.getElementById('leaderboard-tbody');
+      if (!thead || !tbody) return;
+
+      let theadHtml = `
+        <tr>
+          <th style="width: 50px;">Rank</th>
+          <th>Nama Tim</th>
+          <th style="width: 90px;">Anggota</th>
+          <th style="text-align: center;">🎋 Pinang</th>
+          <th style="text-align: center;">🪢 Tug</th>
+      `;
+
+      customGames.forEach(g => {
+        theadHtml += `<th style="text-align: center;">${g.emoji || '🎯'} ${g.title}</th>`;
+      });
+
+      theadHtml += `
+          <th style="text-align: right; color: #f59e0b;">🏆 TOTAL</th>
+        </tr>
+      `;
+      thead.innerHTML = theadHtml;
+
+      if (!rows || rows.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#64748b; padding:20px;">Belum ada tim terdaftar.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = rows.map((row) => {
+        let rankClass = 'rank-other';
+        let medal = '';
+        if (row.rank === 1) { rankClass = 'rank-1'; medal = '🥇'; }
+        else if (row.rank === 2) { rankClass = 'rank-2'; medal = '🥈'; }
+        else if (row.rank === 3) { rankClass = 'rank-3'; medal = '🥉'; }
+
+        const pinangScore = row.digital?.pinangScore || 0;
+        const tugScore = row.digital?.tugScore || 0;
+
+        let rowHtml = `
+          <tr>
+            <td><span class="rank-pill ${rankClass}">${medal || row.rank}</span></td>
+            <td>
+              <div class="team-badge-row">
+                <span class="team-dot-dot" style="background: ${row.teamColor || '#38bdf8'};"></span>
+                <span>${row.teamName.toUpperCase()}</span>
+              </div>
+            </td>
+            <td style="color: #94a3b8; font-size: 12px;">${row.membersCount} Org</td>
+            <td style="text-align: center; color: #f1c40f; font-weight: bold;">${pinangScore}</td>
+            <td style="text-align: center; color: #38bdf8; font-weight: bold;">${tugScore}</td>
+        `;
+
+        customGames.forEach(g => {
+          const score = (row.nonDigitalScores && typeof row.nonDigitalScores[g.id] === 'number') ? row.nonDigitalScores[g.id] : 0;
+          rowHtml += `
+            <td style="text-align: center;">
+              <span class="score-inline-btn" onclick="promptDirectScore('${g.id}', '${row.teamId}', '${g.title}', '${row.teamName}', ${score})" title="Klik untuk edit/isi nilai">
+                <strong class="score-cell-val">${score}</strong> ✏️
+              </span>
+            </td>
+          `;
+        });
+
+        rowHtml += `
+            <td style="text-align: right;">
+              <span class="grand-total-val">${row.grandTotal}</span>
+            </td>
+          </tr>
+        `;
+        return rowHtml;
+      }).join('');
+    }
+
+    function promptDirectScore(gameId, teamId, gameTitle, teamName, currentScore) {
+      const newScore = prompt(`Masukkan skor ${teamName} di game "${gameTitle}":`, currentScore);
+      if (newScore === null) return;
+
+      fetch('/api/super/set-score', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameId, teamId, score: newScore })
+      })
+      .then(r => r.json())
+      .then(res => {
+        if (res.error) alert("Gagal: " + res.error);
+        else loadInitialData();
+      });
+    }
+
+    function renderCustomGames(games) {
+      const grid = document.getElementById('custom-games-grid');
+      if (!grid) return;
+
+      if (!games || games.length === 0) {
+        grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #64748b; padding: 20px;">Belum ada game non-digital kustom.</div>';
+        return;
+      }
+
+      grid.innerHTML = games.map(g => {
+        const scoresChips = Object.entries(masterTeamsData).map(([tId, t]) => {
+          const score = (g.scores && typeof g.scores[tId] === 'number') ? g.scores[tId] : 0;
+          return `
+            <span class="score-chip">
+              <span class="team-dot-dot" style="background: ${t.color}; width: 8px; height: 8px;"></span>
+              <span>${t.name}: <strong>${score}</strong></span>
+            </span>
+          `;
+        }).join('');
+
+        return `
+          <div class="game-dense-card">
+            <div>
+              <div class="game-dense-head">
+                <span class="game-dense-emoji">${g.emoji || '🎯'}</span>
+                <div>
+                  <h4 class="game-dense-title">${g.title}</h4>
+                  <div style="font-size: 11px; color: #64748b;">${g.description || 'Tanpa deskripsi'}</div>
+                </div>
+              </div>
+
+              ${g.rules ? `<div class="game-dense-rules" style="margin-top: 6px;">${g.rules}</div>` : ''}
+
+              <div class="game-scores-chips" style="margin-top: 8px;">
+                ${scoresChips}
+              </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 6px; margin-top: 6px; border-top: 1px solid #1e293b; padding-top: 6px;">
+              <button class="btn-xs btn-blue" onclick="editGame('${g.id}')">✏️ Edit Nilai</button>
+              <button class="btn-xs btn-red" onclick="deleteGame('${g.id}', '${g.title}')">🗑️ Hapus</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderMasterTeams(teams) {
+      const grid = document.getElementById('master-teams-grid');
+      if (!grid) return;
+
+      const entries = Object.entries(teams);
+      if (entries.length === 0) {
+        grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #64748b; padding: 20px;">Belum ada tim terdaftar.</div>';
+        return;
+      }
+
+      grid.innerHTML = entries.map(([tId, t]) => {
+        const membersChips = (t.members || []).map(m => `
+          <span class="member-tag">${m.name}</span>
+        `).join('');
+
+        return `
+          <div class="team-dense-card" style="border-left: 3px solid ${t.color};">
+            <div>
+              <div class="team-dense-head">
+                <div class="team-badge-row">
+                  <span class="team-dot-dot" style="background: ${t.color};"></span>
+                  <span style="font-size: 14px; font-weight: 800;">${t.name.toUpperCase()}</span>
+                </div>
+                <span style="font-size: 11px; color: #94a3b8; background: #070d17; padding: 2px 6px; border-radius: 4px;">
+                  ${t.members?.length || 0} Anggota
+                </span>
+              </div>
+
+              <div class="members-chip-cloud" style="margin-top: 8px;">
+                ${membersChips || '<span style="color: #64748b; font-size: 11px;">Belum ada anggota</span>'}
+              </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 6px; margin-top: 6px; border-top: 1px solid #1e293b; padding-top: 6px;">
+              <button class="btn-xs btn-blue" onclick="editTeam('${tId}')">✏️ Edit</button>
+              <button class="btn-xs btn-red" onclick="deleteTeam('${tId}', '${t.name}')">🗑️ Hapus</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Modal Games
+    function openGameModal(gameData = null) {
+      const modal = document.getElementById('game-modal');
+      const titleEl = document.getElementById('modal-game-title');
+      const idInput = document.getElementById('modal-game-id');
+      const nameInput = document.getElementById('game-name-input');
+      const emojiInput = document.getElementById('game-emoji-input');
+      const descInput = document.getElementById('game-desc-input');
+      const rulesInput = document.getElementById('game-rules-input');
+      const scoresContainer = document.getElementById('modal-team-scores-container');
+
+      if (gameData) {
+        titleEl.textContent = `✏️ Edit Game: ${gameData.title}`;
+        idInput.value = gameData.id;
+        nameInput.value = gameData.title;
+        emojiInput.value = gameData.emoji || '🎯';
+        descInput.value = gameData.description || '';
+        rulesInput.value = gameData.rules || '';
+      } else {
+        titleEl.textContent = "🎯 Tambah Game Non-Digital";
+        idInput.value = '';
+        nameInput.value = '';
+        emojiInput.value = '🎯';
+        descInput.value = '';
+        rulesInput.value = '';
+      }
+
+      scoresContainer.innerHTML = Object.entries(masterTeamsData).map(([tId, t]) => {
+        const val = (gameData?.scores && typeof gameData.scores[tId] === 'number') ? gameData.scores[tId] : 0;
+        return `
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <span class="team-badge-row" style="font-size: 12px;">
+              <span class="team-dot-dot" style="background: ${t.color}; width: 8px; height: 8px;"></span>
+              ${t.name}
+            </span>
+            <input type="number" class="form-input-dense team-score-input" data-team-id="${tId}" value="${val}" min="0" step="10" style="width: 100px; text-align: right; padding: 4px 8px;">
+          </div>
+        `;
+      }).join('');
+
+      modal.style.display = 'flex';
+    }
+
+    function closeGameModal() { document.getElementById('game-modal').style.display = 'none'; }
+
+    function editGame(id) {
+      const game = currentLeaderboardData?.customGames?.find(g => g.id === id);
+      if (game) openGameModal(game);
+    }
+
+    function submitGameForm() {
+      const id = document.getElementById('modal-game-id').value;
+      const title = document.getElementById('game-name-input').value.trim();
+      const emoji = document.getElementById('game-emoji-input').value.trim() || '🎯';
+      const description = document.getElementById('game-desc-input').value.trim();
+      const rules = document.getElementById('game-rules-input').value.trim();
+
+      if (!title) { alert('Nama permainan wajib diisi!'); return; }
+
+      const scores = {};
+      document.querySelectorAll('.team-score-input').forEach(input => {
+        const tId = input.getAttribute('data-team-id');
+        scores[tId] = parseInt(input.value, 10) || 0;
+      });
+
+      const payload = { title, emoji, description, rules, scores };
+      const url = id ? `/api/super/custom-games/${id}` : '/api/super/custom-games';
+      const method = id ? 'PUT' : 'POST';
+
+      fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      .then(r => r.json())
+      .then(res => {
+        if (res.error) alert("Gagal: " + res.error);
+        else {
+          closeGameModal();
+          loadInitialData();
+        }
+      });
+    }
+
+    function deleteGame(id, title) {
+      if (!confirm(`Hapus game "${title}"? Kolomnya akan otomatis hilang dari klasemen.`)) return;
+
+      fetch(`/api/super/custom-games/${id}`, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(res => {
+          if (res.error) alert("Gagal: " + res.error);
+          else loadInitialData();
+        });
+    }
+
+    // Modal Teams
+    function openTeamModal(teamData = null) {
+      const modal = document.getElementById('team-modal');
+      const heading = document.getElementById('modal-team-heading');
+      const idInput = document.getElementById('modal-team-id');
+      const nameInput = document.getElementById('team-name-input');
+      const colorPicker = document.getElementById('team-color-picker');
+      const colorHex = document.getElementById('team-color-hex');
+      const membersInput = document.getElementById('team-members-input');
+
+      if (teamData) {
+        heading.textContent = `✏️ Edit Tim: ${teamData.name}`;
+        idInput.value = teamData.id;
+        nameInput.value = teamData.name;
+        colorPicker.value = teamData.color || '#38bdf8';
+        colorHex.value = teamData.color || '#38bdf8';
+        membersInput.value = (teamData.members || []).map(m => m.name).join('\n');
+      } else {
+        heading.textContent = "👥 Tambah Tim Baru";
+        idInput.value = '';
+        nameInput.value = '';
+        colorPicker.value = '#38bdf8';
+        colorHex.value = '#38bdf8';
+        membersInput.value = '';
+      }
+
+      modal.style.display = 'flex';
+    }
+
+    function closeTeamModal() { document.getElementById('team-modal').style.display = 'none'; }
+
+    function editTeam(tId) {
+      const team = masterTeamsData[tId];
+      if (team) openTeamModal(team);
+    }
+
+    function submitTeamForm() {
+      const id = document.getElementById('modal-team-id').value;
+      const name = document.getElementById('team-name-input').value.trim();
+      const color = document.getElementById('team-color-hex').value.trim() || '#38bdf8';
+      const rawMembers = document.getElementById('team-members-input').value.trim();
+
+      if (!name) { alert('Nama tim wajib diisi!'); return; }
+
+      const members = rawMembers.split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0)
+        .map(nameStr => ({ name: nameStr, bodyType: 'tall-skinny', skinTone: 'fair' }));
+
+      const payload = { name, color, members };
+      const url = id ? `/api/super/teams/${id}` : '/api/super/teams';
+      const method = id ? 'PUT' : 'POST';
+
+      fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      .then(r => r.json())
+      .then(res => {
+        if (res.error) alert("Gagal: " + res.error);
+        else {
+          closeTeamModal();
+          loadInitialData();
+        }
+      });
+    }
+
+    function deleteTeam(tId, name) {
+      if (!confirm(`Hapus tim "${name}" dari seluruh sistem?`)) return;
+
+      fetch(`/api/super/teams/${tId}`, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(res => {
+          if (res.error) alert("Gagal: " + res.error);
+          else loadInitialData();
+        });
+    }
+
+    function resetTeamsDefault() {
+      if (!confirm("Kembalikan daftar tim ke 6 tim default preloader Educamp?")) return;
+
+      fetch('/api/super/teams/reset-default', { method: 'POST' })
+        .then(r => r.json())
+        .then(res => {
+          alert(res.message || 'Tim berhasil di-reset!');
+          loadInitialData();
+        });
+    }
+
+    function saveDigitalSettings() {
+      const pinangPointsPerWin = parseInt(document.getElementById('cfg-pinang-win').value, 10) || 0;
+      const tugPointsPerWin = parseInt(document.getElementById('cfg-tug-win').value, 10) || 0;
+      const includeActiveScore = document.getElementById('cfg-active-score').checked;
+
+      fetch('/api/super/digital-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pinangPointsPerWin, tugPointsPerWin, includeActiveScore })
+      })
+      .then(r => r.json())
+      .then(res => {
+        alert(res.message || 'Pengaturan berhasil disimpan!');
+        loadInitialData();
+      });
+    }
+  </script>
+</body>
+</html>

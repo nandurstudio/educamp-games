@@ -3,5 +3,5 @@ node_modules/
 .DS_Store
 *.log
 npm-debug.log*
-data/game-storage.json
-data/tug-storage.json
+data/
+data/*.json
