@@ -5,18 +5,176 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Tablet Controller - Panjat Pinang</title>
   <link rel="stylesheet" href="/css/controller.css">
+  <style>
+    .team-selector-card {
+      background: #1e293b;
+      border: 2px solid #334155;
+      border-radius: 16px;
+      padding: 24px;
+      width: 100%;
+      max-width: 460px;
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+    .team-pick-btn {
+      display: block;
+      width: 100%;
+      padding: 15px;
+      margin-bottom: 12px;
+      border-radius: 10px;
+      border: none;
+      font-size: 16px;
+      font-weight: bold;
+      color: white;
+      cursor: pointer;
+      transition: transform 0.15s, filter 0.15s;
+    }
+    .team-pick-btn:hover {
+      transform: translateY(-2px);
+      filter: brightness(1.1);
+    }
+
+    /* Redesigned Center Turn Banner */
+    .turn-hero-card {
+      background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+      border: 2px solid #334155;
+      border-radius: 16px;
+      padding: 12px 20px;
+      margin: 10px auto 4px auto;
+      max-width: 650px;
+      width: 95%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+    }
+    .turn-hero-info {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      flex: 1;
+    }
+    .turn-hero-label {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: #94a3b8;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .turn-hero-name {
+      font-size: 26px;
+      font-weight: 900;
+      color: #f1c40f;
+      text-shadow: 0 0 15px rgba(241, 196, 15, 0.4);
+      margin-top: 2px;
+      letter-spacing: 0.5px;
+      word-break: break-word;
+    }
+
+    /* Ketinggian / Status Stat Box di Kanan Turn Hero */
+    .climb-stat-box {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 8px 14px;
+      text-align: right;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      flex-shrink: 0;
+    }
+    .climb-stat-label {
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: #94a3b8;
+      letter-spacing: 1px;
+    }
+    .climb-stat-val {
+      font-family: 'Courier New', monospace;
+      font-size: 18px;
+      font-weight: 900;
+      color: #22c55e;
+      margin-top: 2px;
+    }
+
+    /* Match Timer Badge di Header */
+    .match-timer-badge {
+      font-family: 'Courier New', monospace;
+      font-weight: bold;
+      font-size: 16px;
+      background: #0f172a;
+      border: 1px solid #475569;
+      padding: 6px 14px;
+      border-radius: 20px;
+      color: #38bdf8;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: color 0.3s, border-color 0.3s;
+    }
+    .match-timer-badge.urgent {
+      color: #ef4444;
+      border-color: #ef4444;
+      animation: pulseAlert 1s infinite alternate;
+    }
+    @keyframes pulseAlert {
+      from { transform: scale(1); }
+      to { transform: scale(1.05); }
+    }
+
+    /* Mini Progress Bar Ketinggian Tiang */
+    .climb-meter-mini {
+      background: #0f172a;
+      border-radius: 6px;
+      height: 8px;
+      width: 100%;
+      margin: 8px 0;
+      position: relative;
+      overflow: hidden;
+    }
+    .climb-meter-bar {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      width: 0%;
+      background: linear-gradient(90deg, #10b981, #3b82f6);
+      transition: width 0.3s ease;
+    }
+
+    .question-container {
+      padding: 12px 20px !important;
+      max-width: 750px !important;
+    }
+    .question-box {
+      padding: 16px 20px !important;
+      margin-bottom: 16px !important;
+    }
+    .question-text {
+      font-size: 20px !important;
+    }
+    .opt-btn {
+      padding: 16px 18px !important;
+      font-size: 18px !important;
+    }
+  </style>
 </head>
 <body>
 
   <!-- Modal Pemilihan Tim Saat Tablet Pertama Kali Buka -->
   <div class="team-selector-modal" id="team-modal">
     <div class="team-selector-card">
-      <h2 style="margin-bottom: 8px;">📱 Pilih Tim Tablet Ini</h2>
-      <p style="color: #94a3b8; margin-bottom: 20px;">Pilih tim yang akan dikendalikan oleh tablet ini:</p>
+      <h2 style="margin-bottom: 8px; color: #f1c40f;">📱 Pilih Tim Tablet Ini</h2>
+      <p style="color: #94a3b8; font-size: 14px; margin-bottom: 20px;">Pilih tim yang akan dikendalikan oleh tablet ini:</p>
       <div id="team-buttons-container">
         <!-- Diisi otomatis dari state -->
       </div>
-      <div style="margin-top: 20px; font-size: 11px; color: #64748b;">
+      <div style="margin-top: 20px; font-size: 12px; color: #64748b;">
         © 2026 Nandur Studio. All rights reserved.
       </div>
     </div>
@@ -27,9 +185,41 @@
     <div class="team-badge" onclick="openTeamSelector()" style="cursor: pointer;" title="Klik untuk ganti tim">
       <span class="team-dot" id="team-dot"></span>
       <span id="team-name">PILIH TIM</span>
-      <span style="font-size: 12px; background: #334155; padding: 2px 8px; border-radius: 6px; color: #94a3b8; margin-left: 6px;">Ganti Tim ▾</span>
+      <span style="font-size: 11px; background: #334155; padding: 2px 6px; border-radius: 4px; color: #94a3b8; margin-left: 6px;">Ganti ▾</span>
     </div>
-    <div class="turn-badge" id="turn-badge">GILIRAN: -</div>
+    
+    <!-- Timer Utama Global Pertandingan di Header Atas -->
+    <div class="match-timer-badge" id="match-timer-badge">
+      ⏱️ 05:00
+    </div>
+  </div>
+
+  <!-- Banner Penjawab Utama di Tengah (Besar & Jelas) -->
+  <div class="turn-hero-card">
+    <div class="turn-hero-info">
+      <div class="turn-hero-label">
+        <span>🧗 GILIRAN MEMANJAT</span>
+      </div>
+      <div class="turn-hero-name" id="hero-turn-name">-</div>
+    </div>
+    
+    <!-- Info Ketinggian & Skor Tim (Tanpa timer perorang) -->
+    <div class="climb-stat-box">
+      <div class="climb-stat-label">KETINGGIAN TIANG</div>
+      <div class="climb-stat-val" id="climb-stat-val">0 / 0</div>
+      <div style="font-size: 10px; color: #f1c40f; margin-top: 2px; font-weight: bold;" id="team-score-badge">0 Poin</div>
+    </div>
+  </div>
+
+  <!-- Mini Progress Bar Ketinggian Tiang Regu -->
+  <div style="padding: 4px 16px 0 16px; max-width: 650px; margin: 0 auto; width: 100%;">
+    <div style="display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8; font-family: monospace;">
+      <span id="label-climb-progress">PROGRES TIANG: 0%</span>
+      <span style="color: #ef4444; font-weight: bold;">🚩 PUNCAK TIANG</span>
+    </div>
+    <div class="climb-meter-mini">
+      <div class="climb-meter-bar" id="climb-meter-bar"></div>
+    </div>
   </div>
 
   <!-- Kontainer Pertanyaan & Pilihan Jawaban -->
@@ -63,8 +253,10 @@
 
   <!-- Overlay Feedback Pop-up -->
   <div class="feedback-overlay" id="feedback-overlay">
-    <div class="feedback-title" id="feedback-title">BENAR!</div>
-    <div class="feedback-sub" id="feedback-sub">Karaktermu naik ke tiang!</div>
+    <div class="feedback-content" style="text-align: center; padding: 24px;">
+      <h2 class="feedback-title" id="feedback-title">BENAR!</h2>
+      <p class="feedback-sub" id="feedback-sub">Karaktermu naik ke tiang!</p>
+    </div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
@@ -78,7 +270,12 @@
     const teamButtonsContainer = document.getElementById('team-buttons-container');
     const teamNameEl = document.getElementById('team-name');
     const teamDotEl = document.getElementById('team-dot');
-    const turnBadgeEl = document.getElementById('turn-badge');
+    const heroTurnNameEl = document.getElementById('hero-turn-name');
+    const matchTimerBadge = document.getElementById('match-timer-badge');
+    const climbStatVal = document.getElementById('climb-stat-val');
+    const teamScoreBadge = document.getElementById('team-score-badge');
+    const labelClimbProgress = document.getElementById('label-climb-progress');
+    const climbMeterBar = document.getElementById('climb-meter-bar');
     const questionTextEl = document.getElementById('question-text');
     const feedbackOverlay = document.getElementById('feedback-overlay');
     const feedbackTitle = document.getElementById('feedback-title');
@@ -88,18 +285,45 @@
     const urlParams = new URLSearchParams(window.location.search);
     let paramTeam = urlParams.get('team');
 
+    function formatTime(sec) {
+      const m = Math.floor(sec / 60).toString().padStart(2, '0');
+      const s = (sec % 60).toString().padStart(2, '0');
+      return `⏱️ ${m}:${s}`;
+    }
+
+    // Auto-fetch state awal saat pertama buka
+    fetch('/api/state')
+      .then(r => r.json())
+      .then(state => {
+        gameState = state;
+        handleInitialTeamSelection();
+        updateUI();
+      })
+      .catch(() => {});
+
+    socket.on('connect', () => {
+      fetch('/api/state').then(r => r.json()).then(state => {
+        gameState = state;
+        handleInitialTeamSelection();
+        updateUI();
+      }).catch(() => {});
+    });
+
     socket.on('STATE_UPDATE', (state) => {
       gameState = state;
-
-      // Jika ada paramTeam valid dan belum pernah disetel
-      if (paramTeam && gameState.teams && gameState.teams[paramTeam] && !currentTeamId) {
-        selectTeam(paramTeam, false);
-      } else if (!currentTeamId) {
-        // Jika TIDAK ADA parameter, atau parameter tidak valid: Tampilkan popup modal pemilihan tim
-        openTeamSelector();
-      }
-
+      handleInitialTeamSelection();
       updateUI();
+    });
+
+    socket.on('TIMER_TICK', (data) => {
+      if (matchTimerBadge && typeof data.remainingSeconds === 'number') {
+        matchTimerBadge.textContent = formatTime(data.remainingSeconds);
+        if (data.remainingSeconds <= 30 && gameState?.status === 'PLAYING') {
+          matchTimerBadge.classList.add('urgent');
+        } else {
+          matchTimerBadge.classList.remove('urgent');
+        }
+      }
     });
 
     socket.on('ANSWER_RESULT', (res) => {
@@ -107,6 +331,16 @@
         showFeedback(res);
       }
     });
+
+    function handleInitialTeamSelection() {
+      if (!gameState || !gameState.teams) return;
+
+      if (paramTeam && gameState.teams[paramTeam] && !currentTeamId) {
+        selectTeam(paramTeam, false);
+      } else if (!currentTeamId) {
+        openTeamSelector();
+      }
+    }
 
     function openTeamSelector() {
       if (!gameState || !gameState.teams) return;
@@ -120,7 +354,7 @@
           const btn = document.createElement('button');
           btn.className = 'team-pick-btn';
           btn.style.backgroundColor = team.color;
-          btn.textContent = `${team.name} (${team.members?.length || 0} Anggota)`;
+          btn.textContent = `${team.name.toUpperCase()} (${team.members?.length || 0} Anggota)`;
           btn.onclick = () => selectTeam(tId, true);
           teamButtonsContainer.appendChild(btn);
         });
@@ -155,12 +389,34 @@
       teamDotEl.style.backgroundColor = myTeam.color;
 
       const currentMember = myTeam.members[myTeam.currentTurnIndex];
-      turnBadgeEl.textContent = `GILIRAN: ${currentMember ? currentMember.name.toUpperCase() : '-'}`;
+      heroTurnNameEl.textContent = currentMember ? currentMember.name.toUpperCase() : '-';
+
+      // Update Timer Utama Menitan Pertandingan
+      if (typeof gameState.remainingSeconds === 'number') {
+        matchTimerBadge.textContent = formatTime(gameState.remainingSeconds);
+        if (gameState.remainingSeconds <= 30 && gameState.status === 'PLAYING') {
+          matchTimerBadge.classList.add('urgent');
+        } else {
+          matchTimerBadge.classList.remove('urgent');
+        }
+      }
+
+      // Update Ketinggian Tiang & Progress Bar
+      const currentClimbers = myTeam.currentClimbers || 0;
+      const totalMembers = myTeam.members?.length || 1;
+      const percent = Math.min(100, Math.round((currentClimbers / totalMembers) * 100));
+
+      climbStatVal.textContent = `${currentClimbers} / ${totalMembers}`;
+      teamScoreBadge.textContent = `⭐ ${myTeam.score || 0} Poin`;
+      labelClimbProgress.textContent = `PROGRES TIANG: ${percent}% (${currentClimbers}/${totalMembers})`;
+      climbMeterBar.style.width = `${percent}%`;
 
       if (gameState.status !== 'PLAYING') {
-        questionTextEl.textContent = gameState.status === 'FINISHED' 
-          ? "🏁 Permainan Selesai!" 
-          : "⏳ Menunggu Game Master Memulai Pertandingan (Klik 'Mulai Game')...";
+        if (gameState.status === 'FINISHED') {
+          questionTextEl.textContent = "🏁 Permainan Panjat Pinang Selesai!";
+        } else {
+          questionTextEl.textContent = "⏳ Menunggu Game Master Memulai Pertandingan (Klik 'Mulai Game')...";
+        }
         for (let i = 0; i < 4; i++) {
           const el = document.getElementById(`opt-${i}`);
           if (el) el.textContent = '???';
@@ -204,11 +460,15 @@
       if (res.isCorrect) {
         feedbackOverlay.classList.add('feedback-correct');
         feedbackTitle.textContent = "✅ JAWABAN BENAR!";
-        feedbackSub.textContent = `${res.answeredBy} berhasil memanjat!`;
+        feedbackSub.textContent = `${res.answeredBy} berhasil memanjat tiang!`;
       } else {
         feedbackOverlay.classList.add('feedback-wrong');
         feedbackTitle.textContent = "💥 JAWABAN SALAH!";
-        feedbackSub.textContent = "Karakter runtuh semua ke tanah!";
+        if (res.eventType === 'TOTAL_WIPEOUT') {
+          feedbackSub.textContent = "Karakter runtuh semua ke tanah!";
+        } else {
+          feedbackSub.textContent = "Karakter melorot 1 tingkat ke bawah!";
+        }
         if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
       }
 
@@ -219,7 +479,7 @@
         isSubmitting = false;
         document.getElementById('options-grid').style.pointerEvents = 'auto';
         updateUI();
-      }, 1800);
+      }, 1600);
     }
   </script>
 </body>

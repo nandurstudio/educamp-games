@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Game Master - Tarik Tambang</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: #0f172a; color: #f8fafc; padding: 24px; }
+    .container { max-width: 1100px; margin: 0 auto; }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #334155; }
+    h1 { font-size: 26px; color: #38bdf8; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+    .card h2 { font-size: 18px; margin-bottom: 16px; color: #f1c40f; display: flex; align-items: center; gap: 8px; }
+    .btn { padding: 10px 18px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; }
+    .btn-green { background: #22c55e; color: white; }
+    .btn-red { background: #ef4444; color: white; }
+    .btn-blue { background: #3b82f6; color: white; }
+    .btn-purple { background: #8b5cf6; color: white; }
+    .btn-sm { padding: 6px 12px; font-size: 13px; border-radius: 6px; }
+    .btn:hover { filter: brightness(1.1); }
+    .form-group { margin-bottom: 14px; }
+    label { display: block; font-size: 13px; color: #94a3b8; margin-bottom: 6px; }
+    input, select { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: white; font-size: 14px; }
+    .links-bar { display: flex; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
+    .links-bar a { color: #38bdf8; text-decoration: none; font-size: 14px; padding: 6px 12px; background: #334155; border-radius: 6px; }
+    .history-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 12px; }
+    .history-table th { background: #0f172a; color: #94a3b8; text-align: left; padding: 10px; border-bottom: 2px solid #334155; font-weight: 600; }
+    .history-table td { padding: 12px 10px; border-bottom: 1px solid #334155; vertical-align: middle; }
+    .history-table tr:hover { background: #1e293b88; }
+    .history-winner-tag { display: inline-flex; align-items: center; gap: 6px; font-weight: bold; padding: 4px 10px; border-radius: 20px; font-size: 12px; }
+    .members-badge-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .member-chip { background: #0f172a; border: 1px solid #334155; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div>
+      <h1>⚙️ Admin Game Master - Tarik Tambang</h1>
+      <div class="links-bar">
+        <a href="/index.html">🏠 Super-App Lobby</a>
+        <a href="/tug-arena.html" target="_blank">🖥️ Layar Arena Tarik Tambang</a>
+        <a href="/tug-controller.html?side=left" target="_blank">📱 Tablet Tim Kiri</a>
+        <a href="/tug-controller.html?side=right" target="_blank">📱 Tablet Tim Kanan</a>
+      </div>
+    </div>
+    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+      <button class="btn btn-green" id="btn-toggle-match" onclick="toggleMatchState()">▶️ MULAI TANDING</button>
+      <button class="btn btn-purple" id="btn-stop-match" onclick="stopMatch()" style="display: none;">⏹️ STOP MATCH</button>
+      <button class="btn btn-red" onclick="resetGame()">🔄 RESET MATCH</button>
+    </div>
+  </header>
+
+  <div class="grid">
+    <!-- Kolom Kiri: Aturan Tarik Tambang, Bank Soal CSV, & AI Quiz Generator -->
+    <div>
+      <div class="card">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label>Durasi Pertandingan:</label>
+            <select id="tug-duration" onchange="updateConfig()">
+              <option value="60">1 Menit (Cepat / Demo)</option>
+              <option value="120">2 Menit</option>
+              <option value="180" selected>3 Menit (Standar)</option>
+              <option value="300">5 Menit (Ekstra Ketahanan)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>⭐ Poin per Benar:</label>
+            <input type="number" id="tug-points" value="100" min="10" max="1000" step="10" onchange="updateConfig()" style="font-weight: bold; color: #f1c40f;">
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label>Tarikan saat Benar (Step):</label>
+            <select id="tug-pull-step" onchange="updateConfig()">
+              <option value="6">6% (Sangat Alot - Butuh ~16 tarikan)</option>
+              <option value="8" selected>8% (Seimbang - Minimal 1x putaran per orang)</option>
+              <option value="10">10% (Standar Ketahanan - ~10 tarikan)</option>
+              <option value="15">15% (Cepat - ~7 tarikan)</option>
+              <option value="20">20% (Kilat / Demo)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Sentakan Lawan saat Salah (Penalti):</label>
+            <select id="tug-slip-penalty" onchange="updateConfig()">
+              <option value="3">3% (Ringan)</option>
+              <option value="5" selected>5% (Seimbang / Standar)</option>
+              <option value="8">8% (Menengah)</option>
+              <option value="10">10% (Keras)</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-top: 10px;">
+          <div class="form-group">
+            <label>⏳ Batas Waktu Giliran Menjawab (Detik) <span style="font-size: 11px; color: #94a3b8; font-weight: normal;">— isi 0 untuk Nonaktifkan</span>:</label>
+            <div style="display: flex; gap: 10px; align-items: center;">
+              <input type="number" id="tug-turn-timeout" value="15" min="0" max="60" step="1" onchange="updateConfig()" style="max-width: 140px; font-weight: bold; color: #38bdf8;">
+              <span id="turn-timeout-status" style="font-size: 12px; color: #cbd5e1;">(15 Detik per soal)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bank Soal: Pilihan Default / Upload CSV -->
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <h2>📚 Manajemen Bank Soal Permainan</h2>
+          <span id="quiz-source-badge" style="font-size: 11px; background: #0f172a; border: 1px solid #38bdf8; padding: 3px 8px; border-radius: 6px; color: #38bdf8; font-weight: bold;">
+            Sumber: DEFAULT (10 Soal)
+          </span>
+        </div>
+        <p style="font-size: 13px; color: #94a3b8; margin-bottom: 12px;">
+          Pilih menggunakan soal bawaan Educamp atau unggah soal kustom melalui file CSV.
+        </p>
+
+        <!-- Area Upload CSV -->
+        <div style="background: #0f172a; border: 2px dashed #475569; border-radius: 10px; padding: 14px; text-align: center; margin-bottom: 12px;">
+          <input type="file" id="csv-file-input" accept=".csv" style="display: none;" onchange="handleCSVUpload(event)">
+          <button type="button" class="btn btn-blue btn-sm" onclick="document.getElementById('csv-file-input').click()">
+            📁 Pilih & Upload File CSV Soal
+          </button>
+          <button type="button" class="btn btn-sm" style="background: #334155; color: #f8fafc; margin-left: 6px;" onclick="resetQuizToDefault()">
+            🔄 Gunakan Soal Default
+          </button>
+          <div style="font-size: 11px; color: #64748b; margin-top: 8px;">
+            Format CSV: <code>Pertanyaan, Pilihan A, Pilihan B, Pilihan C, Pilihan D, Jawaban (A/B/C/D)</code>
+          </div>
+        </div>
+        <div id="csv-upload-status" style="font-size: 13px; margin-top: 4px;"></div>
+      </div>
+
+      <!-- Generator Soal AI Studio Gemini -->
+      <div class="card">
+        <h2>✨ Google AI Studio Quiz Generator</h2>
+        <p style="font-size: 13px; color: #94a3b8; margin-bottom: 12px;">
+          Generate soal cepat via Gemini AI yang langsung masuk ke Bank Soal permainan.
+        </p>
+        <div class="form-group">
+          <label>🔑 Google AI Studio API Key <span style="font-size: 11px; color: #94a3b8; font-weight: normal;">(Opsional jika sudah ada di .env)</span>:</label>
+          <input type="password" id="gemini-api-key" placeholder="AIzaSy... (tempel API key Anda di sini)">
+        </div>
+        <div class="form-group">
+          <label>Topik Kuis:</label>
+          <input type="text" id="ai-topic" value="Kekompakan Tim, Budaya Kaizen, Ketahanan Fisik & Mental">
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label>Jumlah Soal:</label>
+            <input type="number" id="ai-count" value="10" min="5" max="30">
+          </div>
+          <div class="form-group">
+            <label>Kesulitan:</label>
+            <select id="ai-difficulty">
+              <option value="easy">Mudah (Seru)</option>
+              <option value="medium" selected>Sedang</option>
+              <option value="hard">Keras</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-purple" id="btn-generate-ai" style="width: 100%;" onclick="generateAIQuiz()">
+          🚀 Generate Soal via Gemini AI
+        </button>
+        <div id="ai-status" style="margin-top: 10px; font-size: 13px; color: #22c55e;"></div>
+      </div>
+    </div>
+
+    <!-- Kolom Kanan: Pemilihan 2 Tim yang Bertanding (Kiri vs Kanan) -->
+    <div>
+      <!-- Tim Kiri -->
+      <div class="card" style="border-left: 5px solid #ef4444;">
+        <h2 style="color: #ef4444;">◀ Tim Sisi Kiri (Red Anchor)</h2>
+        <div class="form-group">
+          <label>Pilih Kelompok Educamp:</label>
+          <select id="select-team-left" onchange="onTeamPresetChange('left')">
+            <option value="qatra">QATRA (8 Anggota)</option>
+            <option value="vbom">V-BOM (8 Anggota)</option>
+            <option value="omega">OMEGA (8 Anggota)</option>
+            <option value="ipc">IPC (8 Anggota)</option>
+            <option value="interlock">INTERLOCK (8 Anggota)</option>
+            <option value="avatar">AVATAR (7 Anggota)</option>
+          </select>
+        </div>
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px;">
+          <div class="form-group">
+            <label>Nama Tim Kiri:</label>
+            <input type="text" id="name-team-left">
+          </div>
+          <div class="form-group">
+            <label>Warna Jersey:</label>
+            <input type="color" id="color-team-left" style="height: 42px; padding: 4px;">
+          </div>
+        </div>
+        <label>Anggota Regu (<span id="count-left">8</span> orang):</label>
+        <div class="members-badge-list" id="members-left-list"></div>
+      </div>
+
+      <!-- Tim Kanan -->
+      <div class="card" style="border-left: 5px solid #3b82f6;">
+        <h2 style="color: #3b82f6;">Tim Sisi Kanan (Blue Anchor) ▶</h2>
+        <div class="form-group">
+          <label>Pilih Kelompok Educamp:</label>
+          <select id="select-team-right" onchange="onTeamPresetChange('right')">
+            <option value="qatra">QATRA (8 Anggota)</option>
+            <option value="vbom" selected>V-BOM (8 Anggota)</option>
+            <option value="omega">OMEGA (8 Anggota)</option>
+            <option value="ipc">IPC (8 Anggota)</option>
+            <option value="interlock">INTERLOCK (8 Anggota)</option>
+            <option value="avatar">AVATAR (7 Anggota)</option>
+          </select>
+        </div>
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px;">
+          <div class="form-group">
+            <label>Nama Tim Kanan:</label>
+            <input type="text" id="name-team-right">
+          </div>
+          <div class="form-group">
+            <label>Warna Jersey:</label>
+            <input type="color" id="color-team-right" style="height: 42px; padding: 4px;">
+          </div>
+        </div>
+        <label>Anggota Regu (<span id="count-right">8</span> orang):</label>
+        <div class="members-badge-list" id="members-right-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sesi Riwayat Pertandingan Tarik Tambang -->
+  <div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+      <h2>📜 Riwayat Sesi Tarik Tambang (Match History)</h2>
+      <div style="display: flex; gap: 8px;">
+        <button class="btn btn-blue btn-sm" onclick="fetchHistory()">🔄 Refresh Riwayat</button>
+        <button class="btn btn-red btn-sm" onclick="clearHistory()">🗑️ Bersihkan Riwayat</button>
+      </div>
+    </div>
+    <div style="overflow-x: auto;">
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th style="width: 50px;">#</th>
+            <th style="width: 170px;">Waktu Sesi</th>
+            <th style="width: 180px;">Juara Tarik Tambang</th>
+            <th style="width: 160px;">Kondisi Menang</th>
+            <th style="width: 110px;">Durasi Main</th>
+            <th>Perolehan Skor Tim Kiri vs Kanan</th>
+          </tr>
+        </thead>
+        <tbody id="history-table-body">
+          <tr>
+            <td colspan="6" style="text-align: center; color: #64748b; padding: 24px;">
+              Belum ada riwayat Tarik Tambang yang tersimpan.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer style="margin-top: 40px; padding: 20px; text-align: center; color: #64748b; font-size: 14px; border-top: 1px solid #1e293b;">
+    © 2026 Nandur Studio. All rights reserved.
+  </footer>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io();
+  let currentTugState = null;
+  let localTeamsConfig = {
+    teamLeft: null,
+    teamRight: null
+  };
+
+  const EDUCAMP_PRESETS = {
+    qatra: {
+      name: "QATRA",
+      color: "#e74c3c",
+      members: [
+        { name: "Fajar Fauzan", bodyType: "tall-skinny", skinTone: "fair" },
+        { name: "Irvan Hasan", bodyType: "tall-chubby", skinTone: "tan" },
+        { name: "Sri Rejeki", bodyType: "short-skinny", skinTone: "fair" },
+        { name: "Malawi", bodyType: "tall-skinny", skinTone: "olive" },
+        { name: "Fuji S R", bodyType: "short-chubby", skinTone: "tan" },
+        { name: "Adi Sofyan", bodyType: "tall-chubby", skinTone: "deep" },
+        { name: "Yogi H. P.", bodyType: "tall-skinny", skinTone: "olive" },
+        { name: "Mahajiwa", bodyType: "short-skinny", skinTone: "tan" }
+      ]
+    },
+    vbom: {
+      name: "V-BOM",
+      color: "#3498db",
+      members: [
+        { name: "Andy Chendra", bodyType: "tall-skinny", skinTone: "fair" },
+        { name: "Cahyo Agung Martanto", bodyType: "tall-chubby", skinTone: "tan" },
+        { name: "Joko S", bodyType: "short-skinny", skinTone: "olive" },
+        { name: "Dimas JP", bodyType: "tall-skinny", skinTone: "fair" },
+        { name: "Haris Baihaqi", bodyType: "short-chubby", skinTone: "tan" },
+        { name: "Sukaryadi", bodyType: "tall-chubby", skinTone: "deep" },
+        { name: "Abdul Halim", bodyType: "tall-skinny", skinTone: "olive" },
+        { name: "Budy Sutrisno", bodyType: "short-skinny", skinTone: "tan" }
+      ]
+    },
+    omega: {
+      name: "OMEGA",
+      color: "#2ecc71",
+      members: [
+        { name: "Agung Joko Supriyanto", bodyType: "tall-skinny", skinTone: "fair" },
+        { name: "Budi Santoso", bodyType: "tall-chubby", skinTone: "tan" },
+        { name: "Ahmad Sanusi", bodyType: "tall-skinny", skinTone: "olive" },
+        { name: "Riana Kurnianti", bodyType: "short-skinny", skinTone: "fair" },
+        { name: "Yudi S", bodyType: "tall-skinny", skinTone: "tan" },
+        { name: "Dyanza Aria Perdana", bodyType: "tall-chubby", skinTone: "fair" },
+        { name: "Yogo", bodyType: "short-skinny", skinTone: "olive" },
+        { name: "Fendi S", bodyType: "tall-chubby", skinTone: "deep" }
+      ]
+    },
+    ipc: {
+      name: "IPC",
+      color: "#f39c12",
+      members: [
+        { name: "Andreas Hari listanto", bodyType: "tall-skinny", skinTone: "fair" },
+        { name: "Vony", bodyType: "short-skinny", skinTone: "fair" },
+        { name: "Satrianto Ariardi", bodyType: "tall-chubby", skinTone: "tan" },
+        { name: "Dimas Riyantoro", bodyType: "tall-skinny", skinTone: "olive" },
+        { name: "Ainurrofik", bodyType: "short-chubby", skinTone: "deep" },
+        { name: "Eurotiva Pratista", bodyType: "short-skinny", skinTone: "fair" },
+        { name: "Isa Dwiyono", bodyType: "tall-skinny", skinTone: "tan" },
+        { name: "A Ropi", bodyType: "tall-chubby", skinTone: "olive" }
+      ]
+    },
+    interlock: {
+      name: "INTERLOCK",
+      color: "#9b59b6",
+      members: [
+        { name: "Yudha Agus Tri Basuki", bodyType: "tall-skinny", skinTone: "fair" },
+        { name: "Asep Sopiyan", bodyType: "tall-chubby", skinTone: "tan" },
+        { name: "Verdiana Zahroh N B", bodyType: "short-skinny", skinTone: "fair" },
+        { name: "Yuswa Slamet", bodyType: "tall-skinny", skinTone: "olive" },
+        { name: "Abu Muntholib", bodyType: "short-chubby", skinTone: "deep" },
+        { name: "Hayadi", bodyType: "tall-chubby", skinTone: "tan" },
+        { name: "Wachid Sadali", bodyType: "tall-skinny", skinTone: "olive" },
+        { name: "Alim", bodyType: "short-skinny", skinTone: "tan" }
+      ]
+    },
+    avatar: {
+      name: "AVATAR",
+      color: "#00cec9",
+      members: [
+        { name: "Dicky F", bodyType: "tall-skinny", skinTone: "fair" },
+        { name: "Harmanto", bodyType: "tall-chubby", skinTone: "tan" },
+        { name: "Priyo Anarkie", bodyType: "tall-skinny", skinTone: "olive" },
+        { name: "Stevie", bodyType: "short-skinny", skinTone: "fair" },
+        { name: "Dedi Setiadi", bodyType: "short-chubby", skinTone: "deep" },
+        { name: "Nanang", bodyType: "tall-chubby", skinTone: "tan" },
+        { name: "Dewangga", bodyType: "tall-skinny", skinTone: "olive" }
+      ]
+    }
+  };
+
+  fetchHistory();
+
+  socket.on('connect', () => {
+    fetchHistory();
+  });
+
+  socket.on('TUG_STATE_UPDATE', (state) => {
+    currentTugState = state;
+    if (!localTeamsConfig.teamLeft) {
+      localTeamsConfig.teamLeft = JSON.parse(JSON.stringify(state.teamLeft));
+      localTeamsConfig.teamRight = JSON.parse(JSON.stringify(state.teamRight));
+    }
+    renderUI(state);
+    if (Array.isArray(state.history)) {
+      renderHistory(state.history);
+    }
+  });
+
+  function renderUI(state) {
+    document.getElementById('tug-duration').value = state.durationSeconds;
+    if (state.pointsPerCorrect) {
+      document.getElementById('tug-points').value = state.pointsPerCorrect;
+    }
+    document.getElementById('tug-pull-step').value = state.pullStep;
+    document.getElementById('tug-slip-penalty').value = state.slipPenalty;
+
+    const timeoutVal = typeof state.turnTimeoutSeconds === 'number' ? state.turnTimeoutSeconds : 15;
+    const timeoutInput = document.getElementById('tug-turn-timeout');
+    const timeoutStatus = document.getElementById('turn-timeout-status');
+    if (timeoutInput) timeoutInput.value = timeoutVal;
+    if (timeoutStatus) {
+      timeoutStatus.textContent = timeoutVal === 0 
+        ? "(⛔ Nonaktif: tidak ada batas waktu)" 
+        : `(${timeoutVal} Detik per soal)`;
+      timeoutStatus.style.color = timeoutVal === 0 ? '#ef4444' : '#38bdf8';
+    }
+
+    // Update Tombol Aksi Mulai / Jeda / Lanjutkan / Stop
+    updateToggleButtons(state.status);
+
+    // Render Tim Kiri
+    if (localTeamsConfig.teamLeft) {
+      document.getElementById('name-team-left').value = localTeamsConfig.teamLeft.name;
+      document.getElementById('color-team-left').value = localTeamsConfig.teamLeft.color;
+      document.getElementById('count-left').textContent = localTeamsConfig.teamLeft.members.length;
+      renderMemberList('members-left-list', localTeamsConfig.teamLeft.members);
+    }
+
+    // Render Tim Kanan
+    if (localTeamsConfig.teamRight) {
+      document.getElementById('name-team-right').value = localTeamsConfig.teamRight.name;
+      document.getElementById('color-team-right').value = localTeamsConfig.teamRight.color;
+      document.getElementById('count-right').textContent = localTeamsConfig.teamRight.members.length;
+      renderMemberList('members-right-list', localTeamsConfig.teamRight.members);
+    }
+  }
+
+  function renderMemberList(containerId, members) {
+    const el = document.getElementById(containerId);
+    if (!el || !Array.isArray(members)) return;
+    el.innerHTML = members.map((m, idx) => `
+      <span class="member-chip">${idx + 1}. ${m.name}</span>
+    `).join('');
+  }
+
+  function onTeamPresetChange(side) {
+    const presetKey = document.getElementById(side === 'left' ? 'select-team-left' : 'select-team-right').value;
+    const preset = EDUCAMP_PRESETS[presetKey];
+    if (!preset) return;
+
+    if (side === 'left') {
+      localTeamsConfig.teamLeft = JSON.parse(JSON.stringify(preset));
+    } else {
+      localTeamsConfig.teamRight = JSON.parse(JSON.stringify(preset));
+    }
+
+    renderUI(currentTugState);
+    updateConfig();
+  }
+
+  function updateConfig() {
+    const durationSeconds = parseInt(document.getElementById('tug-duration').value, 10);
+    const pointsPerCorrect = parseInt(document.getElementById('tug-points').value, 10) || 100;
+    const pullStep = parseInt(document.getElementById('tug-pull-step').value, 10);
+    const slipPenalty = parseInt(document.getElementById('tug-slip-penalty').value, 10);
+    const turnTimeoutSeconds = parseInt(document.getElementById('tug-turn-timeout').value, 10) || 0;
+
+    const timeoutStatus = document.getElementById('turn-timeout-status');
+    if (timeoutStatus) {
+      timeoutStatus.textContent = turnTimeoutSeconds === 0 
+        ? "(⛔ Nonaktif: tidak ada batas waktu)" 
+        : `(${turnTimeoutSeconds} Detik per soal)`;
+      timeoutStatus.style.color = turnTimeoutSeconds === 0 ? '#ef4444' : '#38bdf8';
+    }
+
+    if (localTeamsConfig.teamLeft) {
+      localTeamsConfig.teamLeft.name = document.getElementById('name-team-left').value;
+      localTeamsConfig.teamLeft.color = document.getElementById('color-team-left').value;
+    }
+    if (localTeamsConfig.teamRight) {
+      localTeamsConfig.teamRight.name = document.getElementById('name-team-right').value;
+      localTeamsConfig.teamRight.color = document.getElementById('color-team-right').value;
+    }
+
+    socket.emit('TUG_UPDATE_CONFIG', {
+      durationSeconds,
+      pointsPerCorrect,
+      turnTimeoutSeconds,
+      pullStep,
+      slipPenalty,
+      teamLeft: localTeamsConfig.teamLeft,
+      teamRight: localTeamsConfig.teamRight
+    });
+  }
+
+  function updateToggleButtons(status) {
+    const btnToggle = document.getElementById('btn-toggle-match');
+    const btnStop = document.getElementById('btn-stop-match');
+    if (!btnToggle || !btnStop) return;
+
+    if (status === 'PLAYING') {
+      btnToggle.textContent = "⏸️ JEDA MATCH";
+      btnToggle.className = "btn btn-blue";
+      btnStop.style.display = "inline-block";
+    } else if (status === 'PAUSED') {
+      btnToggle.textContent = "▶️ LANJUTKAN MATCH";
+      btnToggle.className = "btn btn-green";
+      btnStop.style.display = "inline-block";
+    } else {
+      // WAITING or FINISHED
+      btnToggle.textContent = "▶️ MULAI TANDING";
+      btnToggle.className = "btn btn-green";
+      btnStop.style.display = "none";
+    }
+  }
+
+  function toggleMatchState() {
+    if (!currentTugState) {
+      socket.emit('TUG_START_GAME');
+      return;
+    }
+    if (currentTugState.status === 'PLAYING') {
+      socket.emit('TUG_PAUSE_GAME');
+    } else if (currentTugState.status === 'PAUSED') {
+      socket.emit('TUG_RESUME_GAME');
+    } else {
+      socket.emit('TUG_START_GAME');
+    }
+  }
+
+  function stopMatch() {
+    if (confirm("Hentikan pertandingan sekarang dan tentukan pemenang saat ini?")) {
+      socket.emit('TUG_STOP_GAME');
+    }
+  }
+
+  function resetGame() {
+    if (confirm("Reset ulang pertandingan Tarik Tambang?")) {
+      socket.emit('TUG_RESET_GAME');
+    }
+  }
+
+  // === QUIZ SOURCE & CSV MANAGEMENT ===
+  async function fetchQuizStatus() {
+    try {
+      const res = await fetch('/api/questions');
+      const data = await res.json();
+      const badge = document.getElementById('quiz-source-badge');
+      if (badge && data) {
+        badge.textContent = `Sumber: ${data.source || 'DEFAULT'} (${data.count || 0} Soal Aktif)`;
+        badge.style.color = (data.source === 'CSV') ? '#2ecc71' : (data.source === 'AI') ? '#c084fc' : '#38bdf8';
+        badge.style.borderColor = badge.style.color;
+      }
+    } catch (e) {
+      console.error("Gagal mengambil status bank soal:", e);
+    }
+  }
+
+  async function handleCSVUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const statusEl = document.getElementById('csv-upload-status');
+    statusEl.innerHTML = `<span style="color: #38bdf8;">⏳ Membaca dan memvalidasi file ${file.name}...</span>`;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const csvContent = e.target.result;
+      try {
+        const res = await fetch('/api/questions/csv', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ csvContent })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          statusEl.innerHTML = `<span style="color: #2ecc71; font-weight: bold;">✅ ${data.message}</span>`;
+          fetchQuizStatus();
+        } else {
+          statusEl.innerHTML = `<span style="color: #ef4444; font-weight: bold;">❌ ${data.error}</span>`;
+        }
+      } catch (err) {
+        statusEl.innerHTML = `<span style="color: #ef4444;">❌ Gagal upload: ${err.message}</span>`;
+      }
+    };
+    reader.readAsText(file);
+    // Reset file input agar bisa upload file yang sama jika diedit
+    event.target.value = '';
+  }
+
+  async function resetQuizToDefault() {
+    const statusEl = document.getElementById('csv-upload-status');
+    statusEl.innerHTML = `<span style="color: #38bdf8;">⏳ Mengembalikan ke soal bawaan...</span>`;
+    try {
+      const res = await fetch('/api/questions/reset-default', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        statusEl.innerHTML = `<span style="color: #38bdf8; font-weight: bold;">🔄 ${data.message}</span>`;
+        fetchQuizStatus();
+      } else {
+        statusEl.innerHTML = `<span style="color: #ef4444;">❌ Gagal: ${data.error}</span>`;
+      }
+    } catch (err) {
+      statusEl.innerHTML = `<span style="color: #ef4444;">❌ Error: ${err.message}</span>`;
+    }
+  }
+
+  function renderHistory(historyList) {
+    const tbody = document.getElementById('history-table-body');
+    if (!tbody) return;
+
+    if (!Array.isArray(historyList) || historyList.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="6" style="text-align: center; color: #64748b; padding: 24px;">
+            Belum ada riwayat Tarik Tambang yang tersimpan.
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    let html = '';
+    historyList.forEach((sess, idx) => {
+      const dateObj = new Date(sess.timestamp);
+      const timeStr = dateObj.toLocaleDateString('id-ID', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+      }) + ' ' + dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+
+      let winnerHtml = '<span style="color: #94a3b8;">SERI (SEIMBANG)</span>';
+      if (sess.winner) {
+        winnerHtml = `
+          <span class="history-winner-tag" style="background: ${sess.winner.color}22; border: 1px solid ${sess.winner.color}; color: ${sess.winner.color};">
+            👑 ${sess.winner.name} (${sess.winner.side === 'left' ? 'KIRI' : 'KANAN'})
+          </span>
+        `;
+      }
+
+      let reasonHtml = sess.winnerReason === 'KNOCKOUT'
+        ? `<span style="color: #22c55e; font-weight: bold;">💥 Kalah Telak (Lewat Garis)</span>`
+        : sess.winnerReason === 'STOPPED_BY_ADMIN'
+        ? `<span style="color: #c084fc; font-weight: bold;">⏹️ Dihentikan Admin</span>`
+        : `<span style="color: #eab308; font-weight: bold;">⏰ Waktu Habis</span>`;
+
+      const elapsedMin = Math.floor(sess.elapsedSeconds / 60);
+      const elapsedSec = (sess.elapsedSeconds % 60).toString().padStart(2, '0');
+
+      html += `
+        <tr>
+          <td style="font-weight: bold; color: #94a3b8;">#${historyList.length - idx}</td>
+          <td style="color: #cbd5e1;">${timeStr}</td>
+          <td>${winnerHtml}</td>
+          <td>${reasonHtml}</td>
+          <td style="color: #f8fafc; font-family: monospace;">${elapsedMin}m ${elapsedSec}s</td>
+          <td>
+            <span style="color: ${sess.scores.left.color}; font-weight: bold;">${sess.scores.left.name} (${sess.scores.left.score} pts)</span> vs 
+            <span style="color: ${sess.scores.right.color}; font-weight: bold;">${sess.scores.right.name} (${sess.scores.right.score} pts)</span>
+          </td>
+        </tr>
+      `;
+    });
+
+    tbody.innerHTML = html;
+  }
+
+  async function fetchHistory() {
+    try {
+      const res = await fetch('/api/tug/history');
+      const data = await res.json();
+      if (data && Array.isArray(data.history)) {
+        renderHistory(data.history);
+      }
+    } catch (e) {
+      console.error("Gagal mengambil riwayat Tarik Tambang:", e);
+    }
+  }
+
+  function clearHistory() {
+    if (confirm("Yakin ingin menghapus seluruh riwayat Tarik Tambang?")) {
+      socket.emit('TUG_CLEAR_HISTORY');
+    }
+  }
+
+  async function generateAIQuiz() {
+    const btn = document.getElementById('btn-generate-ai');
+    const status = document.getElementById('ai-status');
+    const apiKey = document.getElementById('gemini-api-key').value.trim();
+    const topic = document.getElementById('ai-topic').value;
+    const count = parseInt(document.getElementById('ai-count').value, 10);
+    const difficulty = document.getElementById('ai-difficulty').value;
+
+    btn.disabled = true;
+    btn.textContent = "⏳ Menghubungi Google AI Studio...";
+    status.textContent = "";
+
+    try {
+      const res = await fetch('/api/generate-ai-quiz', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey, topic, count, difficulty })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        status.textContent = `✅ Berhasil men-generate ${data.count} soal kuis baru via Gemini AI!`;
+        fetchQuizStatus();
+      } else {
+        status.textContent = `❌ Gagal: ${data.error}`;
+      }
+    } catch (e) {
+      status.textContent = `❌ Error: ${e.message}`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "🚀 Generate Soal via Gemini AI";
+    }
+  }
+
+  // Ambil status awal saat dimuat
+  fetchQuizStatus();
+</script>
+</body>
+</html>

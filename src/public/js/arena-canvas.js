@@ -11,6 +11,7 @@ class ArenaCanvas {
     this.state = null;
     this.animFrame = 0;
     this.fallProgress = {}; // { team1: progress, team2: progress }
+    this.recentReactions = {}; // { [teamId]: { mood, until } }
 
     this.resize();
     window.addEventListener('resize', () => this.resize());
@@ -28,10 +29,12 @@ class ArenaCanvas {
 
   triggerFall(teamId) {
     this.fallProgress[teamId] = 1.0; // 1.0 = sedang di atas, meluncur ke 0
+    this.recentReactions[teamId] = { mood: 'ANGRY_AT_MISTAKE', until: Date.now() + 3500 };
     if (window.soundFX) window.soundFX.playWipeout();
   }
 
   triggerClimb(teamId) {
+    this.recentReactions[teamId] = { mood: 'CHEERING_FRIEND', until: Date.now() + 3500 };
     if (window.soundFX) window.soundFX.playCorrect();
   }
 
@@ -52,6 +55,9 @@ class ArenaCanvas {
     const { ctx, canvas } = this;
     const w = canvas.width;
     const h = canvas.height;
+
+    // Bersihkan frame sebelumnya
+    ctx.clearRect(0, 0, w, h);
 
     // 1. Gambar Langit Biru Gradasi Sore/Cerah
     const skyGrad = ctx.createLinearGradient(0, 0, 0, h);
@@ -164,6 +170,25 @@ class ArenaCanvas {
     }
 
     const isFalling = this.fallProgress[teamId] > 0;
+    const now = Date.now();
+
+    // Hitung Situational Mood Tim Panjat Pinang
+    let teamMood = null;
+    if (this.recentReactions[teamId] && now < this.recentReactions[teamId].until) {
+      teamMood = this.recentReactions[teamId].mood;
+    } else if (this.state.status === 'PLAYING') {
+      const progressRatio = team.currentClimbers / (team.members.length || 1);
+      if (progressRatio >= 0.75) {
+        teamMood = 'CELEBRATING_LEAD'; // Hampir sampai puncak!
+      } else {
+        // Cek apakah tertinggal jauh dari tim lain
+        const allTeams = Object.values(this.state.teams || {});
+        const maxClimbers = Math.max(...allTeams.map(t => t.currentClimbers || 0));
+        if (maxClimbers >= 4 && maxClimbers - team.currentClimbers >= 3) {
+          teamMood = 'DESPERATE_LOSING'; // Tertinggal jauh, tegang & ngotot!
+        }
+      }
+    }
 
     // E. Render Karakter yang Sudah Memeluk Pinang (Climbers)
     for (let i = 0; i < team.currentClimbers; i++) {
@@ -188,7 +213,8 @@ class ArenaCanvas {
         teamColor: team.color,
         state: charState,
         animFrame: this.animFrame,
-        facing: (i % 2 === 0) ? 1 : -1 // Selang-seling hadap kiri kanan memeluk tiang
+        facing: (i % 2 === 0) ? 1 : -1, // Selang-seling hadap kiri kanan memeluk tiang
+        situationalMood: teamMood
       });
     }
 
@@ -199,17 +225,21 @@ class ArenaCanvas {
       const member = team.members[i];
       if (!member) continue;
 
-      const queueX = queueStartX - (queueIdx * 35);
+      const queueX = queueStartX - (queueIdx * 44);
       const isCurrentTurn = (i === team.currentTurnIndex);
+      const staggeredNameOffsetY = (queueIdx % 2 === 0) ? 0 : -14;
 
       PixelSprites.drawCharacter(ctx, queueX, groundY, {
-        name: isCurrentTurn ? `👉 ${member.name}` : member.name,
+        name: member.name,
         bodyType: member.bodyType,
         skinTone: member.skinTone,
         teamColor: team.color,
         state: 'IDLE',
         animFrame: this.animFrame + (queueIdx * 5),
-        facing: 1
+        facing: 1,
+        situationalMood: teamMood,
+        nameOffsetY: staggeredNameOffsetY,
+        isCurrentTurn: isCurrentTurn
       });
       queueIdx++;
     }

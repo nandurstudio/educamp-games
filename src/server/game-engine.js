@@ -22,6 +22,9 @@ class GameEngine {
           this.durationSeconds = data.durationSeconds;
           this.remainingSeconds = data.durationSeconds;
         }
+        if (typeof data.pointsPerCorrect === 'number') {
+          this.pointsPerCorrect = data.pointsPerCorrect;
+        }
         if (Array.isArray(data.history)) {
           this.history = data.history;
         }
@@ -45,6 +48,7 @@ class GameEngine {
         mode: this.mode,
         wipeoutMode: this.wipeoutMode,
         durationSeconds: this.durationSeconds,
+        pointsPerCorrect: this.pointsPerCorrect || 100,
         history: this.history || [],
         teams: {}
       };
@@ -69,6 +73,7 @@ class GameEngine {
     this.targetHeight = 8;
     this.durationSeconds = 300; // Default 5 menit
     this.remainingSeconds = 300;
+    this.pointsPerCorrect = 100; // Default 100 poin per jawaban benar (configurable)
     this.winnerReason = null;
     this.teams = {};
     this.winner = null;
@@ -270,7 +275,7 @@ class GameEngine {
 
     if (isCorrect) {
       team.currentClimbers += 1;
-      team.score += 100;
+      team.score += (this.pointsPerCorrect || 100);
       team.streak += 1;
       climberDelta = 1;
 
@@ -330,6 +335,7 @@ class GameEngine {
       targetHeight: this.targetHeight,
       durationSeconds: this.durationSeconds,
       remainingSeconds: this.remainingSeconds,
+      pointsPerCorrect: this.pointsPerCorrect || 100,
       winnerReason: this.winnerReason,
       teams: this.teams,
       winner: this.winner,

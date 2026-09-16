@@ -107,16 +107,22 @@
             <option value="SLIP">⚠️ Slip (Turun 1 Karakter Saja)</option>
           </select>
         </div>
-        <div class="form-group">
-          <label>⏱️ Durasi Timer Selesai:</label>
-          <select id="game-duration" onchange="updateConfig()">
-            <option value="60">1 Menit (Cepat / Demo)</option>
-            <option value="180">3 Menit</option>
-            <option value="300" selected>5 Menit (Default)</option>
-            <option value="420">7 Menit</option>
-            <option value="600">10 Menit</option>
-            <option value="900">15 Menit</option>
-          </select>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label>⏱️ Durasi Timer:</label>
+            <select id="game-duration" onchange="updateConfig()">
+              <option value="60">1 Menit (Cepat / Demo)</option>
+              <option value="180">3 Menit</option>
+              <option value="300" selected>5 Menit (Default)</option>
+              <option value="420">7 Menit</option>
+              <option value="600">10 Menit</option>
+              <option value="900">15 Menit</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>⭐ Poin per Benar:</label>
+            <input type="number" id="game-points" value="100" min="10" max="1000" step="10" onchange="updateConfig()" style="font-weight: bold; color: #f1c40f;">
+          </div>
         </div>
       </div>
     </div>
@@ -314,6 +320,9 @@
     document.getElementById('wipeout-mode').value = state.wipeoutMode;
     if (state.durationSeconds) {
       document.getElementById('game-duration').value = state.durationSeconds;
+    }
+    if (state.pointsPerCorrect) {
+      document.getElementById('game-points').value = state.pointsPerCorrect;
     }
     renderAllTeamsCards();
     updateHeaderLinks();
@@ -621,7 +630,8 @@
     const mode = document.getElementById('game-mode').value;
     const wipeoutMode = document.getElementById('wipeout-mode').value;
     const durationSeconds = parseInt(document.getElementById('game-duration').value, 10);
-    socket.emit('UPDATE_CONFIG', { mode, wipeoutMode, durationSeconds });
+    const pointsPerCorrect = parseInt(document.getElementById('game-points').value, 10) || 100;
+    socket.emit('UPDATE_CONFIG', { mode, wipeoutMode, durationSeconds, pointsPerCorrect });
   }
 
   function startGame() {

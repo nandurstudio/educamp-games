@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Tablet Controller - Tarik Tambang</title>
+  <link rel="stylesheet" href="/css/controller.css">
+  <style>
+    .side-selector-card {
+      background: #1e293b;
+      border: 2px solid #334155;
+      border-radius: 16px;
+      padding: 24px;
+      width: 100%;
+      max-width: 440px;
+      text-align: center;
+    }
+    .side-choice-btn {
+      display: block;
+      width: 100%;
+      padding: 16px;
+      margin-bottom: 12px;
+      border-radius: 10px;
+      border: none;
+      font-size: 16px;
+      font-weight: bold;
+      color: white;
+      cursor: pointer;
+      transition: transform 0.15s, filter 0.15s;
+    }
+    .side-choice-btn:hover {
+      transform: translateY(-2px);
+      filter: brightness(1.1);
+    }
+    .rope-meter-mini {
+      background: #0f172a;
+      border-radius: 6px;
+      height: 8px;
+      width: 100%;
+      margin: 8px 0;
+      position: relative;
+      overflow: hidden;
+    }
+    .rope-meter-bar {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      transition: left 0.2s, width 0.2s;
+    }
+
+    /* Redesigned Center Turn Banner & Circular Timer */
+    .turn-hero-card {
+      background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+      border: 2px solid #334155;
+      border-radius: 16px;
+      padding: 12px 20px;
+      margin: 10px auto 4px auto;
+      max-width: 650px;
+      width: 95%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+    }
+    .turn-hero-info {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      flex: 1;
+    }
+    .turn-hero-label {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: #94a3b8;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .turn-hero-name {
+      font-size: 26px;
+      font-weight: 900;
+      color: #f1c40f;
+      text-shadow: 0 0 15px rgba(241, 196, 15, 0.4);
+      margin-top: 2px;
+      letter-spacing: 0.5px;
+      word-break: break-word;
+    }
+
+    /* Circular Countdown Timer */
+    .circle-timer-wrap {
+      position: relative;
+      width: 64px;
+      height: 64px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .circle-timer-svg {
+      transform: rotate(-90deg);
+      width: 64px;
+      height: 64px;
+    }
+    .circle-bg {
+      fill: none;
+      stroke: #334155;
+      stroke-width: 5;
+    }
+    .circle-progress {
+      fill: none;
+      stroke: #38bdf8;
+      stroke-width: 5;
+      stroke-linecap: round;
+      stroke-dasharray: 163.36; /* 2 * PI * 26 */
+      stroke-dashoffset: 0;
+      transition: stroke-dashoffset 0.1s linear, stroke 0.3s;
+    }
+    .circle-progress.warning {
+      stroke: #f59e0b;
+    }
+    .circle-progress.danger {
+      stroke: #ef4444;
+      filter: drop-shadow(0 0 6px rgba(239, 68, 68, 0.8));
+    }
+    .circle-timer-num {
+      position: absolute;
+      font-family: 'Courier New', monospace;
+      font-size: 18px;
+      font-weight: 900;
+      color: #ffffff;
+    }
+
+    .match-timer-badge {
+      font-family: 'Courier New', monospace;
+      font-weight: bold;
+      font-size: 16px;
+      background: #0f172a;
+      border: 1px solid #475569;
+      padding: 6px 14px;
+      border-radius: 20px;
+      color: #38bdf8;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .question-container {
+      padding: 12px 20px !important;
+      max-width: 750px !important;
+    }
+    .question-box {
+      padding: 16px 20px !important;
+      margin-bottom: 16px !important;
+    }
+    .question-text {
+      font-size: 20px !important;
+    }
+    .opt-btn {
+      padding: 16px 18px !important;
+      font-size: 18px !important;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Modal Pemilihan Sisi Tim (Kiri / Kanan) -->
+  <div class="team-selector-modal" id="side-modal">
+    <div class="side-selector-card">
+      <h2 style="margin-bottom: 8px; color: #f1c40f;">🪢 Pilih Posisi Tablet Ini</h2>
+      <p style="color: #94a3b8; font-size: 14px; margin-bottom: 20px;">Pilih sisi tim yang dipegang oleh regu ini:</p>
+      
+      <button class="side-choice-btn" id="btn-select-left" style="background: #ef4444;" onclick="selectSide('left')">
+        ◀ TIM KIRI
+      </button>
+      <button class="side-choice-btn" id="btn-select-right" style="background: #3b82f6;" onclick="selectSide('right')">
+        TIM KANAN ▶
+      </button>
+
+      <div style="margin-top: 16px; font-size: 12px; color: #64748b;">
+        © 2026 Nandur Studio. All rights reserved.
+      </div>
+    </div>
+  </div>
+
+  <!-- Header Info Tablet Controller -->
+  <div class="ctrl-header">
+    <div class="team-badge" onclick="openSideModal()" style="cursor: pointer;" title="Klik untuk ganti posisi tim">
+      <span class="team-dot" id="team-dot"></span>
+      <span id="team-name">PILIH TIM</span>
+      <span style="font-size: 11px; background: #334155; padding: 2px 6px; border-radius: 4px; color: #94a3b8; margin-left: 6px;">Ganti ▾</span>
+    </div>
+    
+    <!-- Timer Utama Menitan Pertandingan di Atas -->
+    <div class="match-timer-badge" id="match-timer-badge">
+      ⏱️ 03:00
+    </div>
+  </div>
+
+  <!-- Banner Penjawab Utama di Tengah (Besar & Jelas) + Circle Timer -->
+  <div class="turn-hero-card">
+    <div class="turn-hero-info">
+      <div class="turn-hero-label">
+        <span>🎯 GILIRAN MENJAWAB</span>
+      </div>
+      <div class="turn-hero-name" id="hero-turn-name">-</div>
+    </div>
+    
+    <!-- Circular Turn Timer -->
+    <div class="circle-timer-wrap" id="circle-timer-wrap">
+      <svg class="circle-timer-svg" viewBox="0 0 64 64">
+        <circle class="circle-bg" cx="32" cy="32" r="26"></circle>
+        <circle class="circle-progress" id="circle-progress" cx="32" cy="32" r="26"></circle>
+      </svg>
+      <div class="circle-timer-num" id="circle-timer-num">15</div>
+    </div>
+  </div>
+
+  <!-- Mini Status Tarikan Tali -->
+  <div style="padding: 4px 16px 0 16px; max-width: 650px; margin: 0 auto; width: 100%;">
+    <div style="display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8; font-family: monospace;">
+      <span id="label-left-short">KIRI</span>
+      <span id="label-offset-mini" style="color: #f1c40f;">TALI 0%</span>
+      <span id="label-right-short">KANAN</span>
+    </div>
+    <div class="rope-meter-mini">
+      <div style="position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: white;"></div>
+      <div class="rope-meter-bar" id="rope-mini-bar"></div>
+    </div>
+  </div>
+
+  <!-- Kontainer Pertanyaan & Pilihan Jawaban -->
+  <div class="question-container">
+    <div class="question-box">
+      <div class="question-text" id="question-text">Menunggu instruksi Game Master...</div>
+    </div>
+
+    <div class="options-grid" id="options-grid">
+      <button class="opt-btn" onclick="submitAnswer(0)">
+        <span class="opt-letter">A</span>
+        <span class="opt-text" id="opt-0">-</span>
+      </button>
+      <button class="opt-btn" onclick="submitAnswer(1)">
+        <span class="opt-letter">B</span>
+        <span class="opt-text" id="opt-1">-</span>
+      </button>
+      <button class="opt-btn" onclick="submitAnswer(2)">
+        <span class="opt-letter">C</span>
+        <span class="opt-text" id="opt-2">-</span>
+      </button>
+      <button class="opt-btn" onclick="submitAnswer(3)">
+        <span class="opt-letter">D</span>
+        <span class="opt-text" id="opt-3">-</span>
+      </button>
+    </div>
+
+    <div style="text-align: center; margin-top: 16px; font-size: 12px; color: #475569;">
+      © 2026 Nandur Studio. All rights reserved.
+    </div>
+  </div>
+
+  <!-- Overlay Feedback Jawaban -->
+  <div class="feedback-overlay" id="feedback-overlay">
+    <div class="feedback-content">
+      <h2 id="feedback-title">✅ BENAR!</h2>
+      <p id="feedback-sub">Tali berhasil ditarik!</p>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const urlParams = new URLSearchParams(window.location.search);
+    let currentSide = urlParams.get('side'); // 'left' atau 'right'
+    let gameState = null;
+    let isSubmitting = false;
+
+    const sideModal = document.getElementById('side-modal');
+    const teamNameEl = document.getElementById('team-name');
+    const teamDotEl = document.getElementById('team-dot');
+    const heroTurnNameEl = document.getElementById('hero-turn-name');
+    const matchTimerBadge = document.getElementById('match-timer-badge');
+    const circleProgress = document.getElementById('circle-progress');
+    const circleTimerNum = document.getElementById('circle-timer-num');
+    const circleTimerWrap = document.getElementById('circle-timer-wrap');
+    const questionTextEl = document.getElementById('question-text');
+    const feedbackOverlay = document.getElementById('feedback-overlay');
+    const feedbackTitle = document.getElementById('feedback-title');
+    const feedbackSub = document.getElementById('feedback-sub');
+
+    const labelLeftShort = document.getElementById('label-left-short');
+    const labelRightShort = document.getElementById('label-right-short');
+    const labelOffsetMini = document.getElementById('label-offset-mini');
+    const ropeMiniBar = document.getElementById('rope-mini-bar');
+
+    const CIRCUMFERENCE = 2 * Math.PI * 26; // ~163.36
+    let turnTimerInterval = null;
+
+    function formatTime(sec) {
+      const m = Math.floor(sec / 60).toString().padStart(2, '0');
+      const s = (sec % 60).toString().padStart(2, '0');
+      return `⏱️ ${m}:${s}`;
+    }
+
+    function openSideModal() {
+      sideModal.style.display = 'flex';
+    }
+
+    function selectSide(side) {
+      currentSide = side;
+      sideModal.style.display = 'none';
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.set('side', side);
+      window.history.replaceState({}, '', newUrl);
+
+      // Jika gameState belum terisi, fetch langsung
+      if (!gameState) {
+        fetch('/api/tug/state')
+          .then(r => r.json())
+          .then(state => {
+            gameState = state;
+            updateUI();
+          })
+          .catch(() => {});
+      } else {
+        updateUI();
+      }
+    }
+
+    // Auto-fetch state awal saat pertama buka
+    fetch('/api/tug/state')
+      .then(r => r.json())
+      .then(state => {
+        gameState = state;
+        updateModalButtons(state);
+        updateUI();
+      })
+      .catch(() => {});
+
+    function updateModalButtons(state) {
+      const btnLeft = document.getElementById('btn-select-left');
+      const btnRight = document.getElementById('btn-select-right');
+      if (btnLeft && state.teamLeft) {
+        btnLeft.textContent = `◀ ${state.teamLeft.name.toUpperCase()} (KIRI)`;
+        btnLeft.style.background = state.teamLeft.color;
+      }
+      if (btnRight && state.teamRight) {
+        btnRight.textContent = `${state.teamRight.name.toUpperCase()} (KANAN) ▶`;
+        btnRight.style.background = state.teamRight.color;
+      }
+    }
+
+    socket.on('connect', () => {
+      fetch('/api/tug/state').then(r => r.json()).then(state => {
+        gameState = state;
+        updateModalButtons(state);
+        updateUI();
+      }).catch(() => {});
+    });
+
+    socket.on('TUG_STATE_UPDATE', (state) => {
+      gameState = state;
+      updateModalButtons(state);
+
+      if (!currentSide || (currentSide !== 'left' && currentSide !== 'right')) {
+        openSideModal();
+      } else {
+        sideModal.style.display = 'none';
+      }
+
+      updateUI();
+    });
+
+    socket.on('TUG_TIMER_TICK', (data) => {
+      if (matchTimerBadge && typeof data.remainingSeconds === 'number') {
+        matchTimerBadge.textContent = formatTime(data.remainingSeconds);
+        if (data.remainingSeconds <= 30) {
+          matchTimerBadge.style.color = '#ef4444';
+          matchTimerBadge.style.borderColor = '#ef4444';
+        } else {
+          matchTimerBadge.style.color = '#38bdf8';
+          matchTimerBadge.style.borderColor = '#475569';
+        }
+      }
+    });
+
+    socket.on('TUG_ANSWER_RESULT', (res) => {
+      if (res.side === currentSide) {
+        showFeedback(res);
+      }
+      // Reset & mulai ulang animasi circle timer tiap kali ada giliran baru / jawaban masuk
+      startTurnTimer();
+    });
+
+    function startTurnTimer() {
+      if (turnTimerInterval) {
+        clearInterval(turnTimerInterval);
+        turnTimerInterval = null;
+      }
+
+      if (!gameState || gameState.status !== 'PLAYING') {
+        circleTimerNum.textContent = '--';
+        circleProgress.style.strokeDashoffset = '0';
+        return;
+      }
+
+      const totalTimeout = typeof gameState.turnTimeoutSeconds === 'number' ? gameState.turnTimeoutSeconds : 15;
+      if (totalTimeout <= 0) {
+        // Disabled: tampilkan ikon infinity
+        circleTimerNum.textContent = '∞';
+        circleProgress.classList.remove('warning', 'danger');
+        circleProgress.style.strokeDashoffset = '0';
+        return;
+      }
+
+      const myTeam = (currentSide === 'left') ? gameState.teamLeft : gameState.teamRight;
+      const startTime = (myTeam && myTeam.questionStartTime) ? myTeam.questionStartTime : Date.now();
+
+      function tickCircle() {
+        const elapsed = (Date.now() - startTime) / 1000;
+        const remain = Math.max(0, totalTimeout - elapsed);
+        const fraction = remain / totalTimeout;
+        const offset = CIRCUMFERENCE * (1 - fraction);
+
+        circleProgress.style.strokeDashoffset = offset.toString();
+        circleTimerNum.textContent = Math.ceil(remain);
+
+        circleProgress.classList.remove('warning', 'danger');
+        if (remain <= 3) {
+          circleProgress.classList.add('danger');
+        } else if (remain <= totalTimeout * 0.45) {
+          circleProgress.classList.add('warning');
+        }
+
+        if (remain <= 0) {
+          clearInterval(turnTimerInterval);
+          turnTimerInterval = null;
+        }
+      }
+
+      tickCircle();
+      turnTimerInterval = setInterval(tickCircle, 100);
+    }
+
+    function updateUI() {
+      if (!gameState || !currentSide) return;
+      const myTeam = (currentSide === 'left') ? gameState.teamLeft : gameState.teamRight;
+      if (!myTeam) return;
+
+      teamNameEl.textContent = `${myTeam.name} (${currentSide === 'left' ? 'KIRI' : 'KANAN'})`;
+      teamDotEl.style.backgroundColor = myTeam.color;
+
+      const currentMember = myTeam.members[myTeam.currentTurnIndex];
+      heroTurnNameEl.textContent = currentMember ? currentMember.name.toUpperCase() : '-';
+
+      // Update Timer Utama Menitan Pertandingan
+      if (typeof gameState.remainingSeconds === 'number') {
+        matchTimerBadge.textContent = formatTime(gameState.remainingSeconds);
+      }
+
+      // Update Mini Meter
+      if (gameState.teamLeft) labelLeftShort.textContent = gameState.teamLeft.name;
+      if (gameState.teamRight) labelRightShort.textContent = gameState.teamRight.name;
+      const offset = gameState.ropeOffset || 0;
+      if (offset < 0) {
+        labelOffsetMini.textContent = `◀ KIRI ${Math.abs(offset)}%`;
+        labelOffsetMini.style.color = '#ef4444';
+        ropeMiniBar.style.left = `${50 + (offset / 2)}%`;
+        ropeMiniBar.style.width = `${Math.abs(offset) / 2}%`;
+        ropeMiniBar.style.background = '#ef4444';
+      } else if (offset > 0) {
+        labelOffsetMini.textContent = `KANAN ${offset}% ▶`;
+        labelOffsetMini.style.color = '#3b82f6';
+        ropeMiniBar.style.left = '50%';
+        ropeMiniBar.style.width = `${offset / 2}%`;
+        ropeMiniBar.style.background = '#3b82f6';
+      } else {
+        labelOffsetMini.textContent = '0%';
+        labelOffsetMini.style.color = '#f1c40f';
+        ropeMiniBar.style.left = '50%';
+        ropeMiniBar.style.width = '2px';
+        ropeMiniBar.style.background = 'white';
+      }
+
+      if (gameState.status !== 'PLAYING') {
+        if (gameState.status === 'PAUSED') {
+          questionTextEl.textContent = "⏸️ Pertandingan Sedang Di-jeda (PAUSED) oleh Admin...";
+        } else if (gameState.status === 'FINISHED') {
+          questionTextEl.textContent = "🏁 Pertandingan Tarik Tambang Selesai!";
+        } else {
+          questionTextEl.textContent = "⏳ Menunggu Game Master Memulai Pertandingan (Klik 'Mulai Game')...";
+        }
+        document.getElementById('options-grid').style.opacity = '0.25';
+        document.getElementById('options-grid').style.pointerEvents = 'none';
+        circleTimerNum.textContent = '--';
+        circleProgress.style.strokeDashoffset = '0';
+        if (turnTimerInterval) {
+          clearInterval(turnTimerInterval);
+          turnTimerInterval = null;
+        }
+        return;
+      }
+
+      document.getElementById('options-grid').style.opacity = '1';
+      document.getElementById('options-grid').style.pointerEvents = 'auto';
+
+      if (myTeam.activeQuestion) {
+        questionTextEl.textContent = myTeam.activeQuestion.question;
+        myTeam.activeQuestion.options.forEach((opt, idx) => {
+          const el = document.getElementById(`opt-${idx}`);
+          if (el) el.textContent = opt;
+        });
+      }
+
+      startTurnTimer();
+    }
+
+    function submitAnswer(idx) {
+      if (isSubmitting || gameState?.status !== 'PLAYING') return;
+      isSubmitting = true;
+
+      if (navigator.vibrate) navigator.vibrate(60);
+
+      socket.emit('TUG_SUBMIT_ANSWER', {
+        side: currentSide,
+        selectedIndex: idx
+      });
+
+      document.getElementById('options-grid').style.pointerEvents = 'none';
+    }
+
+    function showFeedback(res) {
+      feedbackOverlay.classList.remove('feedback-correct', 'feedback-wrong');
+
+      if (res.eventType === 'TIMEOUT_PENALTY' || res.reason === 'TIMEOUT_TURN') {
+        const penVal = res.penaltyPercent || 8;
+        feedbackOverlay.classList.add('feedback-wrong');
+        feedbackTitle.textContent = "⏳ WAKTU HABIS!";
+        feedbackSub.textContent = `Penalti tersentak -${penVal}%! Giliran berganti.`;
+        if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+      } else if (res.isCorrect) {
+        feedbackOverlay.classList.add('feedback-correct');
+        feedbackTitle.textContent = "✅ JAWABAN BENAR!";
+        feedbackSub.textContent = `${res.answeredBy} berhasil menarik tali!`;
+      } else {
+        feedbackOverlay.classList.add('feedback-wrong');
+        feedbackTitle.textContent = "💥 JAWABAN SALAH!";
+        feedbackSub.textContent = "Regu tergelincir ke arah lawan!";
+        if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+      }
+
+      feedbackOverlay.classList.add('show');
+
+      setTimeout(() => {
+        feedbackOverlay.classList.remove('show');
+        isSubmitting = false;
+        document.getElementById('options-grid').style.pointerEvents = 'auto';
+        updateUI();
+      }, 1600);
+    }
+  </script>
+</body>
+</html>

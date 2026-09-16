@@ -24,37 +24,47 @@ Format output WAJIB HANYA berupa JSON valid ARRAY murni tanpa markdown, tanpa te
 ]
 Catatan Penting: "correctIndex" adalah integer 0 (A), 1 (B), 2 (C), atau 3 (D). WAJIB acak posisi jawaban benar secara merata di antara index 0, 1, 2, dan 3 (JANGAN SEMUANYA DI INDEX 0 / PILIHAN A). Pastikan pilihan jawaban mengecoh dan realistis.`;
 
-  // Menggunakan REST endpoint Gemini via fetch natif (didukung di Node 18+)
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeKey}`;
+  const candidateModels = [
+    'gemini-2.5-flash',
+    'gemini-1.5-flash-latest',
+    'gemini-1.5-flash',
+    'gemini-pro'
+  ];
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      contents: [
-        {
-          parts: [{ text: prompt }]
-        }
-      ],
-      generationConfig: {
-        temperature: 0.7,
-        responseMimeType: "application/json"
+  let lastError = null;
+  let rawText = null;
+
+  for (const modelName of candidateModels) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.7,
+            responseMimeType: "application/json"
+          }
+        })
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        lastError = new Error(`Model ${modelName} (${response.status}): ${errText}`);
+        continue;
       }
-    })
-  });
 
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Google AI Studio Error (${response.status}): ${errText}`);
+      const data = await response.json();
+      rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (rawText) break;
+    } catch (e) {
+      lastError = e;
+    }
   }
 
-  const data = await response.json();
-  const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-
   if (!rawText) {
-    throw new Error("Gagal menerima respon teks dari Google AI Studio.");
+    throw lastError || new Error("Gagal menerima respon teks dari Google AI Studio.");
   }
 
   try {

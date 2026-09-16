@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arena Tarik Tambang Virtual - Educamp</title>
+  <link rel="stylesheet" href="/css/arena.css">
+  <style>
+    .tug-hud-meter {
+      position: absolute;
+      top: 82px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 520px;
+      max-width: 90vw;
+      background: rgba(15, 23, 42, 0.92);
+      border: 2px solid #334155;
+      border-radius: 12px;
+      padding: 8px 16px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.6);
+      backdrop-filter: blur(8px);
+      z-index: 100;
+    }
+    .tug-bar-track {
+      position: relative;
+      height: 18px;
+      background: #0f172a;
+      border-radius: 9px;
+      overflow: hidden;
+      margin-top: 6px;
+      border: 1px solid #475569;
+    }
+    .tug-bar-center {
+      position: absolute;
+      left: 50%;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: #ffffff;
+      z-index: 5;
+    }
+    .tug-bar-indicator {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      transition: left 0.15s ease-out, width 0.15s ease-out;
+      border-radius: 8px;
+    }
+    .tug-team-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      font-weight: bold;
+      font-family: 'Courier New', monospace;
+    }
+
+    /* Dual Team Live Answer Logs */
+    .team-live-log {
+      position: absolute;
+      top: 155px;
+      width: 260px;
+      max-height: 250px;
+      background: rgba(15, 23, 42, 0.82);
+      border-radius: 10px;
+      padding: 10px 12px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(6px);
+      z-index: 90;
+      display: flex;
+      flex-direction: column;
+      pointer-events: auto;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .team-live-log.left-log {
+      left: 18px;
+      border: 1px solid rgba(239, 68, 68, 0.45);
+      border-left: 4px solid #ef4444;
+    }
+    .team-live-log.right-log {
+      right: 18px;
+      border: 1px solid rgba(59, 130, 246, 0.45);
+      border-right: 4px solid #3b82f6;
+    }
+    .team-live-log .log-title {
+      font-size: 11px;
+      font-weight: bold;
+      font-family: 'Courier New', monospace;
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px solid #334155;
+      padding-bottom: 4px;
+    }
+    .team-live-log .log-list {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      overflow-y: auto;
+      flex: 1;
+      max-height: 200px;
+    }
+    .log-item {
+      font-size: 11px;
+      padding: 4px 6px;
+      border-radius: 4px;
+      background: rgba(30, 41, 59, 0.7);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      animation: fadeInLog 0.25s ease-out;
+    }
+    .log-item.correct {
+      border-left: 3px solid #2ecc71;
+      color: #86efac;
+    }
+    .log-item.wrong {
+      border-left: 3px solid #ef4444;
+      color: #fca5a5;
+    }
+    .log-item.timeout {
+      border-left: 3px solid #f59e0b;
+      color: #fde047;
+    }
+    @keyframes fadeInLog {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Layar Canvas Tarik Tambang -->
+  <canvas id="tug-canvas"></canvas>
+
+  <!-- Dual Team Live Answer Logs -->
+  <div class="team-live-log left-log" id="panel-left-log">
+    <div class="log-title" style="color: #ef4444;">
+      <span id="left-log-title">◀ LOG QATRA</span>
+      <span style="font-size: 10px; color: #94a3b8;">LIVE</span>
+    </div>
+    <div class="log-list" id="left-log-list">
+      <div style="color: #64748b; font-size: 11px; font-style: italic; text-align: center; padding: 10px;">Menunggu jawaban...</div>
+    </div>
+  </div>
+
+  <div class="team-live-log right-log" id="panel-right-log">
+    <div class="log-title" style="color: #3b82f6;">
+      <span style="font-size: 10px; color: #94a3b8;">LIVE</span>
+      <span id="right-log-title">LOG V-BOM ▶</span>
+    </div>
+    <div class="log-list" id="right-log-list">
+      <div style="color: #64748b; font-size: 11px; font-style: italic; text-align: center; padding: 10px;">Menunggu jawaban...</div>
+    </div>
+  </div>
+
+  <!-- HUD Atas -->
+  <div class="arena-hud">
+    <div class="hud-left" style="display: flex; gap: 10px; align-items: center; pointer-events: auto;">
+      <a href="/index.html" class="hud-badge hud-btn" style="text-decoration: none;">🏠 Lobby</a>
+      <div class="hud-badge timer-badge" id="timer-badge">⏱️ 03:00</div>
+    </div>
+    <div class="hud-title">🪢 TARIK TAMBANG VIRTUAL EDUCAMP 🪢</div>
+    <div class="hud-right" style="display: flex; gap: 10px; align-items: center; pointer-events: auto;">
+      <button onclick="toggleHistoryModal(true)" class="hud-badge hud-btn" title="Lihat Riwayat Sesi Pertandingan">
+        📜 Riwayat
+      </button>
+      <button id="btn-bgm" onclick="toggleBGM()" class="hud-badge hud-btn" title="Nyalakan/Matikan Musik 8-bit Agustusan">
+        🎵 BGM 8-Bit: ON
+      </button>
+      <div class="hud-badge" id="status-badge">STATUS: STANDBY</div>
+    </div>
+  </div>
+
+  <!-- Indikator Posisi Tali Horizontal -->
+  <div class="tug-hud-meter">
+    <div class="tug-team-header">
+      <span id="label-team-left" style="color: #ef4444;">◀ TIM KIRI</span>
+      <span id="label-rope-status" style="color: #f1c40f;">TALI NETRAL (0%)</span>
+      <span id="label-team-right" style="color: #3b82f6;">TIM KANAN ▶</span>
+    </div>
+    <div class="tug-bar-track">
+      <div class="tug-bar-center"></div>
+      <div class="tug-bar-indicator" id="tug-indicator"></div>
+    </div>
+  </div>
+
+  <!-- Event Ticker Notifikasi (Bawah) -->
+  <div class="event-ticker" id="event-ticker">Selamat bertanding Tarik Tambang! Bersiaplah menarik!</div>
+
+  <!-- Modal Riwayat Sesi Tarik Tambang -->
+  <div id="arena-history-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 9999; justify-content: center; align-items: center; padding: 30px; backdrop-filter: blur(6px);">
+    <div style="background: #1e293b; border: 2px solid #f1c40f; border-radius: 16px; width: 100%; max-width: 900px; max-height: 85vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.8);">
+      <div style="padding: 16px 24px; background: #0f172a; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center;">
+        <h2 style="font-size: 20px; color: #f1c40f; font-family: 'Courier New', monospace; margin: 0;">📜 RIWAYAT TARIK TAMBANG (HALL OF FAME)</h2>
+        <button onclick="toggleHistoryModal(false)" style="background: #ef4444; color: white; border: none; padding: 6px 14px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 14px;">✕ Tutup</button>
+      </div>
+      <div style="padding: 20px; overflow-y: auto; flex: 1;">
+        <div id="arena-history-content" style="color: #cbd5e1; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          Memuat riwayat...
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Watermark Copyright Nandur Studio -->
+  <div style="position: absolute; bottom: 10px; right: 15px; color: rgba(255, 255, 255, 0.4); font-size: 12px; pointer-events: none; font-family: 'Courier New', monospace;">
+    © 2026 Nandur Studio
+  </div>
+
+  <!-- Scripts -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/audio-fx.js"></script>
+  <script src="/js/pixel-sprites.js"></script>
+  <script src="/js/tug-canvas.js"></script>
+  <script>
+    const socket = io();
+    const canvasEl = document.getElementById('tug-canvas');
+    const tugCanvas = new TugCanvas(canvasEl);
+
+    const statusBadge = document.getElementById('status-badge');
+    const timerBadge = document.getElementById('timer-badge');
+    const ticker = document.getElementById('event-ticker');
+    const btnBgm = document.getElementById('btn-bgm');
+
+    const labelTeamLeft = document.getElementById('label-team-left');
+    const labelTeamRight = document.getElementById('label-team-right');
+    const labelRopeStatus = document.getElementById('label-rope-status');
+    const tugIndicator = document.getElementById('tug-indicator');
+
+    let bgmEnabled = true;
+    let latestHistory = [];
+
+    function formatTime(sec) {
+      const m = Math.floor(sec / 60).toString().padStart(2, '0');
+      const s = (sec % 60).toString().padStart(2, '0');
+      return `⏱️ ${m}:${s}`;
+    }
+
+    function toggleBGM() {
+      bgmEnabled = !bgmEnabled;
+      if (!window.soundFX) return;
+      if (bgmEnabled) {
+        btnBgm.textContent = "🎵 BGM 8-Bit: ON";
+        btnBgm.style.borderColor = "#2ecc71";
+        btnBgm.style.color = "#2ecc71";
+        if (tugCanvas.state && tugCanvas.state.status === 'PLAYING') {
+          window.soundFX.start8BitAgustusanBGM();
+        }
+      } else {
+        btnBgm.textContent = "🔇 BGM 8-Bit: OFF";
+        btnBgm.style.borderColor = "#95a5a6";
+        btnBgm.style.color = "#bdc3c7";
+        window.soundFX.stop8BitAgustusanBGM();
+      }
+    }
+
+    function showTicker(msg, isSlip = false) {
+      ticker.textContent = msg;
+      ticker.className = `event-ticker show ${isSlip ? 'wipeout' : ''}`;
+      setTimeout(() => ticker.classList.remove('show'), 3200);
+    }
+
+    function toggleHistoryModal(show) {
+      const modal = document.getElementById('arena-history-modal');
+      if (modal) {
+        modal.style.display = show ? 'flex' : 'none';
+        if (show) renderArenaHistory(latestHistory);
+      }
+    }
+
+    function renderArenaHistory(historyList) {
+      const container = document.getElementById('arena-history-content');
+      if (!container) return;
+
+      if (!Array.isArray(historyList) || historyList.length === 0) {
+        container.innerHTML = `
+          <div style="text-align: center; padding: 40px; color: #64748b; font-size: 16px;">
+            Belum ada data sesi Tarik Tambang tersimpan. Mainkan satu pertandingan untuk melihat rekap di sini!
+          </div>
+        `;
+        return;
+      }
+
+      let html = '<div style="display: flex; flex-direction: column; gap: 14px;">';
+      historyList.forEach((sess, idx) => {
+        const dateObj = new Date(sess.timestamp);
+        const timeStr = dateObj.toLocaleDateString('id-ID', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        }) + ' ' + dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+
+        const elapsedMin = Math.floor(sess.elapsedSeconds / 60);
+        const elapsedSec = (sess.elapsedSeconds % 60).toString().padStart(2, '0');
+
+        html += `
+          <div style="background: #0f172a88; border: 1px solid #334155; border-radius: 10px; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+                <span style="font-weight: bold; color: #f1c40f; font-family: 'Courier New', monospace;">#${historyList.length - idx}</span>
+                <span style="font-size: 13px; color: #94a3b8;">${timeStr}</span>
+                <span style="color: #cbd5e1; font-size: 13px; font-family: monospace;">⏱️ ${elapsedMin}m ${elapsedSec}s</span>
+              </div>
+              <div style="font-size: 18px; font-weight: bold; color: ${sess.winner ? sess.winner.color : '#cbd5e1'};">
+                👑 JUARA: ${sess.winner ? sess.winner.name : 'SERI (SEIMBANG)'} 
+                <span style="font-size: 12px; font-weight: normal; color: #94a3b8;">(${sess.winnerReason === 'KNOCKOUT' ? 'Tarik Melewati Garis Batas' : 'Unggul Jarak Saat Waktu Habis'})</span>
+              </div>
+            </div>
+            <div style="display: flex; gap: 10px;">
+              <span style="background: #0f172a; border-left: 4px solid ${sess.scores.left.color}; padding: 6px 12px; border-radius: 6px; font-size: 13px;">
+                ${sess.scores.left.name}: ${sess.scores.left.score} pts
+              </span>
+              <span style="background: #0f172a; border-left: 4px solid ${sess.scores.right.color}; padding: 6px 12px; border-radius: 6px; font-size: 13px;">
+                ${sess.scores.right.name}: ${sess.scores.right.score} pts
+              </span>
+            </div>
+          </div>
+        `;
+      });
+      html += '</div>';
+      container.innerHTML = html;
+    }
+
+    // Sambung WebSocket
+    fetch('/api/tug/history').then(r => r.json()).then(d => {
+      if (d && Array.isArray(d.history)) latestHistory = d.history;
+    }).catch(() => {});
+
+    socket.on('connect', () => {
+      fetch('/api/tug/history').then(r => r.json()).then(d => {
+        if (d && Array.isArray(d.history)) latestHistory = d.history;
+      }).catch(() => {});
+    });
+
+    socket.on('TUG_STATE_UPDATE', (state) => {
+      tugCanvas.updateState(state);
+      statusBadge.textContent = `STATUS: ${state.status}`;
+
+      if (state.teamLeft) {
+        labelTeamLeft.textContent = `◀ ${state.teamLeft.name.toUpperCase()}`;
+        const titleEl = document.getElementById('left-log-title');
+        if (titleEl) titleEl.textContent = `◀ LOG ${state.teamLeft.name.toUpperCase()}`;
+      }
+      if (state.teamRight) {
+        labelTeamRight.textContent = `${state.teamRight.name.toUpperCase()} ▶`;
+        const titleEl = document.getElementById('right-log-title');
+        if (titleEl) titleEl.textContent = `LOG ${state.teamRight.name.toUpperCase()} ▶`;
+      }
+
+      // Update Bar Meter
+      const offset = state.ropeOffset || 0; // -100 s/d +100
+      if (offset < 0) {
+        labelRopeStatus.textContent = `◀ KEUNGGULAN KIRI ${Math.abs(offset)}%`;
+        labelRopeStatus.style.color = '#ef4444';
+        tugIndicator.style.left = `${50 + (offset / 2)}%`;
+        tugIndicator.style.width = `${Math.abs(offset) / 2}%`;
+        tugIndicator.style.background = '#ef4444';
+      } else if (offset > 0) {
+        labelRopeStatus.textContent = `KEUNGGULAN KANAN ${offset}% ▶`;
+        labelRopeStatus.style.color = '#3b82f6';
+        tugIndicator.style.left = '50%';
+        tugIndicator.style.width = `${offset / 2}%`;
+        tugIndicator.style.background = '#3b82f6';
+      } else {
+        labelRopeStatus.textContent = 'TALI NETRAL (0%)';
+        labelRopeStatus.style.color = '#f1c40f';
+        tugIndicator.style.left = '50%';
+        tugIndicator.style.width = '2px';
+        tugIndicator.style.background = '#ffffff';
+      }
+
+      if (typeof state.remainingSeconds === 'number') {
+        timerBadge.textContent = formatTime(state.remainingSeconds);
+        if (state.remainingSeconds <= 30 && state.status === 'PLAYING') {
+          timerBadge.classList.add('urgent');
+        } else {
+          timerBadge.classList.remove('urgent');
+        }
+      }
+
+      if (Array.isArray(state.history)) {
+        latestHistory = state.history;
+      }
+
+      if (state.status === 'FINISHED' || state.status === 'WAITING') {
+        if (window.soundFX) window.soundFX.stop8BitAgustusanBGM();
+      }
+    });
+
+    socket.on('TUG_GAME_STARTED', () => {
+      // Bersihkan log saat pertandingan baru dimulai
+      const lList = document.getElementById('left-log-list');
+      const rList = document.getElementById('right-log-list');
+      if (lList) lList.innerHTML = '';
+      if (rList) rList.innerHTML = '';
+
+      if (window.soundFX && bgmEnabled) {
+        window.soundFX.start8BitAgustusanBGM();
+      }
+      showTicker("🚩 PERTANDINGAN TARIK TAMBANG DIMULAI! AYO TARIK SEKUAT TENAGA!");
+    });
+
+    socket.on('TUG_GAME_RESET', () => {
+      if (window.soundFX) window.soundFX.stop8BitAgustusanBGM();
+      timerBadge.classList.remove('urgent');
+      showTicker("🔄 Tarik Tambang di-reset oleh Admin.");
+      const lList = document.getElementById('left-log-list');
+      const rList = document.getElementById('right-log-list');
+      if (lList) lList.innerHTML = '<div style="color: #64748b; font-size: 11px; font-style: italic; text-align: center; padding: 10px;">Menunggu jawaban...</div>';
+      if (rList) rList.innerHTML = '<div style="color: #64748b; font-size: 11px; font-style: italic; text-align: center; padding: 10px;">Menunggu jawaban...</div>';
+    });
+
+    socket.on('TUG_GAME_PAUSED', () => {
+      showTicker("⏸️ PERTANDINGAN DI-JEDA (PAUSED) OLEH ADMIN.");
+      if (window.soundFX) window.soundFX.stop8BitAgustusanBGM();
+    });
+
+    socket.on('TUG_GAME_RESUMED', () => {
+      showTicker("▶️ PERTANDINGAN DILANJUTKAN!");
+      if (window.soundFX && bgmEnabled) window.soundFX.start8BitAgustusanBGM();
+    });
+
+    socket.on('TUG_TIMER_TICK', (data) => {
+      timerBadge.textContent = formatTime(data.remainingSeconds);
+      if (data.remainingSeconds <= 30) {
+        timerBadge.classList.add('urgent');
+      } else {
+        timerBadge.classList.remove('urgent');
+      }
+    });
+
+    function appendTeamLog(side, htmlContent) {
+      const listEl = document.getElementById(side === 'left' ? 'left-log-list' : 'right-log-list');
+      if (!listEl) return;
+      // Hapus pesan placeholder jika ada
+      if (listEl.children.length === 1 && listEl.children[0].textContent.includes('Menunggu')) {
+        listEl.innerHTML = '';
+      }
+      const itemEl = document.createElement('div');
+      itemEl.innerHTML = htmlContent;
+      listEl.insertBefore(itemEl.firstElementChild, listEl.firstChild);
+      // Batasi maksimal 15 baris log per tim
+      while (listEl.children.length > 15) {
+        listEl.removeChild(listEl.lastChild);
+      }
+    }
+
+    socket.on('TUG_ANSWER_RESULT', (res) => {
+      tugCanvas.triggerPullEffect(res.side, !res.isCorrect);
+
+      if (res.eventType === 'TIMEOUT_PENALTY' || res.reason === 'TIMEOUT_10S' || res.reason === 'TIMEOUT_TURN') {
+        const secLabel = res.timeoutSeconds ? `${res.timeoutSeconds}s` : 'Waktu Habis';
+        const penVal = res.penaltyPercent || 8;
+        showTicker(`⏳ ${res.answeredBy} (${res.teamName}) WAKTU HABIS (${secLabel})! Penalti tersentak -${penVal}%!`, true);
+        appendTeamLog(res.side, `
+          <div class="log-item timeout">
+            <span>⏳ <b>${res.answeredBy}</b> (${secLabel})</span>
+            <span>-${penVal}%</span>
+          </div>
+        `);
+      } else if (res.isCorrect) {
+        showTicker(`✅ ${res.answeredBy} (${res.teamName}) BENAR! Tali tersentak ke arah tim!`);
+        appendTeamLog(res.side, `
+          <div class="log-item correct">
+            <span>✅ <b>${res.answeredBy}</b></span>
+            <span>+Tarikan</span>
+          </div>
+        `);
+      } else {
+        showTicker(`💥 ${res.answeredBy} (${res.teamName}) SALAH! Tergelincir ke arah lawan!`, true);
+        appendTeamLog(res.side, `
+          <div class="log-item wrong">
+            <span>❌ <b>${res.answeredBy}</b></span>
+            <span>-Tergelincir</span>
+          </div>
+        `);
+      }
+    });
+
+    socket.on('TUG_GAME_OVER', ({ winner, reason }) => {
+      if (window.soundFX) {
+        window.soundFX.stop8BitAgustusanBGM();
+        // Mainkan suara BGM kemenangan / Fanfare Juara
+        setTimeout(() => {
+          window.soundFX.playVictory();
+        }, 150);
+      }
+
+      if (reason === 'KNOCKOUT') {
+        showTicker(`🏆 KALAH TELAK! ${winner ? winner.name.toUpperCase() : ''} MENARIK TALI MELEWATI GARIS!`);
+      } else if (reason === 'STOPPED_BY_ADMIN') {
+        showTicker(`⏹️ PERTANDINGAN DIHENTIKAN ADMIN! Pemenang: ${winner ? winner.name.toUpperCase() : 'SERI'}!`);
+      } else {
+        showTicker(`⏰ WAKTU HABIS! Pemenang: ${winner ? winner.name.toUpperCase() : 'SERI'}!`, true);
+      }
+    });
+
+    window.addEventListener('click', () => {
+      if (window.soundFX) window.soundFX.init();
+    }, { once: true });
+  </script>
+</body>
+</html>
