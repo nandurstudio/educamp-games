@@ -126,6 +126,139 @@ class SoundFX {
 
       t += note.d + 0.05;
     });
+    this.bgmPlaying = false;
+    this.bgmTimeout = null;
+    this.bgmMasterGain = null;
+    this.activeNodes = [];
+  }
+
+  // Melodi 8-bit Chiptune: Hari Merdeka (Tujuh belas agustus tahun empat lima...)
+  start8BitAgustusanBGM() {
+    this.init();
+    if (this.bgmPlaying) return;
+    this.bgmPlaying = true;
+
+    // Master Gain khusus BGM agar bisa di-mute / stop seketika
+    this.bgmMasterGain = this.ctx.createGain();
+    this.bgmMasterGain.gain.setValueAtTime(0.18, this.ctx.currentTime);
+    this.bgmMasterGain.connect(this.ctx.destination);
+
+    // Frekuensi Nada (Hz)
+    const N = {
+      C4: 261.63, D4: 293.66, E4: 329.63, F4: 349.23, G4: 392.00, A4: 440.00, B4: 493.88,
+      C5: 523.25, D5: 587.33, E5: 659.25, F5: 698.46, G5: 783.99, A5: 880.00,
+      REST: 0
+    };
+
+    // Partitur Melodi Hari Merdeka 8-bit tempo cepat & bersemangat
+    const melody = [
+      // Tu-juh be-las a-gus-tus ta-hun em-pat li-ma
+      { f: N.G4, d: 0.2 }, { f: N.G4, d: 0.2 }, { f: N.E4, d: 0.2 }, { f: N.F4, d: 0.2 },
+      { f: N.G4, d: 0.3 }, { f: N.C5, d: 0.3 }, { f: N.G4, d: 0.4 }, { f: N.REST, d: 0.1 },
+      // I-tu-lah ha-ri ke-mer-de-ka-an ki-ta
+      { f: N.E4, d: 0.2 }, { f: N.F4, d: 0.2 }, { f: N.G4, d: 0.2 }, { f: N.E4, d: 0.2 },
+      { f: N.F4, d: 0.3 }, { f: N.D4, d: 0.3 }, { f: N.C4, d: 0.4 }, { f: N.REST, d: 0.1 },
+      // Ha-ri mer-de-ka nu-sa dan bang-sa
+      { f: N.G4, d: 0.25 }, { f: N.G4, d: 0.25 }, { f: N.A4, d: 0.25 }, { f: N.B4, d: 0.25 },
+      { f: N.C5, d: 0.4 }, { f: N.G4, d: 0.4 }, { f: N.REST, d: 0.1 },
+      // Ha-ri la-hir-nya bang-sa In-do-ne-sia
+      { f: N.A4, d: 0.25 }, { f: N.G4, d: 0.25 }, { f: N.F4, d: 0.25 }, { f: N.E4, d: 0.25 },
+      { f: N.D4, d: 0.6 }, { f: N.REST, d: 0.15 },
+      // Mer-de-ka!
+      { f: N.G4, d: 0.3 }, { f: N.C5, d: 0.6 }, { f: N.REST, d: 0.1 },
+      // S'ka-li mer-de-ka te-tap mer-de-ka
+      { f: N.G4, d: 0.2 }, { f: N.G4, d: 0.2 }, { f: N.E4, d: 0.2 }, { f: N.F4, d: 0.2 },
+      { f: N.G4, d: 0.3 }, { f: N.C5, d: 0.4 }, { f: N.G4, d: 0.4 },
+      // Se-la-ma ha-yat ma-sih di-kan-dung ba-dan
+      { f: N.E4, d: 0.2 }, { f: N.F4, d: 0.2 }, { f: N.G4, d: 0.2 }, { f: N.E4, d: 0.2 },
+      { f: N.F4, d: 0.3 }, { f: N.D4, d: 0.3 }, { f: N.C4, d: 0.5 }, { f: N.REST, d: 0.2 }
+    ];
+
+    const playLoop = () => {
+      if (!this.bgmPlaying || !this.bgmMasterGain) return;
+      let curTime = this.ctx.currentTime;
+      let totalDuration = 0;
+
+      melody.forEach(note => {
+        if (note.f > 0 && this.bgmPlaying) {
+          // Lead Synth (Square Wave khas NES)
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(note.f, curTime);
+
+          // Bass arpeggio pengiring (Triangle Wave)
+          const bassOsc = this.ctx.createOscillator();
+          const bassGain = this.ctx.createGain();
+          bassOsc.type = 'triangle';
+          bassOsc.frequency.setValueAtTime(note.f / 2, curTime);
+
+          gain.gain.setValueAtTime(0.35, curTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, curTime + note.d);
+
+          bassGain.gain.setValueAtTime(0.25, curTime);
+          bassGain.gain.exponentialRampToValueAtTime(0.001, curTime + note.d);
+
+          osc.connect(gain);
+          gain.connect(this.bgmMasterGain);
+
+          bassOsc.connect(bassGain);
+          bassGain.connect(this.bgmMasterGain);
+
+          try {
+            osc.start(curTime);
+            osc.stop(curTime + note.d);
+            bassOsc.start(curTime);
+            bassOsc.stop(curTime + note.d);
+            this.activeNodes.push(osc, bassOsc);
+          } catch(e) {}
+        }
+
+        curTime += note.d + 0.04;
+        totalDuration += (note.d + 0.04);
+      });
+
+      // Loop terus selama pertandingan berlangsung
+      this.bgmTimeout = setTimeout(() => {
+        if (this.bgmPlaying) playLoop();
+      }, totalDuration * 1000);
+    };
+
+    playLoop();
+  }
+
+  stop8BitAgustusanBGM() {
+    this.bgmPlaying = false;
+    if (this.bgmTimeout) {
+      clearTimeout(this.bgmTimeout);
+      this.bgmTimeout = null;
+    }
+    // Langsung mute master gain agar nada yang sedang berjalan langsung hening
+    if (this.bgmMasterGain) {
+      try {
+        this.bgmMasterGain.gain.cancelScheduledValues(this.ctx.currentTime);
+        this.bgmMasterGain.gain.setValueAtTime(0, this.ctx.currentTime);
+        this.bgmMasterGain.disconnect();
+      } catch(e) {}
+      this.bgmMasterGain = null;
+    }
+    if (this.activeNodes) {
+      this.activeNodes.forEach(node => {
+        try { node.stop(); } catch(e) {}
+      });
+      this.activeNodes = [];
+    }
+  }
+
+  toggle8BitBGM() {
+    if (this.bgmPlaying) {
+      this.stop8BitAgustusanBGM();
+      return false;
+    } else {
+      this.start8BitAgustusanBGM();
+      return true;
+    }
   }
 }
 

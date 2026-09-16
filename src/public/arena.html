@@ -13,13 +13,39 @@
 
   <!-- HUD Atas -->
   <div class="arena-hud">
-    <div class="hud-badge" id="mode-badge">MODE: VERSUS BATTLE</div>
+    <div class="hud-left" style="display: flex; gap: 10px; align-items: center; pointer-events: auto;">
+      <div class="hud-badge" id="mode-badge">MODE: VERSUS BATTLE</div>
+      <div class="hud-badge timer-badge" id="timer-badge">⏱️ 05:00</div>
+    </div>
     <div class="hud-title">🌴 PANJAT PINANG VIRTUAL EDUCAMP 🌴</div>
-    <div class="hud-badge" id="status-badge">STATUS: STANDBY</div>
+    <div class="hud-right" style="display: flex; gap: 10px; align-items: center; pointer-events: auto;">
+      <button onclick="toggleHistoryModal(true)" class="hud-badge hud-btn" title="Lihat Riwayat Sesi Pertandingan">
+        📜 Riwayat
+      </button>
+      <button id="btn-bgm" onclick="toggleBGM()" class="hud-badge hud-btn" title="Nyalakan/Matikan Musik 8-bit Agustusan">
+        🎵 BGM 8-Bit: ON
+      </button>
+      <div class="hud-badge" id="status-badge">STATUS: STANDBY</div>
+    </div>
   </div>
 
   <!-- Event Ticker Notifikasi (Bawah) -->
   <div class="event-ticker" id="event-ticker">Selamat bertanding! Jaga kekompakan tim!</div>
+
+  <!-- Modal Riwayat Sesi di Layar Arena (Proyektor) -->
+  <div id="arena-history-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 9999; justify-content: center; align-items: center; padding: 30px; backdrop-filter: blur(6px);">
+    <div style="background: #1e293b; border: 2px solid #f1c40f; border-radius: 16px; width: 100%; max-width: 900px; max-height: 85vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.8);">
+      <div style="padding: 16px 24px; background: #0f172a; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center;">
+        <h2 style="font-size: 20px; color: #f1c40f; font-family: 'Courier New', monospace; margin: 0;">📜 RIWAYAT SESI PERTANDINGAN (HALL OF FAME)</h2>
+        <button onclick="toggleHistoryModal(false)" style="background: #ef4444; color: white; border: none; padding: 6px 14px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 14px;">✕ Tutup</button>
+      </div>
+      <div style="padding: 20px; overflow-y: auto; flex: 1;">
+        <div id="arena-history-content" style="color: #cbd5e1; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          Memuat data riwayat...
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Watermark Copyright Nandur Studio -->
   <div style="position: absolute; bottom: 10px; right: 15px; color: rgba(255, 255, 255, 0.4); font-size: 12px; pointer-events: none; font-family: 'Courier New', monospace;">
@@ -48,14 +74,173 @@
       }, 3500);
     }
 
+    const timerBadge = document.getElementById('timer-badge');
+    const btnBgm = document.getElementById('btn-bgm');
+    let bgmEnabled = true;
+
+    function formatTime(secs) {
+      const m = Math.floor(secs / 60).toString().padStart(2, '0');
+      const s = (secs % 60).toString().padStart(2, '0');
+      return `⏱️ ${m}:${s}`;
+    }
+
+    function toggleBGM() {
+      if (!window.soundFX) return;
+      window.soundFX.init();
+      bgmEnabled = !bgmEnabled;
+      if (bgmEnabled) {
+        btnBgm.textContent = "🎵 BGM 8-Bit: ON";
+        btnBgm.style.borderColor = "#2ecc71";
+        btnBgm.style.color = "#2ecc71";
+        if (arena.state?.status === 'PLAYING') {
+          window.soundFX.start8BitAgustusanBGM();
+        }
+      } else {
+        btnBgm.textContent = "🔇 BGM 8-Bit: OFF";
+        btnBgm.style.borderColor = "#95a5a6";
+        btnBgm.style.color = "#bdc3c7";
+        window.soundFX.stop8BitAgustusanBGM();
+      }
+    }
+
+    let latestHistory = [];
+
+    function toggleHistoryModal(show) {
+      const modal = document.getElementById('arena-history-modal');
+      if (modal) {
+        modal.style.display = show ? 'flex' : 'none';
+        if (show) renderArenaHistory(latestHistory);
+      }
+    }
+
+    function renderArenaHistory(historyList) {
+      const container = document.getElementById('arena-history-content');
+      if (!container) return;
+
+      if (!Array.isArray(historyList) || historyList.length === 0) {
+        container.innerHTML = `
+          <div style="text-align: center; padding: 40px; color: #64748b; font-size: 16px;">
+            Belum ada data sesi pertandingan tersimpan. Mainkan setidaknya satu sesi game untuk melihat ringkasan di sini!
+          </div>
+        `;
+        return;
+      }
+
+      let html = '<div style="display: flex; flex-direction: column; gap: 14px;">';
+      historyList.forEach((sess, idx) => {
+        const dateObj = new Date(sess.timestamp);
+        const timeStr = dateObj.toLocaleDateString('id-ID', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        }) + ' ' + dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+
+        const elapsedMin = Math.floor(sess.elapsedSeconds / 60);
+        const elapsedSec = (sess.elapsedSeconds % 60).toString().padStart(2, '0');
+
+        let scoresChips = '';
+        if (sess.scores) {
+          Object.values(sess.scores).forEach(s => {
+            scoresChips += `
+              <div style="background: #0f172a; border-left: 4px solid ${s.color}; border-radius: 6px; padding: 6px 10px; font-size: 13px;">
+                <strong>${s.name}</strong>: 🪜 ${s.climbers}/${s.totalMembers} orang (${s.score} pts)
+              </div>
+            `;
+          });
+        }
+
+        html += `
+          <div style="background: #0f172a88; border: 1px solid #334155; border-radius: 10px; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+                <span style="font-weight: bold; color: #f1c40f; font-family: 'Courier New', monospace;">#${historyList.length - idx}</span>
+                <span style="font-size: 13px; color: #94a3b8;">${timeStr}</span>
+                <span style="background: #334155; color: #38bdf8; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">${sess.mode} (${sess.wipeoutMode})</span>
+                <span style="color: #cbd5e1; font-size: 13px; font-family: monospace;">⏱️ ${elapsedMin}m ${elapsedSec}s</span>
+              </div>
+              <div style="font-size: 18px; font-weight: bold; color: ${sess.winner ? sess.winner.color : '#cbd5e1'};">
+                👑 JUARA: ${sess.winner ? sess.winner.name : 'SERI'} 
+                <span style="font-size: 12px; font-weight: normal; color: #94a3b8;">(${sess.winnerReason === 'REACHED_TOP' ? 'Mencapai Puncak Pinang' : 'Waktu Habis'})</span>
+              </div>
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              ${scoresChips}
+            </div>
+          </div>
+        `;
+      });
+      html += '</div>';
+      container.innerHTML = html;
+    }
+
     // Sambung ke WebSocket sebagai Layar Arena
     socket.emit('JOIN_ROLE', { role: 'ARENA' });
+
+    // Fetch riwayat awal
+    fetch('/api/history').then(r => r.json()).then(d => {
+      if (d && Array.isArray(d.history)) latestHistory = d.history;
+    }).catch(() => {});
+
+    socket.on('connect', () => {
+      fetch('/api/history').then(r => r.json()).then(d => {
+        if (d && Array.isArray(d.history)) latestHistory = d.history;
+      }).catch(() => {});
+    });
 
     // Terima State Update dari Server
     socket.on('STATE_UPDATE', (state) => {
       arena.updateState(state);
+      if (Array.isArray(state.history)) {
+        latestHistory = state.history;
+      }
       modeBadge.textContent = `MODE: ${state.mode} (${state.wipeoutMode})`;
       statusBadge.textContent = `STATUS: ${state.status}`;
+
+      if (typeof state.remainingSeconds === 'number') {
+        timerBadge.textContent = formatTime(state.remainingSeconds);
+        if (state.remainingSeconds <= 30 && state.status === 'PLAYING') {
+          timerBadge.classList.add('urgent');
+        } else {
+          timerBadge.classList.remove('urgent');
+        }
+      }
+
+      if (state.status === 'FINISHED' || state.status === 'WAITING') {
+        if (window.soundFX) window.soundFX.stop8BitAgustusanBGM();
+      }
+    });
+
+    // Event Game Dimulai
+    socket.on('GAME_STARTED', () => {
+      if (window.soundFX && bgmEnabled) {
+        window.soundFX.start8BitAgustusanBGM();
+      }
+      showTicker("🚩 PERTANDINGAN DIMULAI! AYO PANJAT SECEPATNYA!");
+    });
+
+    // Event Game Direset
+    socket.on('GAME_RESET', () => {
+      if (window.soundFX) window.soundFX.stop8BitAgustusanBGM();
+      timerBadge.classList.remove('urgent');
+      showTicker("🔄 Pertandingan di-reset oleh Admin.");
+    });
+
+    // Tick Timer Tiap Detik
+    socket.on('TIMER_TICK', (data) => {
+      timerBadge.textContent = formatTime(data.remainingSeconds);
+      if (data.remainingSeconds <= 30) {
+        timerBadge.classList.add('urgent');
+      } else {
+        timerBadge.classList.remove('urgent');
+      }
+    });
+
+    // Event Game Selesai
+    socket.on('GAME_OVER', ({ winner, reason }) => {
+      if (window.soundFX) window.soundFX.stop8BitAgustusanBGM();
+      if (reason === 'TIME_OUT') {
+        showTicker(`⏰ WAKTU HABIS (5 MENIT)! Pemenang: ${winner ? winner.name.toUpperCase() : 'SERI'}!`, true);
+      }
     });
 
     // Jawaban Masuk

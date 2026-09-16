@@ -159,9 +159,13 @@
 
       if (gameState.status !== 'PLAYING') {
         questionTextEl.textContent = gameState.status === 'FINISHED' 
-          ? "Permainan Selesai!" 
-          : "Menunggu Game Master Memulai Pertandingan...";
-        document.getElementById('options-grid').style.opacity = '0.3';
+          ? "🏁 Permainan Selesai!" 
+          : "⏳ Menunggu Game Master Memulai Pertandingan (Klik 'Mulai Game')...";
+        for (let i = 0; i < 4; i++) {
+          const el = document.getElementById(`opt-${i}`);
+          if (el) el.textContent = '???';
+        }
+        document.getElementById('options-grid').style.opacity = '0.25';
         document.getElementById('options-grid').style.pointerEvents = 'none';
         return;
       }

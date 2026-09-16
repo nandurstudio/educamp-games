@@ -27,8 +27,14 @@
     input, select, textarea { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: white; font-size: 14px; }
     .team-member-row { display: grid; grid-template-columns: 2fr 1.8fr 1.5fr 40px; gap: 8px; margin-bottom: 8px; align-items: center; }
     .badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
-    .links-bar { display: flex; gap: 12px; margin-top: 10px; }
+    .links-bar { display: flex; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
     .links-bar a { color: #38bdf8; text-decoration: none; font-size: 14px; padding: 6px 12px; background: #334155; border-radius: 6px; }
+    .history-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 12px; }
+    .history-table th { background: #0f172a; color: #94a3b8; text-align: left; padding: 10px; border-bottom: 2px solid #334155; font-weight: 600; }
+    .history-table td { padding: 12px 10px; border-bottom: 1px solid #334155; vertical-align: middle; }
+    .history-table tr:hover { background: #1e293b88; }
+    .history-winner-tag { display: inline-flex; align-items: center; gap: 6px; font-weight: bold; padding: 4px 10px; border-radius: 20px; font-size: 12px; }
+    .history-score-chip { display: inline-block; background: #0f172a; border: 1px solid #334155; padding: 2px 6px; border-radius: 4px; margin-right: 4px; font-size: 11px; }
   </style>
 </head>
 <body>
@@ -101,6 +107,17 @@
             <option value="SLIP">⚠️ Slip (Turun 1 Karakter Saja)</option>
           </select>
         </div>
+        <div class="form-group">
+          <label>⏱️ Durasi Timer Selesai:</label>
+          <select id="game-duration" onchange="updateConfig()">
+            <option value="60">1 Menit (Cepat / Demo)</option>
+            <option value="180">3 Menit</option>
+            <option value="300" selected>5 Menit (Default)</option>
+            <option value="420">7 Menit</option>
+            <option value="600">10 Menit</option>
+            <option value="900">15 Menit</option>
+          </select>
+        </div>
       </div>
     </div>
 
@@ -116,6 +133,43 @@
     </div>
   </div>
 
+  <!-- Sesi Riwayat Pertandingan (Session History) -->
+  <div class="card" style="margin-top: 10px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+      <h2>📜 Riwayat Sesi Pertandingan (Match History)</h2>
+      <div style="display: flex; gap: 8px;">
+        <button class="btn btn-blue btn-sm" onclick="fetchHistory()">🔄 Refresh Riwayat</button>
+        <button class="btn btn-red btn-sm" onclick="clearHistory()">🗑️ Bersihkan Riwayat</button>
+      </div>
+    </div>
+    <p style="font-size: 13px; color: #94a3b8; margin-bottom: 14px;">
+      Setiap sesi pertandingan yang selesai (mencapai puncak atau waktu habis) otomatis tersimpan secara persisten di storage lokal.
+    </p>
+
+    <div style="overflow-x: auto;">
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th style="width: 50px;">#</th>
+            <th style="width: 170px;">Waktu Sesi</th>
+            <th style="width: 110px;">Mode Game</th>
+            <th style="width: 180px;">Juara / Pemenang</th>
+            <th style="width: 140px;">Kondisi Menang</th>
+            <th style="width: 110px;">Durasi Main</th>
+            <th>Skor & Capaian Tiap Tim</th>
+          </tr>
+        </thead>
+        <tbody id="history-table-body">
+          <tr>
+            <td colspan="7" style="text-align: center; color: #64748b; padding: 24px;">
+              Belum ada riwayat pertandingan yang tercatat. Selesaikan satu sesi permainan untuk melihat data di sini!
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
   <footer style="margin-top: 40px; padding: 20px; text-align: center; color: #64748b; font-size: 14px; border-top: 1px solid #1e293b;">
     © 2026 Nandur Studio. All rights reserved.
   </footer>
@@ -128,10 +182,121 @@
   let localTeams = null; // Menyimpan data tim lokal
 
   const PALETTE = [
-    '#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#e84393'
+    '#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#00cec9', '#e67e22', '#e84393'
   ];
 
+  // Master Data Preset 6 Kelompok Educamp Resmi
+  const EDUCAMP_PRESETS = {
+    qatra: {
+      name: "QATRA",
+      color: "#e74c3c",
+      members: [
+        { name: "Fajar Fauzan", bodyType: "tall-skinny", skinTone: "fair" },
+        { name: "Irvan Hasan", bodyType: "tall-chubby", skinTone: "tan" },
+        { name: "Sri Rejeki", bodyType: "short-skinny", skinTone: "fair" },
+        { name: "Malawi", bodyType: "tall-skinny", skinTone: "olive" },
+        { name: "Fuji S R", bodyType: "short-chubby", skinTone: "tan" },
+        { name: "Adi Sofyan", bodyType: "tall-chubby", skinTone: "deep" },
+        { name: "Yogi H. P.", bodyType: "tall-skinny", skinTone: "olive" },
+        { name: "Mahajiwa", bodyType: "short-skinny", skinTone: "tan" }
+      ]
+    },
+    vbom: {
+      name: "V-BOM",
+      color: "#3498db",
+      members: [
+        { name: "Andy Chendra", bodyType: "tall-skinny", skinTone: "fair" },
+        { name: "Cahyo Agung Martanto", bodyType: "tall-chubby", skinTone: "tan" },
+        { name: "Joko S", bodyType: "short-skinny", skinTone: "olive" },
+        { name: "Dimas JP", bodyType: "tall-skinny", skinTone: "fair" },
+        { name: "Haris Baihaqi", bodyType: "short-chubby", skinTone: "tan" },
+        { name: "Sukaryadi", bodyType: "tall-chubby", skinTone: "deep" },
+        { name: "Abdul Halim", bodyType: "tall-skinny", skinTone: "olive" },
+        { name: "Budy Sutrisno", bodyType: "short-skinny", skinTone: "tan" }
+      ]
+    },
+    omega: {
+      name: "OMEGA",
+      color: "#2ecc71",
+      members: [
+        { name: "Agung Joko Supriyanto", bodyType: "tall-chubby", skinTone: "tan" },
+        { name: "Budi Santoso", bodyType: "tall-skinny", skinTone: "fair" },
+        { name: "Ahmad Sanusi", bodyType: "short-skinny", skinTone: "olive" },
+        { name: "Riana Kurnianti", bodyType: "short-skinny", skinTone: "fair" },
+        { name: "Yudi S", bodyType: "tall-chubby", skinTone: "tan" },
+        { name: "Dyanza Aria Perdana", bodyType: "tall-skinny", skinTone: "olive" },
+        { name: "Yogo", bodyType: "short-chubby", skinTone: "deep" },
+        { name: "Fendi S", bodyType: "tall-skinny", skinTone: "tan" }
+      ]
+    },
+    ipc: {
+      name: "IPC",
+      color: "#f39c12",
+      members: [
+        { name: "Andreas Hari listanto", bodyType: "tall-skinny", skinTone: "fair" },
+        { name: "Vony", bodyType: "short-skinny", skinTone: "fair" },
+        { name: "Satrianto Ariardi", bodyType: "tall-chubby", skinTone: "tan" },
+        { name: "Dimas Riyantoro", bodyType: "tall-skinny", skinTone: "olive" },
+        { name: "Ainurrofik", bodyType: "short-chubby", skinTone: "deep" },
+        { name: "Eurotiva Pratista", bodyType: "short-skinny", skinTone: "fair" },
+        { name: "Isa Dwiyono", bodyType: "tall-skinny", skinTone: "tan" },
+        { name: "A Ropi", bodyType: "tall-chubby", skinTone: "olive" }
+      ]
+    },
+    interlock: {
+      name: "INTERLOCK",
+      color: "#9b59b6",
+      members: [
+        { name: "Yudha Agus Tri Basuki", bodyType: "tall-skinny", skinTone: "fair" },
+        { name: "Asep Sopiyan", bodyType: "tall-chubby", skinTone: "tan" },
+        { name: "Verdiana Zahroh N B", bodyType: "short-skinny", skinTone: "fair" },
+        { name: "Yuswa Slamet", bodyType: "tall-skinny", skinTone: "olive" },
+        { name: "Abu Muntholib", bodyType: "short-chubby", skinTone: "deep" },
+        { name: "Hayadi", bodyType: "tall-chubby", skinTone: "tan" },
+        { name: "Wachid Sadali", bodyType: "tall-skinny", skinTone: "olive" },
+        { name: "Alim", bodyType: "short-skinny", skinTone: "tan" }
+      ]
+    },
+    avatar: {
+      name: "AVATAR",
+      color: "#00cec9",
+      members: [
+        { name: "Dicky F", bodyType: "tall-skinny", skinTone: "fair" },
+        { name: "Harmanto", bodyType: "tall-chubby", skinTone: "tan" },
+        { name: "Priyo Anarkie", bodyType: "tall-skinny", skinTone: "olive" },
+        { name: "Stevie", bodyType: "short-skinny", skinTone: "fair" },
+        { name: "Dedi Setiadi", bodyType: "short-chubby", skinTone: "deep" },
+        { name: "Nanang", bodyType: "tall-chubby", skinTone: "tan" },
+        { name: "Dewangga", bodyType: "tall-skinny", skinTone: "olive" }
+      ]
+    }
+  };
+
+  function onPresetSelect(tId, presetKey) {
+    if (!localTeams || !localTeams[tId]) return;
+    if (presetKey === 'CUSTOM') return;
+
+    const preset = EDUCAMP_PRESETS[presetKey];
+    if (!preset) return;
+
+    // Terapkan nama, warna, dan seluruh anggota preset secara instan
+    localTeams[tId].name = preset.name;
+    localTeams[tId].color = preset.color;
+    localTeams[tId].members = JSON.parse(JSON.stringify(preset.members));
+
+    renderAllTeamsCards();
+    updateHeaderLinks();
+    saveTeams();
+  }
+
   socket.emit('JOIN_ROLE', { role: 'ADMIN' });
+
+  // Ambil data riwayat saat inisialisasi awal
+  fetchHistory();
+
+  socket.on('connect', () => {
+    fetchHistory();
+  });
 
   socket.on('STATE_UPDATE', (state) => {
     currentGameState = state;
@@ -139,13 +304,116 @@
       localTeams = JSON.parse(JSON.stringify(state.teams));
     }
     renderConfig(state);
+    if (Array.isArray(state.history)) {
+      renderHistory(state.history);
+    }
   });
 
   function renderConfig(state) {
     document.getElementById('game-mode').value = state.mode;
     document.getElementById('wipeout-mode').value = state.wipeoutMode;
+    if (state.durationSeconds) {
+      document.getElementById('game-duration').value = state.durationSeconds;
+    }
     renderAllTeamsCards();
     updateHeaderLinks();
+    if (Array.isArray(state.history)) {
+      renderHistory(state.history);
+    }
+  }
+
+  function renderHistory(historyList) {
+    const tbody = document.getElementById('history-table-body');
+    if (!tbody) return;
+
+    if (!Array.isArray(historyList) || historyList.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7" style="text-align: center; color: #64748b; padding: 24px;">
+            Belum ada riwayat pertandingan yang tercatat. Selesaikan satu sesi permainan untuk melihat data di sini!
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    let html = '';
+    historyList.forEach((sess, idx) => {
+      const dateObj = new Date(sess.timestamp);
+      const timeStr = dateObj.toLocaleDateString('id-ID', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+      }) + ' ' + dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+
+      // Badge Winner
+      let winnerHtml = '<span style="color: #94a3b8;">Tidak Ada (Seri)</span>';
+      if (sess.winner) {
+        winnerHtml = `
+          <span class="history-winner-tag" style="background: ${sess.winner.color}22; border: 1px solid ${sess.winner.color}; color: ${sess.winner.color};">
+            👑 ${sess.winner.name}
+          </span>
+        `;
+      }
+
+      // Reason Badge
+      let reasonHtml = '';
+      if (sess.winnerReason === 'REACHED_TOP') {
+        reasonHtml = `<span style="color: #22c55e; font-weight: bold;">🚩 Capai Puncak</span>`;
+      } else if (sess.winnerReason === 'TIME_OUT') {
+        reasonHtml = `<span style="color: #eab308; font-weight: bold;">⏰ Waktu Habis</span>`;
+      } else {
+        reasonHtml = `<span style="color: #94a3b8;">${sess.winnerReason || '-'}</span>`;
+      }
+
+      // Scores chip
+      let scoresHtml = '';
+      if (sess.scores && typeof sess.scores === 'object') {
+        Object.entries(sess.scores).forEach(([tId, tData]) => {
+          scoresHtml += `
+            <span class="history-score-chip" style="border-left: 3px solid ${tData.color};">
+              <strong>${tData.name}:</strong> 🪜 ${tData.climbers}/${tData.totalMembers} org (${tData.score} pts)
+            </span>
+          `;
+        });
+      }
+
+      const elapsedMin = Math.floor(sess.elapsedSeconds / 60);
+      const elapsedSec = (sess.elapsedSeconds % 60).toString().padStart(2, '0');
+      const elapsedFormatted = `${elapsedMin}m ${elapsedSec}s`;
+
+      html += `
+        <tr>
+          <td style="font-weight: bold; color: #94a3b8;">#${historyList.length - idx}</td>
+          <td style="color: #cbd5e1;">${timeStr}</td>
+          <td><span class="badge" style="background: #334155; color: #38bdf8;">${sess.mode} (${sess.wipeoutMode})</span></td>
+          <td>${winnerHtml}</td>
+          <td>${reasonHtml}</td>
+          <td style="color: #f8fafc; font-family: monospace;">${elapsedFormatted}</td>
+          <td>${scoresHtml}</td>
+        </tr>
+      `;
+    });
+
+    tbody.innerHTML = html;
+  }
+
+  async function fetchHistory() {
+    try {
+      const res = await fetch('/api/history');
+      const data = await res.json();
+      if (data && Array.isArray(data.history)) {
+        renderHistory(data.history);
+      }
+    } catch (e) {
+      console.error("Gagal mengambil riwayat:", e);
+    }
+  }
+
+  function clearHistory() {
+    if (confirm("Apakah Anda yakin ingin MENGHAPUS SEMUA riwayat pertandingan?")) {
+      socket.emit('CLEAR_HISTORY');
+    }
   }
 
   function updateHeaderLinks() {
@@ -172,13 +440,29 @@
       card.id = `card-${tId}`;
       card.style.borderLeft = `5px solid ${team.color || '#e74c3c'}`;
 
+      // Deteksi apakah nama tim cocok dengan salah satu preset
+      const presetKeys = Object.keys(EDUCAMP_PRESETS);
+      const matchingPreset = presetKeys.find(k => EDUCAMP_PRESETS[k].name.toUpperCase() === (team.name || '').toUpperCase()) || 'CUSTOM';
+
       card.innerHTML = `
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
           <h2 style="margin: 0; color: ${team.color || '#f1c40f'};">👥 ${team.name || 'Tim ' + (tIndex+1)}</h2>
           ${teamEntries.length > 1 ? `<button type="button" class="btn btn-red btn-sm" onclick="removeTeam('${tId}')">Hapus Tim</button>` : ''}
         </div>
 
-        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-bottom: 12px;">
+        <div style="display: grid; grid-template-columns: 2fr 1.5fr 1fr; gap: 10px; margin-bottom: 12px; align-items: flex-end;">
+          <div class="form-group" style="margin: 0;">
+            <label>Pilih Preset Kelompok Educamp:</label>
+            <select id="${tId}-preset" onchange="onPresetSelect('${tId}', this.value)" style="border-color: #38bdf8;">
+              <option value="CUSTOM" ${matchingPreset==='CUSTOM'?'selected':''}>-- Kustom / Input Manual --</option>
+              <option value="qatra" ${matchingPreset==='qatra'?'selected':''}>🔴 QATRA (8 Orang)</option>
+              <option value="vbom" ${matchingPreset==='vbom'?'selected':''}>🔵 V-BOM (8 Orang)</option>
+              <option value="omega" ${matchingPreset==='omega'?'selected':''}>🟢 OMEGA (8 Orang)</option>
+              <option value="ipc" ${matchingPreset==='ipc'?'selected':''}>🟡 IPC (8 Orang)</option>
+              <option value="interlock" ${matchingPreset==='interlock'?'selected':''}>🟣 INTERLOCK (8 Orang)</option>
+              <option value="avatar" ${matchingPreset==='avatar'?'selected':''}>🔷 AVATAR (7 Orang)</option>
+            </select>
+          </div>
           <div class="form-group" style="margin: 0;">
             <label>Nama Tim:</label>
             <input type="text" value="${team.name || ''}" id="${tId}-name" onchange="syncAndSave()">
@@ -233,19 +517,33 @@
     const newId = `team${Date.now()}`;
     const defaultColor = PALETTE[(count - 1) % PALETTE.length];
 
-    localTeams[newId] = {
-      id: newId,
-      name: `Tim ${count}`,
-      color: defaultColor,
-      members: [
-        { name: `Anggota 1`, bodyType: 'tall-skinny', skinTone: 'fair' },
-        { name: `Anggota 2`, bodyType: 'tall-chubby', skinTone: 'tan' },
-        { name: `Anggota 3`, bodyType: 'short-skinny', skinTone: 'olive' },
-        { name: `Anggota 4`, bodyType: 'short-chubby', skinTone: 'deep' },
-        { name: `Anggota 5`, bodyType: 'tall-skinny', skinTone: 'tan' },
-        { name: `Anggota 6`, bodyType: 'short-skinny', skinTone: 'fair' }
-      ]
-    };
+    // Cek apakah ada preset resmi yang belum terpakai di arena
+    const existingNames = Object.values(localTeams).map(t => (t.name || '').toUpperCase());
+    const unusedPresetKey = Object.keys(EDUCAMP_PRESETS).find(k => !existingNames.includes(EDUCAMP_PRESETS[k].name.toUpperCase()));
+
+    if (unusedPresetKey) {
+      const preset = EDUCAMP_PRESETS[unusedPresetKey];
+      localTeams[newId] = {
+        id: newId,
+        name: preset.name,
+        color: preset.color,
+        members: JSON.parse(JSON.stringify(preset.members))
+      };
+    } else {
+      localTeams[newId] = {
+        id: newId,
+        name: `Tim ${count}`,
+        color: defaultColor,
+        members: [
+          { name: `Anggota 1`, bodyType: 'tall-skinny', skinTone: 'fair' },
+          { name: `Anggota 2`, bodyType: 'tall-chubby', skinTone: 'tan' },
+          { name: `Anggota 3`, bodyType: 'short-skinny', skinTone: 'olive' },
+          { name: `Anggota 4`, bodyType: 'short-chubby', skinTone: 'deep' },
+          { name: `Anggota 5`, bodyType: 'tall-skinny', skinTone: 'tan' },
+          { name: `Anggota 6`, bodyType: 'short-skinny', skinTone: 'fair' }
+        ]
+      };
+    }
 
     renderAllTeamsCards();
     updateHeaderLinks();
@@ -322,7 +620,8 @@
   function updateConfig() {
     const mode = document.getElementById('game-mode').value;
     const wipeoutMode = document.getElementById('wipeout-mode').value;
-    socket.emit('UPDATE_CONFIG', { mode, wipeoutMode });
+    const durationSeconds = parseInt(document.getElementById('game-duration').value, 10);
+    socket.emit('UPDATE_CONFIG', { mode, wipeoutMode, durationSeconds });
   }
 
   function startGame() {

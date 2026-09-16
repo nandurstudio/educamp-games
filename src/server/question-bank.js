@@ -88,7 +88,29 @@ class QuestionBank {
   getRandomPool(count) {
     // Acak urutan soal
     const shuffled = [...this.questions].sort(() => 0.5 - Math.random());
-    return shuffled.slice(0, count || this.questions.length);
+    const selected = shuffled.slice(0, count || this.questions.length);
+
+    // Acak posisi pilihan jawaban (A, B, C, D) sehingga jawaban benar tidak selalu di index yang sama
+    return selected.map(q => {
+      const originalOptions = [...q.options];
+      const correctOptionText = originalOptions[q.correctIndex];
+
+      // Shuffle options dengan Fisher-Yates
+      const newOptions = [...originalOptions];
+      for (let i = newOptions.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [newOptions[i], newOptions[j]] = [newOptions[j], newOptions[i]];
+      }
+
+      const newCorrectIndex = newOptions.indexOf(correctOptionText);
+
+      return {
+        id: q.id,
+        question: q.question,
+        options: newOptions,
+        correctIndex: newCorrectIndex !== -1 ? newCorrectIndex : 0
+      };
+    });
   }
 }
 

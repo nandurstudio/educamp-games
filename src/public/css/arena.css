@@ -41,6 +41,36 @@ body, html {
   letter-spacing: 1px;
 }
 
+.timer-badge {
+  border-color: #38bdf8;
+  color: #38bdf8;
+  font-size: 20px;
+}
+
+.timer-badge.urgent {
+  border-color: #ef4444;
+  color: #ef4444;
+  animation: pulse-urgent 0.8s infinite alternate;
+}
+
+@keyframes pulse-urgent {
+  0% { transform: scale(1); filter: brightness(1); }
+  100% { transform: scale(1.08); filter: brightness(1.3); }
+}
+
+.hud-btn {
+  cursor: pointer;
+  border-color: #2ecc71;
+  color: #2ecc71;
+  transition: all 0.2s;
+  background: rgba(0, 0, 0, 0.85);
+}
+
+.hud-btn:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.2);
+}
+
 .hud-title {
   background: rgba(0, 0, 0, 0.8);
   border: 3px solid #e74c3c;

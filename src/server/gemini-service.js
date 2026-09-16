@@ -19,10 +19,10 @@ Format output WAJIB HANYA berupa JSON valid ARRAY murni tanpa markdown, tanpa te
     "id": 1,
     "question": "Teks pertanyaan di sini?",
     "options": ["Pilihan A", "Pilihan B", "Pilihan C", "Pilihan D"],
-    "correctIndex": 0
+    "correctIndex": 2
   }
 ]
-Catatan: "correctIndex" adalah integer 0 (untuk A), 1 (untuk B), 2 (untuk C), atau 3 (untuk D). Pastikan pilihan jawaban mengecoh dan realistis.`;
+Catatan Penting: "correctIndex" adalah integer 0 (A), 1 (B), 2 (C), atau 3 (D). WAJIB acak posisi jawaban benar secara merata di antara index 0, 1, 2, dan 3 (JANGAN SEMUANYA DI INDEX 0 / PILIHAN A). Pastikan pilihan jawaban mengecoh dan realistis.`;
 
   // Menggunakan REST endpoint Gemini via fetch natif (didukung di Node 18+)
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeKey}`;

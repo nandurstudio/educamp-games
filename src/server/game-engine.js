@@ -1,85 +1,88 @@
+const fs = require('fs');
+const path = require('path');
 const questionBank = require('./question-bank');
+
+const STORAGE_FILE = path.join(__dirname, '../../data/game-storage.json');
 
 class GameEngine {
   constructor() {
     this.reset();
+    this.history = [];
+    this.loadStorage();
+  }
+
+  loadStorage() {
+    try {
+      if (fs.existsSync(STORAGE_FILE)) {
+        const raw = fs.readFileSync(STORAGE_FILE, 'utf-8');
+        const data = JSON.parse(raw);
+        if (data.mode) this.mode = data.mode;
+        if (data.wipeoutMode) this.wipeoutMode = data.wipeoutMode;
+        if (typeof data.durationSeconds === 'number') {
+          this.durationSeconds = data.durationSeconds;
+          this.remainingSeconds = data.durationSeconds;
+        }
+        if (Array.isArray(data.history)) {
+          this.history = data.history;
+        }
+        if (data.teams && typeof data.teams === 'object') {
+          this.setTeamsConfig(data.teams, false);
+        }
+        console.log(`[Storage Loaded] Berhasil me-load konfigurasi dari data/game-storage.json (${Object.keys(this.teams).length} tim terdaftar, ${this.history.length} sesi riwayat)`);
+      }
+    } catch (err) {
+      console.error('[Storage Error] Gagal membaca storage lokal:', err.message);
+    }
+  }
+
+  saveStorage() {
+    try {
+      const dir = path.dirname(STORAGE_FILE);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      const data = {
+        mode: this.mode,
+        wipeoutMode: this.wipeoutMode,
+        durationSeconds: this.durationSeconds,
+        history: this.history || [],
+        teams: {}
+      };
+      Object.entries(this.teams).forEach(([tId, team]) => {
+        data.teams[tId] = {
+          id: team.id,
+          name: team.name,
+          color: team.color,
+          members: team.members
+        };
+      });
+      fs.writeFileSync(STORAGE_FILE, JSON.stringify(data, null, 2), 'utf-8');
+    } catch (err) {
+      console.error('[Storage Error] Gagal menyimpan ke storage lokal:', err.message);
+    }
   }
 
   reset() {
     this.status = 'WAITING'; // WAITING, PLAYING, FINISHED
     this.mode = 'VERSUS'; // SINGLE, VERSUS
     this.wipeoutMode = 'HARDCORE'; // HARDCORE (reset 0), SLIP (turun 1 level)
-    this.targetHeight = 6; // Standar 6 orang per kelompok untuk mencapai puncak
-    this.teams = {
-      team1: {
-        id: 'team1',
-        name: 'Tim Elang',
-        color: '#e74c3c', // Merah
-        members: [
-          { name: 'Andi', bodyType: 'tall-skinny', skinTone: 'fair' },
-          { name: 'Budi', bodyType: 'tall-chubby', skinTone: 'tan' },
-          { name: 'Citra', bodyType: 'short-skinny', skinTone: 'fair' },
-          { name: 'Doni', bodyType: 'short-chubby', skinTone: 'deep' },
-          { name: 'Eka', bodyType: 'tall-skinny', skinTone: 'tan' },
-          { name: 'Fajar', bodyType: 'short-skinny', skinTone: 'olive' }
-        ],
-        currentClimbers: 0, // Berapa orang yang sudah memeluk pinang
-        currentTurnIndex: 0, // Giliran anggota mana yang harus menjawab
-        score: 0,
-        streak: 0,
-        activeQuestion: null
-      },
-      team2: {
-        id: 'team2',
-        name: 'Tim Harimau',
-        color: '#3498db', // Biru
-        members: [
-          { name: 'Gani', bodyType: 'tall-chubby', skinTone: 'tan' },
-          { name: 'Hana', bodyType: 'short-skinny', skinTone: 'fair' },
-          { name: 'Indra', bodyType: 'tall-skinny', skinTone: 'olive' },
-          { name: 'Joko', bodyType: 'short-chubby', skinTone: 'deep' },
-          { name: 'Kiki', bodyType: 'short-skinny', skinTone: 'fair' },
-          { name: 'Lutfi', bodyType: 'tall-skinny', skinTone: 'tan' }
-        ],
-        currentClimbers: 0,
-        currentTurnIndex: 0,
-        score: 0,
-        streak: 0,
-        activeQuestion: null
-      }
-    };
+    this.targetHeight = 8;
+    this.durationSeconds = 300; // Default 5 menit
+    this.remainingSeconds = 300;
+    this.winnerReason = null;
+    this.teams = {};
     this.winner = null;
     this.startTime = null;
     this.endTime = null;
+    this.sessionRecorded = false;
   }
 
   setMode(mode) {
     this.mode = mode;
-    if (mode === 'SINGLE') {
-      delete this.teams.team2;
-    } else if (!this.teams.team2) {
-      this.teams.team2 = {
-        id: 'team2',
-        name: 'Tim Harimau',
-        color: '#3498db',
-        members: [
-          { name: 'Anggota 1', bodyType: 'tall-skinny', skinTone: 'fair' },
-          { name: 'Anggota 2', bodyType: 'tall-chubby', skinTone: 'tan' },
-          { name: 'Anggota 3', bodyType: 'short-skinny', skinTone: 'olive' },
-          { name: 'Anggota 4', bodyType: 'short-chubby', skinTone: 'deep' },
-          { name: 'Anggota 5', bodyType: 'tall-skinny', skinTone: 'tan' },
-          { name: 'Anggota 6', bodyType: 'short-skinny', skinTone: 'fair' }
-        ],
-        currentClimbers: 0,
-        currentTurnIndex: 0,
-        score: 0,
-        streak: 0,
-        activeQuestion: null
-      };
-    }
+    this.saveStorage();
   }
 
-  setTeamsConfig(newTeams) {
+  setTeamsConfig(newTeams, shouldPersist = true) {
     if (!newTeams || typeof newTeams !== 'object') return;
     const existing = this.teams;
     const updated = {};
@@ -108,6 +111,9 @@ class GameEngine {
 
     if (Object.keys(updated).length > 0) {
       this.teams = updated;
+      if (shouldPersist) {
+        this.saveStorage();
+      }
     }
   }
 
@@ -136,8 +142,12 @@ class GameEngine {
   startGame() {
     this.status = 'PLAYING';
     this.winner = null;
+    this.winnerReason = null;
     this.startTime = Date.now();
+    this.endTime = null;
+    this.remainingSeconds = this.durationSeconds;
     this.targetHeight = Math.max(...Object.values(this.teams).map(t => t.members.length));
+    this.sessionRecorded = false;
 
     // Reset progress tiap tim & beri pertanyaan pertama
     Object.values(this.teams).forEach(team => {
@@ -149,13 +159,99 @@ class GameEngine {
     });
   }
 
+  recordSession() {
+    if (this.sessionRecorded) return null;
+    this.sessionRecorded = true;
+    try {
+      const elapsedSeconds = this.startTime ? Math.round((Date.now() - this.startTime) / 1000) : 0;
+      const scoresSummary = {};
+      Object.entries(this.teams).forEach(([tId, team]) => {
+        scoresSummary[tId] = {
+          name: team.name,
+          color: team.color,
+          climbers: team.currentClimbers,
+          score: team.score,
+          totalMembers: team.members.length
+        };
+      });
+
+      const sessionRecord = {
+        id: `sesi-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        mode: this.mode,
+        wipeoutMode: this.wipeoutMode,
+        durationSeconds: this.durationSeconds,
+        elapsedSeconds: Math.min(elapsedSeconds, this.durationSeconds),
+        winner: this.winner ? {
+          id: this.winner.id,
+          name: this.winner.name,
+          color: this.winner.color
+        } : null,
+        winnerReason: this.winnerReason,
+        scores: scoresSummary
+      };
+
+      if (!Array.isArray(this.history)) {
+        this.history = [];
+      }
+      this.history.unshift(sessionRecord); // Terbaru di awal
+      // Simpan maksimal 50 riwayat terakhir
+      if (this.history.length > 50) {
+        this.history = this.history.slice(0, 50);
+      }
+      this.saveStorage();
+      console.log(`[History Recorded] Sesi permainan tercatat: ${sessionRecord.winner ? sessionRecord.winner.name : 'Tanpa Pemenang'} (${sessionRecord.winnerReason})`);
+      return sessionRecord;
+    } catch (err) {
+      console.error('[History Error] Gagal mencatat riwayat sesi:', err.message);
+      return null;
+    }
+  }
+
+  clearHistory() {
+    this.history = [];
+    this.saveStorage();
+  }
+
+  handleTimeout() {
+    if (this.status !== 'PLAYING') return null;
+    this.status = 'FINISHED';
+    this.endTime = Date.now();
+    this.remainingSeconds = 0;
+    this.winnerReason = 'TIME_OUT';
+
+    // Cari pemenang berdasarkan siapa yang memanjat paling tinggi / skor tertinggi
+    const teamsArr = Object.values(this.teams);
+    teamsArr.sort((a, b) => {
+      if (b.currentClimbers !== a.currentClimbers) {
+        return b.currentClimbers - a.currentClimbers;
+      }
+      return b.score - a.score;
+    });
+
+    this.winner = teamsArr[0] || null;
+    const session = this.recordSession();
+
+    return {
+      status: this.status,
+      winner: this.winner,
+      winnerReason: this.winnerReason,
+      teams: this.teams,
+      session
+    };
+  }
+
   pickNextQuestion(teamId) {
     const pool = questionBank.getRandomPool(1);
-    return pool[0] || {
+    if (pool && pool[0]) return pool[0];
+
+    const fallbackOptions = ["Siap", "Maju", "Pasti Bisa", "Juara"];
+    const rndIdx = Math.floor(Math.random() * fallbackOptions.length);
+    return {
       id: 999,
       question: "Semangat Educamp!",
-      options: ["Siap", "Maju", "Pasti Bisa", "Juara"],
-      correctIndex: 0
+      options: fallbackOptions,
+      correctIndex: rndIdx
     };
   }
 
@@ -182,8 +278,10 @@ class GameEngine {
       if (team.currentClimbers >= team.members.length) {
         this.status = 'FINISHED';
         this.winner = team;
+        this.winnerReason = 'REACHED_TOP';
         this.endTime = Date.now();
         eventType = 'VICTORY';
+        this.recordSession();
       } else {
         eventType = 'CLIMB_SUCCESS';
         // Giliran anggota berikutnya yang maju memanjat
@@ -230,10 +328,14 @@ class GameEngine {
       mode: this.mode,
       wipeoutMode: this.wipeoutMode,
       targetHeight: this.targetHeight,
+      durationSeconds: this.durationSeconds,
+      remainingSeconds: this.remainingSeconds,
+      winnerReason: this.winnerReason,
       teams: this.teams,
       winner: this.winner,
       startTime: this.startTime,
-      endTime: this.endTime
+      endTime: this.endTime,
+      history: this.history || []
     };
   }
 }
