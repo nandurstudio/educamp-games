@@ -1,0 +1,8 @@
+{
+  "name": "Educamp Games Hub",
+  "description": "Platform Game Web Interaktif Educamp & Team Building dengan Dual Tablet Controller, Multi-Game Hub (Panjat Pinang & Tarik Tambang), dan Integrasi Google AI Studio",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

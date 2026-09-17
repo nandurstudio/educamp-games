@@ -26,6 +26,7 @@ Catatan Penting: "correctIndex" adalah integer 0 (A), 1 (B), 2 (C), atau 3 (D). 
 
   const candidateModels = [
     'gemini-2.5-flash',
+    'gemini-2.0-flash',
     'gemini-1.5-flash-latest',
     'gemini-1.5-flash',
     'gemini-pro'
