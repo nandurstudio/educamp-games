@@ -4,10 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Game Master - Tarik Tambang</title>
+  <link id="app-favicon" rel="icon" type="image/png" href="/images/Logo%20Educamp%202026.png">
+  <link rel="stylesheet" href="/css/fonts.css">
+  <link rel="stylesheet" href="/css/footer.css">
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background: #0f172a; color: #f8fafc; padding: 24px; }
-    .container { max-width: 1100px; margin: 0 auto; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: var(--font-body); }
+    body { background: #0f172a; color: #f8fafc; padding: 24px 24px 0 24px; min-height: 100vh; display: flex; flex-direction: column; justify-content: space-between; }
+    .container { max-width: 1100px; margin: 0 auto 36px auto; width: 100%; flex: 1 0 auto; }
     header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #334155; }
     h1 { font-size: 26px; color: #38bdf8; }
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
@@ -39,6 +42,7 @@
   <!-- Universal Admin Navigation Bar -->
   <nav style="background: #0d1527; border-bottom: 1px solid #1e293b; padding: 6px 16px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px;">
     <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; color: #38bdf8;">
+      <img id="tug-admin-nav-logo" src="/images/Logo%20Educamp%202026.png" alt="Logo" style="height: 24px; object-fit: contain;">
       <span>🪢</span>
       <span>TARIK TAMBANG ADMIN</span>
     </div>
@@ -53,13 +57,13 @@
         🎋 Admin Pinang
       </a>
       <a href="/tug-admin.html" style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none; color: #fff; background: #3b82f6;">
-        🪢 Admin Tug
+        🪢 Admin Tarik Tambang
       </a>
       <a href="/arena.html" target="_blank" style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none; color: #94a3b8; background: #17253d; border: 1px solid #1e293b;">
         🌴 Arena Pinang ↗
       </a>
       <a href="/tug-arena.html" target="_blank" style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none; color: #94a3b8; background: #17253d; border: 1px solid #1e293b;">
-        🪢 Arena Tug ↗
+        🪢 Arena Tarik Tambang ↗
       </a>
       <a href="/index.html" style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none; color: #94a3b8; background: #17253d; border: 1px solid #1e293b;">
         🏠 Hub Utama
@@ -202,8 +206,11 @@
     <!-- Kolom Kanan: Pemilihan 2 Tim yang Bertanding (Kiri vs Kanan) -->
     <div>
       <!-- Tim Kiri -->
-      <div class="card" style="border-left: 5px solid #ef4444;">
-        <h2 style="color: #ef4444;">◀ Tim Sisi Kiri (Red Anchor)</h2>
+      <div class="card" id="card-team-left" style="border-left: 6px solid #ef4444; transition: border-color 0.2s ease;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <h2 id="title-team-left" style="color: #ef4444; margin: 0;">◀ Tim Sisi Kiri</h2>
+          <span id="hex-label-team-left" style="font-family: monospace; font-size: 12px; font-weight: bold; background: #0f172a; padding: 2px 8px; border-radius: 4px; border: 1px solid #334155; color: #ef4444;">#EF4444</span>
+        </div>
         <div class="form-group">
           <label>Pilih Kelompok Educamp:</label>
           <select id="select-team-left" onchange="onTeamPresetChange('left')">
@@ -218,11 +225,11 @@
         <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px;">
           <div class="form-group">
             <label>Nama Tim Kiri:</label>
-            <input type="text" id="name-team-left">
+            <input type="text" id="name-team-left" oninput="onNameChange('left', this.value)" onchange="onNameChange('left', this.value)">
           </div>
           <div class="form-group">
             <label>Warna Jersey:</label>
-            <input type="color" id="color-team-left" style="height: 42px; padding: 4px;">
+            <input type="color" id="color-team-left" oninput="onColorChange('left', this.value)" onchange="onColorChange('left', this.value)" style="height: 42px; padding: 4px; cursor: pointer; width: 100%; border-radius: 6px; border: 1px solid #475569; background: #0f172a;">
           </div>
         </div>
         <label>Anggota Regu (<span id="count-left">8</span> orang):</label>
@@ -230,8 +237,11 @@
       </div>
 
       <!-- Tim Kanan -->
-      <div class="card" style="border-left: 5px solid #3b82f6;">
-        <h2 style="color: #3b82f6;">Tim Sisi Kanan (Blue Anchor) ▶</h2>
+      <div class="card" id="card-team-right" style="border-left: 6px solid #3b82f6; transition: border-color 0.2s ease;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <h2 id="title-team-right" style="color: #3b82f6; margin: 0;">Tim Sisi Kanan ▶</h2>
+          <span id="hex-label-team-right" style="font-family: monospace; font-size: 12px; font-weight: bold; background: #0f172a; padding: 2px 8px; border-radius: 4px; border: 1px solid #334155; color: #3b82f6;">#3B82F6</span>
+        </div>
         <div class="form-group">
           <label>Pilih Kelompok Educamp:</label>
           <select id="select-team-right" onchange="onTeamPresetChange('right')">
@@ -246,24 +256,39 @@
         <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px;">
           <div class="form-group">
             <label>Nama Tim Kanan:</label>
-            <input type="text" id="name-team-right">
+            <input type="text" id="name-team-right" oninput="onNameChange('right', this.value)" onchange="onNameChange('right', this.value)">
           </div>
           <div class="form-group">
             <label>Warna Jersey:</label>
-            <input type="color" id="color-team-right" style="height: 42px; padding: 4px;">
+            <input type="color" id="color-team-right" oninput="onColorChange('right', this.value)" onchange="onColorChange('right', this.value)" style="height: 42px; padding: 4px; cursor: pointer; width: 100%; border-radius: 6px; border: 1px solid #475569; background: #0f172a;">
           </div>
         </div>
         <label>Anggota Regu (<span id="count-right">8</span> orang):</label>
         <div class="members-badge-list" id="members-right-list"></div>
+      </div>
+
+      <!-- Tombol Aksi Simpan Tim & Jersey -->
+      <div style="background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; margin-top: 12px; flex-wrap: wrap; gap: 10px;">
+        <span style="font-size: 13px; color: #94a3b8;">
+          💡 Ubah warna jersey atau nama tim di atas untuk langsung melihat update live di Arena & Tablet.
+        </span>
+        <button class="btn btn-green" id="btn-save-teams" onclick="saveTeamsManually()" style="font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+          💾 Simpan Warna Jersey & Tim
+        </button>
+      </div>
+      <div id="teams-save-feedback" style="display: none; text-align: right; margin-top: 6px; font-size: 12px; font-weight: bold; color: #4ade80;">
+        ✅ Warna Jersey & Pengaturan Tim Berhasil Diterapkan ke Arena & Tablet!
       </div>
     </div>
   </div>
 
   <!-- Sesi Riwayat Pertandingan Tarik Tambang -->
   <div class="card">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
       <h2>📜 Riwayat Sesi Tarik Tambang (Match History)</h2>
-      <div style="display: flex; gap: 8px;">
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button class="btn btn-green btn-sm" onclick="downloadBackupDirect()" title="Unduh cadangan data game dan riwayat (.json)">💾 Backup Data (.json)</button>
+        <a href="/super-admin.html" class="btn btn-purple btn-sm" style="text-decoration: none; display: inline-flex; align-items: center;" title="Buka panel Super Admin untuk Restore Data">⚡ Restore Data</a>
         <button class="btn btn-blue btn-sm" onclick="fetchHistory()">🔄 Refresh Riwayat</button>
         <button class="btn btn-red btn-sm" onclick="clearHistory()">🗑️ Bersihkan Riwayat</button>
       </div>
@@ -290,11 +315,22 @@
       </table>
     </div>
   </div>
-
-  <footer style="margin-top: 40px; padding: 20px; text-align: center; color: #64748b; font-size: 14px; border-top: 1px solid #1e293b;">
-    © 2026 Nandur Studio. All rights reserved.
-  </footer>
 </div>
+
+<!-- Sticky Footer Konsisten -->
+<footer class="app-sticky-footer" id="app-sticky-footer">
+  <div class="footer-left">
+    <img src="/images/Logo%20Educamp%202026.png" alt="Nandur Studio" class="footer-logo">
+    <span class="footer-copyright">&copy; 2026 Nandur Studio. All rights reserved.</span>
+  </div>
+  <div class="footer-right">
+    <div class="footer-semver" title="Semantic Versioning">
+      <span class="semver-dot"></span>
+      <span class="semver-label">SemVer</span>
+      <span>v1.1.0</span>
+    </div>
+  </div>
+</footer>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
@@ -396,11 +432,86 @@
     fetchHistory();
   });
 
+  let configDebounceTimer = null;
+
+  function onColorChange(side, color) {
+    if (!color) return;
+    if (side === 'left') {
+      if (!localTeamsConfig.teamLeft) localTeamsConfig.teamLeft = {};
+      localTeamsConfig.teamLeft.color = color;
+      updateTeamVisuals('left', color);
+    } else {
+      if (!localTeamsConfig.teamRight) localTeamsConfig.teamRight = {};
+      localTeamsConfig.teamRight.color = color;
+      updateTeamVisuals('right', color);
+    }
+    triggerDebouncedUpdate();
+  }
+
+  function onNameChange(side, name) {
+    if (side === 'left') {
+      if (!localTeamsConfig.teamLeft) localTeamsConfig.teamLeft = {};
+      localTeamsConfig.teamLeft.name = name;
+    } else {
+      if (!localTeamsConfig.teamRight) localTeamsConfig.teamRight = {};
+      localTeamsConfig.teamRight.name = name;
+    }
+    triggerDebouncedUpdate();
+  }
+
+  function updateTeamVisuals(side, color) {
+    const isLeft = side === 'left';
+    const card = document.getElementById(isLeft ? 'card-team-left' : 'card-team-right');
+    const title = document.getElementById(isLeft ? 'title-team-left' : 'title-team-right');
+    const hexLabel = document.getElementById(isLeft ? 'hex-label-team-left' : 'hex-label-team-right');
+    if (card) card.style.borderLeft = `6px solid ${color}`;
+    if (title) title.style.color = color;
+    if (hexLabel) {
+      hexLabel.textContent = color.toUpperCase();
+      hexLabel.style.color = color;
+    }
+  }
+
+  function triggerDebouncedUpdate() {
+    clearTimeout(configDebounceTimer);
+    configDebounceTimer = setTimeout(() => {
+      updateConfig();
+    }, 150);
+  }
+
+  function saveTeamsManually() {
+    updateConfig();
+    const fb = document.getElementById('teams-save-feedback');
+    if (fb) {
+      fb.style.display = 'block';
+      setTimeout(() => { fb.style.display = 'none'; }, 3500);
+    }
+  }
+
   socket.on('TUG_STATE_UPDATE', (state) => {
     currentTugState = state;
-    if (!localTeamsConfig.teamLeft) {
+    if (!localTeamsConfig.teamLeft || !localTeamsConfig.teamRight) {
       localTeamsConfig.teamLeft = JSON.parse(JSON.stringify(state.teamLeft));
       localTeamsConfig.teamRight = JSON.parse(JSON.stringify(state.teamRight));
+    } else {
+      // Sinkronkan data dari server jika admin tidak sedang aktif mengetik/memilih warna
+      const activeEl = document.activeElement;
+      const isUserEditing = activeEl && (
+        activeEl.id === 'name-team-left' || activeEl.id === 'color-team-left' ||
+        activeEl.id === 'name-team-right' || activeEl.id === 'color-team-right'
+      );
+      if (!isUserEditing) {
+        if (state.teamLeft) {
+          localTeamsConfig.teamLeft.name = state.teamLeft.name;
+          localTeamsConfig.teamLeft.color = state.teamLeft.color;
+          if (Array.isArray(state.teamLeft.members)) localTeamsConfig.teamLeft.members = state.teamLeft.members;
+        }
+        if (state.teamRight) {
+          localTeamsConfig.teamRight.name = state.teamRight.name;
+          localTeamsConfig.teamRight.color = state.teamRight.color;
+          if (Array.isArray(state.teamRight.members)) localTeamsConfig.teamRight.members = state.teamRight.members;
+        }
+      }
     }
     renderUI(state);
     if (Array.isArray(state.history)) {
@@ -430,18 +541,30 @@
     // Update Tombol Aksi Mulai / Jeda / Lanjutkan / Stop
     updateToggleButtons(state.status);
 
+    const activeEl = document.activeElement;
+
     // Render Tim Kiri
     if (localTeamsConfig.teamLeft) {
-      document.getElementById('name-team-left').value = localTeamsConfig.teamLeft.name;
-      document.getElementById('color-team-left').value = localTeamsConfig.teamLeft.color;
+      if (activeEl?.id !== 'name-team-left') {
+        document.getElementById('name-team-left').value = localTeamsConfig.teamLeft.name;
+      }
+      if (activeEl?.id !== 'color-team-left') {
+        document.getElementById('color-team-left').value = localTeamsConfig.teamLeft.color;
+      }
+      updateTeamVisuals('left', localTeamsConfig.teamLeft.color);
       document.getElementById('count-left').textContent = localTeamsConfig.teamLeft.members.length;
       renderMemberList('members-left-list', localTeamsConfig.teamLeft.members);
     }
 
     // Render Tim Kanan
     if (localTeamsConfig.teamRight) {
-      document.getElementById('name-team-right').value = localTeamsConfig.teamRight.name;
-      document.getElementById('color-team-right').value = localTeamsConfig.teamRight.color;
+      if (activeEl?.id !== 'name-team-right') {
+        document.getElementById('name-team-right').value = localTeamsConfig.teamRight.name;
+      }
+      if (activeEl?.id !== 'color-team-right') {
+        document.getElementById('color-team-right').value = localTeamsConfig.teamRight.color;
+      }
+      updateTeamVisuals('right', localTeamsConfig.teamRight.color);
       document.getElementById('count-right').textContent = localTeamsConfig.teamRight.members.length;
       renderMemberList('members-right-list', localTeamsConfig.teamRight.members);
     }
@@ -559,7 +682,12 @@
       const data = await res.json();
       const badge = document.getElementById('quiz-source-badge');
       if (badge && data) {
-        badge.textContent = `Sumber: ${data.source || 'DEFAULT'} (${data.count || 0} Soal Aktif)`;
+        const dist = data.distribution;
+        if (dist && dist.tug) {
+          badge.textContent = `Tarik Tambang: ${dist.tug.total} Soal (${dist.tug.easy} Easy, ${dist.tug.medium} Med, ${dist.tug.hard} Hard) | Panjat Pinang: ${dist.pinang.total} Soal`;
+        } else {
+          badge.textContent = `Sumber: ${data.source || 'DEFAULT'} (${data.count || 0} Soal Aktif)`;
+        }
         badge.style.color = (data.source === 'CSV') ? '#2ecc71' : (data.source === 'AI') ? '#c084fc' : '#38bdf8';
         badge.style.borderColor = badge.style.color;
       }
@@ -730,6 +858,10 @@
 
   // Ambil status awal saat dimuat
   fetchQuizStatus();
+
+  function downloadBackupDirect() {
+    window.location.href = '/api/backup/export';
+  }
 </script>
 </body>
 </html>

@@ -1,0 +1,158 @@
+/* 
+ * =========================================================================================
+ * KALBE CORPORATE FONT TYPOGRAPHY (DUAL-FONT SYSTEM)
+ * =========================================================================================
+ * Kombinasi khusus untuk UI Web & Interactive Educamp Games:
+ * 1. Kalbe Rounded   : Digunakan untuk Header (H1-H6) dan Tombol agar berkesan ramah & bersahabat.
+ * 2. Kalbe System    : Digunakan untuk teks paragraf, tabel, dan form agar mudah dibaca & tajam.
+ * 3. Kalbe Geometric : Digunakan untuk angka, statistik, timer, skor, dan badge.
+ * 
+ * Fallback Stack:
+ * - 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* ==========================================================================
+   1. DEKLARASI FONT: KALBE SYSTEM (UNTUK TEKS PANJANG / BODY)
+   ========================================================================== */
+@font-face {
+  font-family: 'Kalbe System';
+  src: local('Kalbe System'),
+       local('KalbeSystem'),
+       local('Kalbe System Regular'),
+       url('/fonts/KalbeSystem-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Kalbe System';
+  src: local('Kalbe System Medium'),
+       local('KalbeSystem-Medium'),
+       local('Kalbe System'),
+       url('/fonts/KalbeSystem-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Kalbe System';
+  src: local('Kalbe System Bold'),
+       local('KalbeSystem-Bold'),
+       local('Kalbe System'),
+       url('/fonts/KalbeSystem-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ==========================================================================
+   2. DEKLARASI FONT: KALBE ROUNDED (UNTUK HEADING & TOMBOL)
+   ========================================================================== */
+@font-face {
+  font-family: 'Kalbe Rounded';
+  src: local('Kalbe Rounded'),
+       local('KalbeRounded'),
+       local('Kalbe Rounded Regular'),
+       url('/fonts/KalbeRounded-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Kalbe Rounded';
+  src: local('Kalbe Rounded Medium'),
+       local('KalbeRounded-Medium'),
+       local('Kalbe Rounded'),
+       url('/fonts/KalbeRounded-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Kalbe Rounded';
+  src: local('Kalbe Rounded Bold'),
+       local('KalbeRounded-Bold'),
+       local('Kalbe Rounded'),
+       url('/fonts/KalbeRounded-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ==========================================================================
+   3. DEKLARASI FONT: KALBE GEOMETRIC (KHUSUS UNTUK ANGKA/STATISTIK)
+   ========================================================================== */
+@font-face {
+  font-family: 'Kalbe Geometric';
+  src: local('Kalbe Geometric'),
+       local('KalbeGeometric'),
+       local('Kalbe Geometric Bold'),
+       url('/fonts/KalbeGeometric-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ==========================================================================
+   4. PENERAPAN KE CSS VARIABLES (LENGKAP DENGAN UNIVERSAL EMOJI STACK)
+   ========================================================================== */
+:root {
+  /* Universal Fallback untuk Emoji di berbagai OS (Android, Windows, iOS/macOS, Linux) */
+  --font-emoji: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Android Emoji", "Segoe UI Symbol", "EmojiSymbols", sans-serif;
+
+  --font-body: 'Kalbe System', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Android Emoji", "Segoe UI Symbol", sans-serif;
+  --font-heading: 'Kalbe Rounded', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Android Emoji", "Segoe UI Symbol", sans-serif;
+  --font-number: 'Kalbe Geometric', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Android Emoji", "Segoe UI Symbol", sans-serif;
+}
+
+/* Dukungan eksplisit elemen emoji agar tidak terpotong atau menjadi kotak [] */
+.emoji, .game-dense-emoji, .trophy-badge {
+  font-family: var(--font-emoji) !important;
+  font-style: normal;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Terapkan System Font untuk semua elemen default secara aman */
+body, 
+p, a, span, div, li, td, th,
+input, select, textarea,
+.table, .form-control, label {
+  font-family: var(--font-body);
+}
+
+/* Terapkan Rounded Font khusus untuk elemen penarik perhatian (Heading & Buttons) */
+h1, h2, h3, h4, h5, h6,
+.modal-title, .card-title,
+.info-box-text,
+.game-title,
+.btn, .btn-link, .team-pick-btn {
+  font-family: var(--font-heading) !important;
+  letter-spacing: -0.2px;
+}
+
+/* Terapkan Geometric khusus untuk angka agar tegas dan mudah dipindai */
+.info-box-number, .stat-number, .badge, .game-badge,
+.timer-badge, .score-badge, .hud-badge, .rank-badge,
+.point-val, .score-value {
+  font-family: var(--font-number) !important;
+  letter-spacing: 0.5px;
+}
+
+h1, h2, h3 {
+  font-weight: 700 !important;
+}
+
+/* Tombol menggunakan Rounded Medium agar terlihat bersahabat namun tegas */
+.btn, .btn-link, .team-pick-btn, .action-btn {
+  font-family: var(--font-heading) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.3px;
+  border-radius: 8px; /* Menyesuaikan karakter font rounded */
+}

@@ -4,7 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Tablet Controller - Panjat Pinang</title>
+  <link id="app-favicon" rel="icon" type="image/png" href="/images/Logo%20Educamp%202026.png">
   <link rel="stylesheet" href="/css/controller.css">
+  <link rel="stylesheet" href="/css/footer.css">
   <style>
     .team-selector-card {
       background: #1e293b;
@@ -102,6 +104,53 @@
       margin-top: 2px;
     }
 
+    /* Circular Countdown Turn Timer (15 Detik per Soal) */
+    .circle-timer-wrap {
+      position: relative;
+      width: 60px;
+      height: 60px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .circle-timer-svg {
+      transform: rotate(-90deg);
+      width: 60px;
+      height: 60px;
+    }
+    .circle-bg {
+      fill: none;
+      stroke: #334155;
+      stroke-width: 5;
+    }
+    .circle-progress {
+      fill: none;
+      stroke: #38bdf8;
+      stroke-width: 5;
+      stroke-linecap: round;
+      stroke-dasharray: 163.36; /* 2 * PI * 26 */
+      stroke-dashoffset: 0;
+      transition: stroke-dashoffset 0.1s linear, stroke 0.3s;
+    }
+    .circle-progress.warning {
+      stroke: #f59e0b;
+    }
+    .circle-progress.danger {
+      stroke: #ef4444;
+      filter: drop-shadow(0 0 6px rgba(239, 68, 68, 0.8));
+    }
+    .circle-timer-num {
+      position: absolute;
+      font-family: 'Courier New', monospace;
+      font-size: 17px;
+      font-weight: 900;
+      color: #ffffff;
+    }
+    .feedback-overlay.feedback-timeout {
+      background: rgba(245, 158, 11, 0.95);
+    }
+
     /* Match Timer Badge di Header */
     .match-timer-badge {
       font-family: 'Courier New', monospace;
@@ -169,13 +218,11 @@
   <!-- Modal Pemilihan Tim Saat Tablet Pertama Kali Buka -->
   <div class="team-selector-modal" id="team-modal">
     <div class="team-selector-card">
+      <img id="controller-modal-logo" src="/images/Logo%20Educamp%202026_tagline_white.png" alt="Educamp 2026" style="max-height: 48px; margin-bottom: 12px; object-fit: contain;">
       <h2 style="margin-bottom: 8px; color: #f1c40f;">📱 Pilih Tim Tablet Ini</h2>
       <p style="color: #94a3b8; font-size: 14px; margin-bottom: 20px;">Pilih tim yang akan dikendalikan oleh tablet ini:</p>
       <div id="team-buttons-container">
         <!-- Diisi otomatis dari state -->
-      </div>
-      <div style="margin-top: 20px; font-size: 12px; color: #64748b;">
-        © 2026 Nandur Studio. All rights reserved.
       </div>
     </div>
   </div>
@@ -187,6 +234,8 @@
       <span id="team-name">PILIH TIM</span>
       <span style="font-size: 11px; background: #334155; padding: 2px 6px; border-radius: 4px; color: #94a3b8; margin-left: 6px;">Ganti ▾</span>
     </div>
+
+    <img id="ctrl-header-logo" src="/images/Logo%20Educamp%202026.png" alt="Educamp 2026" style="height: 28px; object-fit: contain;">
     
     <!-- Timer Utama Global Pertandingan di Header Atas -->
     <div class="match-timer-badge" id="match-timer-badge">
@@ -202,8 +251,17 @@
       </div>
       <div class="turn-hero-name" id="hero-turn-name">-</div>
     </div>
+
+    <!-- Circular Countdown Turn Timer (15 Detik per Soal) -->
+    <div class="circle-timer-wrap" id="circle-timer-wrap" title="Batas waktu menjawab pertanyaan ini (15 detik)">
+      <svg class="circle-timer-svg" viewBox="0 0 64 64">
+        <circle class="circle-bg" cx="32" cy="32" r="26"></circle>
+        <circle class="circle-progress" id="circle-progress" cx="32" cy="32" r="26"></circle>
+      </svg>
+      <div class="circle-timer-num" id="circle-timer-num">15</div>
+    </div>
     
-    <!-- Info Ketinggian & Skor Tim (Tanpa timer perorang) -->
+    <!-- Info Ketinggian & Skor Tim -->
     <div class="climb-stat-box">
       <div class="climb-stat-label">KETINGGIAN TIANG</div>
       <div class="climb-stat-val" id="climb-stat-val">0 / 0</div>
@@ -246,9 +304,36 @@
         <span class="opt-text" id="opt-3">-</span>
       </button>
     </div>
-    <div style="text-align: center; margin-top: 16px; font-size: 12px; color: #475569;">
-      © 2026 Nandur Studio. All rights reserved.
+  </div>
+
+  <!-- Mini Live Log Giliran Tim di Tablet Controller -->
+  <div style="padding: 0 16px 14px 16px; max-width: 650px; margin: 0 auto; width: 100%;">
+    <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid #334155; border-radius: 8px; padding: 8px 12px;">
+      <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: bold; color: #94a3b8; font-family: monospace; margin-bottom: 6px; border-bottom: 1px solid #1e293b; padding-bottom: 4px;">
+        <span>📜 LOG JAWABAN REGU</span>
+        <span id="controller-timer-info" style="color: #38bdf8;">15s/giliran</span>
+      </div>
+      <div id="controller-log-list" style="display: flex; flex-direction: column; gap: 4px; max-height: 80px; overflow-y: auto; font-size: 11px;">
+        <div style="color: #64748b; font-style: italic; text-align: center; padding: 4px;">Menunggu giliran menjawab...</div>
+      </div>
     </div>
+  </div>
+
+  <!-- Sticky Footer Konsisten -->
+  <div class="controller-footer-wrapper">
+    <footer class="app-sticky-footer" id="app-sticky-footer">
+      <div class="footer-left">
+        <img src="/images/Logo%20Educamp%202026.png" alt="Nandur Studio" class="footer-logo">
+        <span class="footer-copyright">&copy; 2026 Nandur Studio. All rights reserved.</span>
+      </div>
+      <div class="footer-right">
+        <div class="footer-semver" title="Semantic Versioning">
+          <span class="semver-dot"></span>
+          <span class="semver-label">SemVer</span>
+          <span>v1.1.0</span>
+        </div>
+      </div>
+    </footer>
   </div>
 
   <!-- Overlay Feedback Pop-up -->
@@ -280,6 +365,13 @@
     const feedbackOverlay = document.getElementById('feedback-overlay');
     const feedbackTitle = document.getElementById('feedback-title');
     const feedbackSub = document.getElementById('feedback-sub');
+    const circleTimerNum = document.getElementById('circle-timer-num');
+    const circleProgress = document.getElementById('circle-progress');
+    const controllerLogList = document.getElementById('controller-log-list');
+    const controllerTimerInfo = document.getElementById('controller-timer-info');
+
+    const CIRCUMFERENCE = 163.36; // 2 * PI * 26
+    let turnTimerInterval = null;
 
     // Baca parameter URL
     const urlParams = new URLSearchParams(window.location.search);
@@ -289,6 +381,86 @@
       const m = Math.floor(sec / 60).toString().padStart(2, '0');
       const s = (sec % 60).toString().padStart(2, '0');
       return `⏱️ ${m}:${s}`;
+    }
+
+    function startTurnTimer() {
+      if (turnTimerInterval) {
+        clearInterval(turnTimerInterval);
+        turnTimerInterval = null;
+      }
+
+      if (!gameState || gameState.status !== 'PLAYING') {
+        if (circleTimerNum) circleTimerNum.textContent = '--';
+        if (circleProgress) {
+          circleProgress.classList.remove('warning', 'danger');
+          circleProgress.style.strokeDashoffset = '0';
+        }
+        return;
+      }
+
+      const totalTimeout = typeof gameState.turnTimeoutSeconds === 'number' ? gameState.turnTimeoutSeconds : 15;
+      if (controllerTimerInfo) {
+        controllerTimerInfo.textContent = `${totalTimeout}s/giliran`;
+      }
+
+      if (totalTimeout <= 0) {
+        if (circleTimerNum) circleTimerNum.textContent = '∞';
+        if (circleProgress) {
+          circleProgress.classList.remove('warning', 'danger');
+          circleProgress.style.strokeDashoffset = '0';
+        }
+        return;
+      }
+
+      const myTeam = gameState.teams ? gameState.teams[currentTeamId] : null;
+      const startTime = (myTeam && myTeam.questionStartTime) ? myTeam.questionStartTime : Date.now();
+
+      function tickCircle() {
+        const elapsed = (Date.now() - startTime) / 1000;
+        const remain = Math.max(0, totalTimeout - elapsed);
+        const fraction = remain / totalTimeout;
+        const offset = CIRCUMFERENCE * (1 - fraction);
+
+        if (circleProgress) {
+          circleProgress.style.strokeDashoffset = offset.toString();
+          circleProgress.classList.remove('warning', 'danger');
+          if (remain <= 3) {
+            circleProgress.classList.add('danger');
+          } else if (remain <= totalTimeout * 0.45) {
+            circleProgress.classList.add('warning');
+          }
+        }
+        if (circleTimerNum) {
+          circleTimerNum.textContent = Math.ceil(remain);
+        }
+
+        if (remain <= 0 && turnTimerInterval) {
+          clearInterval(turnTimerInterval);
+          turnTimerInterval = null;
+        }
+      }
+
+      tickCircle();
+      turnTimerInterval = setInterval(tickCircle, 100);
+    }
+
+    function appendControllerLog(html) {
+      if (!controllerLogList) return;
+      if (controllerLogList.children.length === 1 && controllerLogList.children[0].textContent.includes('Menunggu')) {
+        controllerLogList.innerHTML = '';
+      }
+      const div = document.createElement('div');
+      div.innerHTML = html;
+      controllerLogList.insertBefore(div.firstElementChild, controllerLogList.firstChild);
+      while (controllerLogList.children.length > 8) {
+        controllerLogList.removeChild(controllerLogList.lastChild);
+      }
+    }
+
+    function resetControllerLog() {
+      if (controllerLogList) {
+        controllerLogList.innerHTML = '<div style="color: #64748b; font-style: italic; text-align: center; padding: 4px;">Menunggu giliran menjawab...</div>';
+      }
     }
 
     // Auto-fetch state awal saat pertama buka
@@ -313,6 +485,16 @@
       gameState = state;
       handleInitialTeamSelection();
       updateUI();
+    });
+
+    socket.on('GAME_STARTED', () => {
+      resetControllerLog();
+      startTurnTimer();
+    });
+
+    socket.on('GAME_RESET', () => {
+      resetControllerLog();
+      startTurnTimer();
     });
 
     socket.on('TIMER_TICK', (data) => {
@@ -412,6 +594,7 @@
       climbMeterBar.style.width = `${percent}%`;
 
       if (gameState.status !== 'PLAYING') {
+        startTurnTimer();
         if (gameState.status === 'FINISHED') {
           questionTextEl.textContent = "🏁 Permainan Panjat Pinang Selesai!";
         } else {
@@ -426,6 +609,7 @@
         return;
       }
 
+      startTurnTimer();
       document.getElementById('options-grid').style.opacity = '1';
       document.getElementById('options-grid').style.pointerEvents = 'auto';
 
@@ -455,21 +639,47 @@
     }
 
     function showFeedback(res) {
-      feedbackOverlay.classList.remove('feedback-correct', 'feedback-wrong');
+      feedbackOverlay.classList.remove('feedback-correct', 'feedback-wrong', 'feedback-timeout');
 
-      if (res.isCorrect) {
+      if (res.reason === 'TIMEOUT_TURN' || res.eventType === 'TIMEOUT_PENALTY') {
+        feedbackOverlay.classList.add('feedback-timeout');
+        feedbackTitle.textContent = "⏳ WAKTU HABIS (15s)!";
+        feedbackTitle.style.color = "#f59e0b";
+        feedbackSub.textContent = `${res.answeredBy} tidak sempat menjawab. Melorot & ganti giliran!`;
+        if (navigator.vibrate) navigator.vibrate([150, 70, 150]);
+        appendControllerLog(`
+          <div style="padding: 3px 6px; border-radius: 4px; background: rgba(245, 158, 11, 0.15); border-left: 3px solid #f59e0b; color: #fde047; display: flex; justify-content: space-between;">
+            <span>⏳ <b>${res.answeredBy}</b> (15s Habis)</span>
+            <span>Melorot</span>
+          </div>
+        `);
+      } else if (res.isCorrect) {
         feedbackOverlay.classList.add('feedback-correct');
         feedbackTitle.textContent = "✅ JAWABAN BENAR!";
+        feedbackTitle.style.color = "#22c55e";
         feedbackSub.textContent = `${res.answeredBy} berhasil memanjat tiang!`;
+        appendControllerLog(`
+          <div style="padding: 3px 6px; border-radius: 4px; background: rgba(34, 197, 94, 0.15); border-left: 3px solid #22c55e; color: #86efac; display: flex; justify-content: space-between;">
+            <span>✅ <b>${res.answeredBy}</b> (+1 Pemanjat)</span>
+            <span>+1 Naik</span>
+          </div>
+        `);
       } else {
         feedbackOverlay.classList.add('feedback-wrong');
         feedbackTitle.textContent = "💥 JAWABAN SALAH!";
+        feedbackTitle.style.color = "#ef4444";
         if (res.eventType === 'TOTAL_WIPEOUT') {
           feedbackSub.textContent = "Karakter runtuh semua ke tanah!";
         } else {
           feedbackSub.textContent = "Karakter melorot 1 tingkat ke bawah!";
         }
         if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+        appendControllerLog(`
+          <div style="padding: 3px 6px; border-radius: 4px; background: rgba(239, 68, 68, 0.15); border-left: 3px solid #ef4444; color: #fca5a5; display: flex; justify-content: space-between;">
+            <span>❌ <b>${res.answeredBy}</b> (Salah)</span>
+            <span>Melorot</span>
+          </div>
+        `);
       }
 
       feedbackOverlay.classList.add('show');
@@ -477,7 +687,9 @@
       setTimeout(() => {
         feedbackOverlay.classList.remove('show');
         isSubmitting = false;
-        document.getElementById('options-grid').style.pointerEvents = 'auto';
+        if (gameState?.status === 'PLAYING') {
+          document.getElementById('options-grid').style.pointerEvents = 'auto';
+        }
         updateUI();
       }, 1600);
     }

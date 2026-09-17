@@ -4,10 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Game Master - Educamp Panjat Pinang</title>
+  <link id="app-favicon" rel="icon" type="image/png" href="/images/Logo%20Educamp%202026.png">
+  <link rel="stylesheet" href="/css/fonts.css">
+  <link rel="stylesheet" href="/css/footer.css">
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background: #0f172a; color: #f8fafc; padding: 24px; }
-    .container { max-width: 1100px; margin: 0 auto; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: var(--font-body); }
+    body { background: #0f172a; color: #f8fafc; padding: 24px 24px 0 24px; min-height: 100vh; display: flex; flex-direction: column; justify-content: space-between; }
+    .container { max-width: 1100px; margin: 0 auto 36px auto; width: 100%; flex: 1 0 auto; }
     header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #334155; }
     h1 { font-size: 26px; color: #38bdf8; }
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
@@ -42,6 +45,7 @@
   <!-- Universal Admin Navigation Bar -->
   <nav style="background: #0d1527; border-bottom: 1px solid #1e293b; padding: 6px 16px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px;">
     <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; color: #f87171;">
+      <img id="admin-nav-logo" src="/images/Logo%20Educamp%202026.png" alt="Logo" style="height: 24px; object-fit: contain;">
       <span>🎋</span>
       <span>PANJAT PINANG ADMIN</span>
     </div>
@@ -56,13 +60,13 @@
         🎋 Admin Pinang
       </a>
       <a href="/tug-admin.html" style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none; color: #94a3b8; background: #17253d; border: 1px solid #1e293b;">
-        🪢 Admin Tug
+        🪢 Admin Tarik Tambang
       </a>
       <a href="/arena.html" target="_blank" style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none; color: #94a3b8; background: #17253d; border: 1px solid #1e293b;">
         🌴 Arena Pinang ↗
       </a>
       <a href="/tug-arena.html" target="_blank" style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none; color: #94a3b8; background: #17253d; border: 1px solid #1e293b;">
-        🪢 Arena Tug ↗
+        🪢 Arena Tarik Tambang ↗
       </a>
       <a href="/index.html" style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none; color: #94a3b8; background: #17253d; border: 1px solid #1e293b;">
         🏠 Hub Utama
@@ -140,7 +144,7 @@
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
           <div class="form-group">
-            <label>⏱️ Durasi Timer:</label>
+            <label>⏱️ Durasi Pertandingan:</label>
             <select id="game-duration" onchange="updateConfig()">
               <option value="60">1 Menit (Cepat / Demo)</option>
               <option value="180">3 Menit</option>
@@ -151,9 +155,23 @@
             </select>
           </div>
           <div class="form-group">
-            <label>⭐ Poin per Benar:</label>
-            <input type="number" id="game-points" value="100" min="10" max="1000" step="10" onchange="updateConfig()" style="font-weight: bold; color: #f1c40f;">
+            <label>⏳ Batas Waktu Giliran (Detik):</label>
+            <input type="number" id="turn-timeout" value="15" min="5" max="120" step="1" onchange="updateConfig()" style="font-weight: bold; color: #38bdf8;" title="Waktu maksimal per orang untuk menjawab (Default: 15 detik)">
           </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label>🏆 Skor Tim Menang:</label>
+            <input type="number" id="win-score" value="300" min="0" max="2000" step="10" onchange="updateConfig()" style="font-weight: bold; color: #22c55e;" title="Poin untuk pemenang capai puncak duluan atau orang terbanyak saat waktu habis">
+          </div>
+          <div class="form-group">
+            <label>❌ Skor Tim Kalah:</label>
+            <input type="number" id="lose-score" value="150" min="0" max="2000" step="10" onchange="updateConfig()" style="font-weight: bold; color: #ef4444;" title="Poin untuk tim kalah (keduluan atau orang lebih sedikit saat waktu habis)">
+          </div>
+        </div>
+        <div class="form-group" style="margin-top: 4px;">
+          <label>🤝 Skor Hasil Seri (Imbang):</label>
+          <input type="number" id="draw-score" value="150" min="0" max="2000" step="10" onchange="updateConfig()" style="font-weight: bold; color: #f59e0b;" title="Poin masing-masing tim jika waktu habis dengan jumlah pemanjat sama">
         </div>
       </div>
     </div>
@@ -172,9 +190,11 @@
 
   <!-- Sesi Riwayat Pertandingan (Session History) -->
   <div class="card" style="margin-top: 10px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
       <h2>📜 Riwayat Sesi Pertandingan (Match History)</h2>
-      <div style="display: flex; gap: 8px;">
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button class="btn btn-green btn-sm" onclick="downloadBackupDirect()" title="Unduh cadangan data game dan riwayat (.json)">💾 Backup Data (.json)</button>
+        <a href="/super-admin.html" class="btn btn-purple btn-sm" style="text-decoration: none; display: inline-flex; align-items: center;" title="Buka panel Super Admin untuk Restore Data">⚡ Restore Data</a>
         <button class="btn btn-blue btn-sm" onclick="fetchHistory()">🔄 Refresh Riwayat</button>
         <button class="btn btn-red btn-sm" onclick="clearHistory()">🗑️ Bersihkan Riwayat</button>
       </div>
@@ -206,11 +226,22 @@
       </table>
     </div>
   </div>
-
-  <footer style="margin-top: 40px; padding: 20px; text-align: center; color: #64748b; font-size: 14px; border-top: 1px solid #1e293b;">
-    © 2026 Nandur Studio. All rights reserved.
-  </footer>
 </div>
+
+<!-- Sticky Footer Konsisten -->
+<footer class="app-sticky-footer" id="app-sticky-footer">
+  <div class="footer-left">
+    <img src="/images/Logo%20Educamp%202026.png" alt="Nandur Studio" class="footer-logo">
+    <span class="footer-copyright">&copy; 2026 Nandur Studio. All rights reserved.</span>
+  </div>
+  <div class="footer-right">
+    <div class="footer-semver" title="Semantic Versioning">
+      <span class="semver-dot"></span>
+      <span class="semver-label">SemVer</span>
+      <span>v1.1.0</span>
+    </div>
+  </div>
+</footer>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
@@ -351,8 +382,17 @@
     if (state.durationSeconds) {
       document.getElementById('game-duration').value = state.durationSeconds;
     }
-    if (state.pointsPerCorrect) {
-      document.getElementById('game-points').value = state.pointsPerCorrect;
+    if (document.getElementById('turn-timeout') && typeof state.turnTimeoutSeconds === 'number') {
+      document.getElementById('turn-timeout').value = state.turnTimeoutSeconds;
+    }
+    if (document.getElementById('win-score') && typeof state.winScore === 'number') {
+      document.getElementById('win-score').value = state.winScore;
+    }
+    if (document.getElementById('lose-score') && typeof state.loseScore === 'number') {
+      document.getElementById('lose-score').value = state.loseScore;
+    }
+    if (document.getElementById('draw-score') && typeof state.drawScore === 'number') {
+      document.getElementById('draw-score').value = state.drawScore;
     }
     renderAllTeamsCards();
     updateHeaderLinks();
@@ -386,7 +426,7 @@
       }) + ' ' + dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
 
       // Badge Winner
-      let winnerHtml = '<span style="color: #94a3b8;">Tidak Ada (Seri)</span>';
+      let winnerHtml = '<span style="color: #94a3b8;">🤝 Seri (Imbang)</span>';
       if (sess.winner) {
         winnerHtml = `
           <span class="history-winner-tag" style="background: ${sess.winner.color}22; border: 1px solid ${sess.winner.color}; color: ${sess.winner.color};">
@@ -398,20 +438,23 @@
       // Reason Badge
       let reasonHtml = '';
       if (sess.winnerReason === 'REACHED_TOP') {
-        reasonHtml = `<span style="color: #22c55e; font-weight: bold;">🚩 Capai Puncak</span>`;
+        reasonHtml = `<span style="color: #22c55e; font-weight: bold;">🚩 Puncak (300 Pts)</span>`;
       } else if (sess.winnerReason === 'TIME_OUT') {
-        reasonHtml = `<span style="color: #eab308; font-weight: bold;">⏰ Waktu Habis</span>`;
+        reasonHtml = `<span style="color: #eab308; font-weight: bold;">⏰ Waktu Habis (${sess.winner ? '300 Pts' : 'Seri 150 Pts'})</span>`;
       } else {
         reasonHtml = `<span style="color: #94a3b8;">${sess.winnerReason || '-'}</span>`;
       }
 
-      // Scores chip
+      // Scores chip dengan rincian Poin Sesi
       let scoresHtml = '';
       if (sess.scores && typeof sess.scores === 'object') {
         Object.entries(sess.scores).forEach(([tId, tData]) => {
+          const matchPts = (sess.matchScores && sess.matchScores[tId] !== undefined)
+            ? sess.matchScores[tId]
+            : (sess.winner && sess.winner.id === tId ? 300 : 150);
           scoresHtml += `
             <span class="history-score-chip" style="border-left: 3px solid ${tData.color};">
-              <strong>${tData.name}:</strong> 🪜 ${tData.climbers}/${tData.totalMembers} org (${tData.score} pts)
+              <strong>${tData.name}:</strong> 🪜 ${tData.climbers}/${tData.totalMembers} org &bull; <b style="color:#f1c40f;">${matchPts} Pts Sesi</b>
             </span>
           `;
         });
@@ -660,8 +703,19 @@
     const mode = document.getElementById('game-mode').value;
     const wipeoutMode = document.getElementById('wipeout-mode').value;
     const durationSeconds = parseInt(document.getElementById('game-duration').value, 10);
-    const pointsPerCorrect = parseInt(document.getElementById('game-points').value, 10) || 100;
-    socket.emit('UPDATE_CONFIG', { mode, wipeoutMode, durationSeconds, pointsPerCorrect });
+    const turnTimeoutSeconds = parseInt(document.getElementById('turn-timeout')?.value, 10) || 15;
+    const winScore = parseInt(document.getElementById('win-score')?.value, 10) || 300;
+    const loseScore = parseInt(document.getElementById('lose-score')?.value, 10) || 150;
+    const drawScore = parseInt(document.getElementById('draw-score')?.value, 10) || 150;
+    socket.emit('UPDATE_CONFIG', { 
+      mode, 
+      wipeoutMode, 
+      durationSeconds, 
+      turnTimeoutSeconds,
+      winScore,
+      loseScore,
+      drawScore
+    });
   }
 
   function startGame() {
@@ -705,6 +759,10 @@
       btn.disabled = false;
       btn.textContent = "🚀 Generate Bank Soal via Gemini AI";
     }
+  }
+
+  function downloadBackupDirect() {
+    window.location.href = '/api/backup/export';
   }
 </script>
 </body>

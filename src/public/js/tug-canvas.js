@@ -43,7 +43,7 @@ class TugCanvas {
     // Tambah partikel debu di bawah kaki tim
     const w = this.canvas.width;
     const h = this.canvas.height;
-    const groundY = h * 0.78;
+    const groundY = h * 0.72;
     const baseX = (side === 'left') ? w * 0.25 : w * 0.75;
 
     for (let i = 0; i < 15; i++) {
@@ -77,24 +77,24 @@ class TugCanvas {
     ctx.clearRect(0, 0, w, h);
 
     // A. Latar Belakang Lapangan Rumput & Langit Cerah
-    const skyGrad = ctx.createLinearGradient(0, 0, 0, h * 0.7);
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, h * 0.65);
     skyGrad.addColorStop(0, '#38bdf8');
     skyGrad.addColorStop(1, '#bae6fd');
     ctx.fillStyle = skyGrad;
-    ctx.fillRect(0, 0, w, h * 0.7);
+    ctx.fillRect(0, 0, w, h * 0.65);
 
     // Bukit-bukit Pixel Art di Latar Belakang
     ctx.fillStyle = '#86efac';
     ctx.beginPath();
-    ctx.arc(w * 0.2, h * 0.7, w * 0.35, Math.PI, 0);
+    ctx.arc(w * 0.2, h * 0.65, w * 0.35, Math.PI, 0);
     ctx.fill();
     ctx.fillStyle = '#4ade80';
     ctx.beginPath();
-    ctx.arc(w * 0.8, h * 0.7, w * 0.4, Math.PI, 0);
+    ctx.arc(w * 0.8, h * 0.65, w * 0.4, Math.PI, 0);
     ctx.fill();
 
     // Lapangan Tanah & Rumput
-    const groundY = h * 0.78;
+    const groundY = h * 0.72;
     ctx.fillStyle = '#16a34a';
     ctx.fillRect(0, groundY, w, h - groundY);
 
@@ -135,7 +135,7 @@ class TugCanvas {
     ctx.stroke();
 
     // Label Batas Kemenangan (Dibuat Sangat Tinggi di atas kepala agar bebas halangan)
-    ctx.font = 'bold 12px "Courier New", monospace';
+    ctx.font = 'bold 12px "Kalbe Rounded", "Inter", sans-serif';
     ctx.textAlign = 'center';
 
     // Badge Pill Kiri
@@ -371,17 +371,17 @@ class TugCanvas {
     ctx.save();
     ctx.textAlign = 'center';
     ctx.fillStyle = '#f1c40f';
-    ctx.font = 'bold 50px "Courier New", monospace';
+    ctx.font = 'bold 46px "Kalbe Rounded", "Kalbe Geometric", "Inter", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Android Emoji", sans-serif';
     ctx.shadowColor = '#000';
     ctx.shadowBlur = 10;
     ctx.fillText("🏆 JUARA TARIK TAMBANG! 🏆", w / 2, h / 2 - 40);
 
     ctx.fillStyle = this.state.winner.color;
-    ctx.font = 'bold 44px "Courier New", monospace';
+    ctx.font = 'bold 40px "Kalbe Rounded", "Inter", sans-serif';
     ctx.fillText(`${this.state.winner.name.toUpperCase()} MENANG MUTLAK!`, w / 2, h / 2 + 20);
 
     ctx.fillStyle = '#ffffff';
-    ctx.font = '20px "Courier New", monospace';
+    ctx.font = '18px "Kalbe System", "Inter", sans-serif';
     const reasonText = (this.state.winnerReason === 'KNOCKOUT')
       ? 'Berhasil menarik tali melewati garis batas lawan!'
       : 'Unggul tarikan tali saat waktu pertandingan habis!';

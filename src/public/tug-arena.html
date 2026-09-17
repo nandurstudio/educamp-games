@@ -4,8 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Arena Tarik Tambang Virtual - Educamp</title>
+  <link id="app-favicon" rel="icon" type="image/png" href="/images/Logo%20Educamp%202026.png">
   <link rel="stylesheet" href="/css/arena.css">
+  <link rel="stylesheet" href="/css/footer.css">
   <style>
+    .event-ticker { bottom: 44px !important; }
     .tug-hud-meter {
       position: absolute;
       top: 82px;
@@ -156,6 +159,9 @@
   <!-- HUD Atas -->
   <div class="arena-hud">
     <div class="hud-left" style="display: flex; gap: 10px; align-items: center; pointer-events: auto;">
+      <a href="/index.html" title="Kembali ke Lobby" style="display: flex; align-items: center;">
+        <img id="tug-arena-logo" src="/images/Logo%20Educamp%202026_tagline_white.png" alt="Educamp 2026" style="height: 36px; object-fit: contain; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.6));">
+      </a>
       <a href="/index.html" class="hud-badge hud-btn" style="text-decoration: none;">🏠 Lobby</a>
       <div class="hud-badge timer-badge" id="timer-badge">⏱️ 03:00</div>
     </div>
@@ -202,9 +208,21 @@
     </div>
   </div>
 
-  <!-- Watermark Copyright Nandur Studio -->
-  <div style="position: absolute; bottom: 10px; right: 15px; color: rgba(255, 255, 255, 0.4); font-size: 12px; pointer-events: none; font-family: 'Courier New', monospace;">
-    © 2026 Nandur Studio
+  <!-- Sticky Footer Konsisten -->
+  <div class="arena-footer-wrapper">
+    <footer class="app-sticky-footer" id="app-sticky-footer">
+      <div class="footer-left">
+        <img src="/images/Logo%20Educamp%202026.png" alt="Nandur Studio" class="footer-logo">
+        <span class="footer-copyright">&copy; 2026 Nandur Studio. All rights reserved.</span>
+      </div>
+      <div class="footer-right">
+        <div class="footer-semver" title="Semantic Versioning">
+          <span class="semver-dot"></span>
+          <span class="semver-label">SemVer</span>
+          <span>v1.1.0</span>
+        </div>
+      </div>
+    </footer>
   </div>
 
   <!-- Scripts -->
@@ -338,29 +356,54 @@
 
       if (state.teamLeft) {
         labelTeamLeft.textContent = `◀ ${state.teamLeft.name.toUpperCase()}`;
+        if (state.teamLeft.color) {
+          labelTeamLeft.style.color = state.teamLeft.color;
+        }
         const titleEl = document.getElementById('left-log-title');
-        if (titleEl) titleEl.textContent = `◀ LOG ${state.teamLeft.name.toUpperCase()}`;
+        if (titleEl) {
+          titleEl.textContent = `◀ LOG ${state.teamLeft.name.toUpperCase()}`;
+          if (state.teamLeft.color) titleEl.style.color = state.teamLeft.color;
+        }
+        const panelLeftLog = document.getElementById('panel-left-log');
+        if (panelLeftLog && state.teamLeft.color) {
+          panelLeftLog.style.borderLeftColor = state.teamLeft.color;
+        }
       }
       if (state.teamRight) {
         labelTeamRight.textContent = `${state.teamRight.name.toUpperCase()} ▶`;
+        if (state.teamRight.color) {
+          labelTeamRight.style.color = state.teamRight.color;
+        }
         const titleEl = document.getElementById('right-log-title');
-        if (titleEl) titleEl.textContent = `LOG ${state.teamRight.name.toUpperCase()} ▶`;
+        if (titleEl) {
+          titleEl.textContent = `LOG ${state.teamRight.name.toUpperCase()} ▶`;
+          if (state.teamRight.color) titleEl.style.color = state.teamRight.color;
+        }
+        const panelRightLog = document.getElementById('panel-right-log');
+        if (panelRightLog && state.teamRight.color) {
+          panelRightLog.style.borderRightColor = state.teamRight.color;
+        }
       }
 
-      // Update Bar Meter
+      // Update Bar Meter dengan warna jersey masing-masing tim
       const offset = state.ropeOffset || 0; // -100 s/d +100
+      const leftColor = (state.teamLeft && state.teamLeft.color) ? state.teamLeft.color : '#ef4444';
+      const rightColor = (state.teamRight && state.teamRight.color) ? state.teamRight.color : '#3b82f6';
+
       if (offset < 0) {
-        labelRopeStatus.textContent = `◀ KEUNGGULAN KIRI ${Math.abs(offset)}%`;
-        labelRopeStatus.style.color = '#ef4444';
+        const teamName = state.teamLeft ? state.teamLeft.name.toUpperCase() : 'KIRI';
+        labelRopeStatus.textContent = `◀ KEUNGGULAN ${teamName} ${Math.abs(offset)}%`;
+        labelRopeStatus.style.color = leftColor;
         tugIndicator.style.left = `${50 + (offset / 2)}%`;
         tugIndicator.style.width = `${Math.abs(offset) / 2}%`;
-        tugIndicator.style.background = '#ef4444';
+        tugIndicator.style.background = leftColor;
       } else if (offset > 0) {
-        labelRopeStatus.textContent = `KEUNGGULAN KANAN ${offset}% ▶`;
-        labelRopeStatus.style.color = '#3b82f6';
+        const teamName = state.teamRight ? state.teamRight.name.toUpperCase() : 'KANAN';
+        labelRopeStatus.textContent = `KEUNGGULAN ${teamName} ${offset}% ▶`;
+        labelRopeStatus.style.color = rightColor;
         tugIndicator.style.left = '50%';
         tugIndicator.style.width = `${offset / 2}%`;
-        tugIndicator.style.background = '#3b82f6';
+        tugIndicator.style.background = rightColor;
       } else {
         labelRopeStatus.textContent = 'TALI NETRAL (0%)';
         labelRopeStatus.style.color = '#f1c40f';

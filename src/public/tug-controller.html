@@ -4,7 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Tablet Controller - Tarik Tambang</title>
+  <link id="app-favicon" rel="icon" type="image/png" href="/images/Logo%20Educamp%202026.png">
   <link rel="stylesheet" href="/css/controller.css">
+  <link rel="stylesheet" href="/css/footer.css">
   <style>
     .side-selector-card {
       background: #1e293b;
@@ -169,6 +171,7 @@
   <!-- Modal Pemilihan Sisi Tim (Kiri / Kanan) -->
   <div class="team-selector-modal" id="side-modal">
     <div class="side-selector-card">
+      <img id="tug-controller-modal-logo" src="/images/Logo%20Educamp%202026_tagline_white.png" alt="Educamp 2026" style="max-height: 48px; margin-bottom: 12px; object-fit: contain;">
       <h2 style="margin-bottom: 8px; color: #f1c40f;">🪢 Pilih Posisi Tablet Ini</h2>
       <p style="color: #94a3b8; font-size: 14px; margin-bottom: 20px;">Pilih sisi tim yang dipegang oleh regu ini:</p>
       
@@ -178,10 +181,6 @@
       <button class="side-choice-btn" id="btn-select-right" style="background: #3b82f6;" onclick="selectSide('right')">
         TIM KANAN ▶
       </button>
-
-      <div style="margin-top: 16px; font-size: 12px; color: #64748b;">
-        © 2026 Nandur Studio. All rights reserved.
-      </div>
     </div>
   </div>
 
@@ -192,6 +191,8 @@
       <span id="team-name">PILIH TIM</span>
       <span style="font-size: 11px; background: #334155; padding: 2px 6px; border-radius: 4px; color: #94a3b8; margin-left: 6px;">Ganti ▾</span>
     </div>
+
+    <img id="tug-ctrl-header-logo" src="/images/Logo%20Educamp%202026.png" alt="Educamp 2026" style="height: 28px; object-fit: contain;">
     
     <!-- Timer Utama Menitan Pertandingan di Atas -->
     <div class="match-timer-badge" id="match-timer-badge">
@@ -255,10 +256,23 @@
         <span class="opt-text" id="opt-3">-</span>
       </button>
     </div>
+  </div>
 
-    <div style="text-align: center; margin-top: 16px; font-size: 12px; color: #475569;">
-      © 2026 Nandur Studio. All rights reserved.
-    </div>
+  <!-- Sticky Footer Konsisten -->
+  <div class="controller-footer-wrapper">
+    <footer class="app-sticky-footer" id="app-sticky-footer">
+      <div class="footer-left">
+        <img src="/images/Logo%20Educamp%202026.png" alt="Nandur Studio" class="footer-logo">
+        <span class="footer-copyright">&copy; 2026 Nandur Studio. All rights reserved.</span>
+      </div>
+      <div class="footer-right">
+        <div class="footer-semver" title="Semantic Versioning">
+          <span class="semver-dot"></span>
+          <span class="semver-label">SemVer</span>
+          <span>v1.1.0</span>
+        </div>
+      </div>
+    </footer>
   </div>
 
   <!-- Overlay Feedback Jawaban -->
@@ -460,22 +474,42 @@
         matchTimerBadge.textContent = formatTime(gameState.remainingSeconds);
       }
 
-      // Update Mini Meter
-      if (gameState.teamLeft) labelLeftShort.textContent = gameState.teamLeft.name;
-      if (gameState.teamRight) labelRightShort.textContent = gameState.teamRight.name;
+      // Update Mini Meter & Modal Pilihan Tim
+      const leftColor = (gameState.teamLeft && gameState.teamLeft.color) ? gameState.teamLeft.color : '#ef4444';
+      const rightColor = (gameState.teamRight && gameState.teamRight.color) ? gameState.teamRight.color : '#3b82f6';
+
+      if (gameState.teamLeft) {
+        labelLeftShort.textContent = gameState.teamLeft.name;
+        const btnL = document.getElementById('btn-select-left');
+        if (btnL) {
+          btnL.textContent = `◀ ${gameState.teamLeft.name.toUpperCase()}`;
+          if (gameState.teamLeft.color) btnL.style.background = gameState.teamLeft.color;
+        }
+      }
+      if (gameState.teamRight) {
+        labelRightShort.textContent = gameState.teamRight.name;
+        const btnR = document.getElementById('btn-select-right');
+        if (btnR) {
+          btnR.textContent = `${gameState.teamRight.name.toUpperCase()} ▶`;
+          if (gameState.teamRight.color) btnR.style.background = gameState.teamRight.color;
+        }
+      }
+
       const offset = gameState.ropeOffset || 0;
       if (offset < 0) {
-        labelOffsetMini.textContent = `◀ KIRI ${Math.abs(offset)}%`;
-        labelOffsetMini.style.color = '#ef4444';
+        const teamName = gameState.teamLeft ? gameState.teamLeft.name.toUpperCase() : 'KIRI';
+        labelOffsetMini.textContent = `◀ ${teamName} ${Math.abs(offset)}%`;
+        labelOffsetMini.style.color = leftColor;
         ropeMiniBar.style.left = `${50 + (offset / 2)}%`;
         ropeMiniBar.style.width = `${Math.abs(offset) / 2}%`;
-        ropeMiniBar.style.background = '#ef4444';
+        ropeMiniBar.style.background = leftColor;
       } else if (offset > 0) {
-        labelOffsetMini.textContent = `KANAN ${offset}% ▶`;
-        labelOffsetMini.style.color = '#3b82f6';
+        const teamName = gameState.teamRight ? gameState.teamRight.name.toUpperCase() : 'KANAN';
+        labelOffsetMini.textContent = `${teamName} ${offset}% ▶`;
+        labelOffsetMini.style.color = rightColor;
         ropeMiniBar.style.left = '50%';
         ropeMiniBar.style.width = `${offset / 2}%`;
-        ropeMiniBar.style.background = '#3b82f6';
+        ropeMiniBar.style.background = rightColor;
       } else {
         labelOffsetMini.textContent = '0%';
         labelOffsetMini.style.color = '#f1c40f';

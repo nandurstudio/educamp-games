@@ -71,7 +71,7 @@ class PixelSprites {
 
     if (isCurrentTurn) {
       // Highlight Badge Glowing Emas Terang untuk penjawab saat ini
-      ctx.font = 'bold 12px "Courier New", monospace';
+      ctx.font = 'bold 12px "Kalbe Rounded", "Inter", -apple-system, sans-serif';
       const textMetrics = ctx.measureText(name);
       const textW = textMetrics.width;
       const padX = 8, padY = 4;
@@ -96,7 +96,7 @@ class PixelSprites {
       ctx.textAlign = 'center';
       ctx.fillText(name, 0, computedNameY);
     } else {
-      ctx.font = 'bold 11px "Courier New", monospace';
+      ctx.font = 'bold 11px "Kalbe Rounded", "Inter", -apple-system, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillStyle = '#ffffff';
       ctx.shadowColor = '#000000';
@@ -125,22 +125,22 @@ class PixelSprites {
 
       if (state === 'VICTORY' || situationalMood === 'VICTORY') {
         // Tim pemenang: bergembira, cheerful, joyful sepuasnya!
-        const pool = ['👑', '🏆', '🎉', '🥳', '🤩', '✌️', '✨', '😎', '🎊', '🥇'];
+        const pool = ['👑', '🏆', '🎉', '🌟', '✨', '😎', '🎊', '🥇', '✌️'];
         activeEmoji = pool[(nameHash + slowCycle) % pool.length];
       } else if (state === 'DEFEATED' || situationalMood === 'DEFEATED' || state === 'FALL') {
-        // Tim kalah: sedih, marah, nyesel, menangis
-        const pool = ['😭', '😡', '🤦‍♂️', '💔', '😫', '😢', '🤬', '🥀', '🥺', '🌧️'];
+        // Tim kalah: sedih, marah, nyesel, menangis (Universal Unicode emojis)
+        const pool = ['😭', '😡', '😤', '💔', '😫', '😢', '😵', '🌧️'];
         activeEmoji = pool[(nameHash + slowCycle) % pool.length];
       } else if (state === 'SLIP') {
         const pool = ['😱', '💦', '😵', '💥', '🍂'];
         activeEmoji = pool[(nameHash + slowCycle) % pool.length];
       } else if (situationalMood === 'ANGRY_AT_MISTAKE') {
         // Marah / gemas saat kawan tim salah menjawab / tergelincir
-        const pool = ['😡', '🤦‍♂️', '😤', '💢', '🙄', '🤬'];
+        const pool = ['😡', '😤', '💢', '💥', '🙄'];
         activeEmoji = pool[(nameHash + slowCycle) % pool.length];
       } else if (situationalMood === 'CHEERING_FRIEND') {
         // Menyemangati kawan yang baru menjawab benar / berhasil menarik
-        const pool = ['🔥', '👏', '💪', '✨', '🤩', '🙌', '💯'];
+        const pool = ['🔥', '👏', '💪', '✨', '⭐', '🙌', '💯'];
         activeEmoji = pool[(nameHash + slowCycle) % pool.length];
       } else if (situationalMood === 'CELEBRATING_LEAD') {
         // Tim sedang unggul jauh / hampir menang (aura gembira, percaya diri)
@@ -148,7 +148,7 @@ class PixelSprites {
         activeEmoji = pool[(nameHash + slowCycle) % pool.length];
       } else if (situationalMood === 'DESPERATE_LOSING') {
         // Tim sedang terdesak / mau kalah (gemas, ngotot, panik berjuang)
-        const pool = ['😤', '💥', '😬', '😰', '😡', '⚡', '🥵'];
+        const pool = ['😤', '💥', '😬', '😰', '😡', '⚡', '💦'];
         activeEmoji = pool[(nameHash + slowCycle) % pool.length];
       } else if (state === 'PULL' || state === 'STRAIN') {
         // Tarik tambang normal
@@ -156,7 +156,7 @@ class PixelSprites {
         activeEmoji = pool[(nameHash + slowCycle) % pool.length];
       } else if (state === 'CLIMB') {
         // Sedang memanjat pinang
-        const pool = ['🧗', '💪', '🔥', '😅'];
+        const pool = ['🏃', '💪', '🔥', '😅', '⭐'];
         activeEmoji = pool[(nameHash + slowCycle) % pool.length];
       } else {
         // Idle santai di barisan
@@ -169,7 +169,7 @@ class PixelSprites {
         const floatBounce = Math.sin((animFrame * 0.08) + (nameHash % 5)) * 3;
         const emojiY = computedNameY - 16 + floatBounce;
 
-        ctx.font = '16px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
+        ctx.font = '16px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Android Emoji", sans-serif';
         ctx.shadowColor = 'rgba(0,0,0,0.6)';
         ctx.shadowBlur = 4;
         ctx.fillText(activeEmoji, 0, emojiY);

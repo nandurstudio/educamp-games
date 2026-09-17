@@ -72,11 +72,11 @@ class ArenaCanvas {
     this.drawPixelCloud(((this.animFrame * 0.3) + 400) % (w + 200) - 100, 140);
 
     // 2. Lapangan Rumput & Tanah
-    const groundY = h - 100;
+    const groundY = h - 130;
     ctx.fillStyle = '#27ae60';
     ctx.fillRect(0, groundY, w, 20); // Garis rumput atas
     ctx.fillStyle = '#1e824c';
-    ctx.fillRect(0, groundY + 20, w, 80); // Tanah bawah
+    ctx.fillRect(0, groundY + 20, w, 110); // Tanah bawah (menjangkau dasar canvas)
 
     // Detail Pixel Rumput
     ctx.fillStyle = '#2ecc71';
@@ -88,7 +88,7 @@ class ArenaCanvas {
     if (!this.state || !this.state.teams) {
       // Tampilan standby
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 24px "Courier New", monospace';
+      ctx.font = 'bold 24px "Kalbe Rounded", "Inter", sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText("MENUNGGU GAME DIMULAI DARI ADMIN...", w / 2, h / 2);
       return;
@@ -108,14 +108,6 @@ class ArenaCanvas {
     if (this.state.status === 'FINISHED' && this.state.winner) {
       this.renderVictoryOverlay(w, h);
     }
-
-    // 5. Watermark Copyright Nandur Studio di Canvas
-    ctx.save();
-    ctx.font = '12px "Courier New", monospace';
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
-    ctx.textAlign = 'right';
-    ctx.fillText("© 2026 Nandur Studio", w - 20, h - 15);
-    ctx.restore();
   }
 
   drawPixelCloud(x, y) {
@@ -152,11 +144,11 @@ class ArenaCanvas {
     ctx.textAlign = 'center';
     ctx.font = 'bold 18px "Courier New", monospace';
     ctx.fillStyle = team.color;
-    ctx.fillText(team.name.toUpperCase(), poleX, groundY + 45);
+    ctx.fillText(team.name.toUpperCase(), poleX, groundY + 38);
 
     ctx.font = '14px "Courier New", monospace';
     ctx.fillStyle = '#ffffff';
-    ctx.fillText(`Skor: ${team.score} | Memanjat: ${team.currentClimbers}/${team.members.length}`, poleX, groundY + 68);
+    ctx.fillText(`Skor: ${team.score} | Memanjat: ${team.currentClimbers}/${team.members.length}`, poleX, groundY + 58);
     ctx.restore();
 
     // D. Update Animasi Jatuh (Wipeout) jika aktif
@@ -261,9 +253,9 @@ class ArenaCanvas {
     ctx.lineTo(x + 50, y);
     ctx.stroke();
 
-    // Hadiah Menggantung (Ember, Sepeda mini, Bingkisan)
-    const gifts = ['🎁', '🚲', '🪣', '👕', '🏆'];
-    ctx.font = '20px Arial';
+    // Hadiah Menggantung (Bingkisan, Sepeda, Tas, Baju, Piala) - Memakai emoji Unicode universal
+    const gifts = ['🎁', '🚲', '🎒', '👕', '🏆'];
+    ctx.font = '22px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Android Emoji", sans-serif';
     ctx.textAlign = 'center';
     gifts.forEach((g, idx) => {
       const angle = (idx / gifts.length) * Math.PI * 2;
@@ -309,17 +301,17 @@ class ArenaCanvas {
     ctx.save();
     ctx.textAlign = 'center';
     ctx.fillStyle = '#f1c40f';
-    ctx.font = 'bold 50px "Courier New", monospace';
+    ctx.font = 'bold 46px "Kalbe Rounded", "Kalbe Geometric", "Inter", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Android Emoji", sans-serif';
     ctx.shadowColor = '#000';
     ctx.shadowBlur = 10;
     ctx.fillText("🏆 JUARA PANJAT PINANG! 🏆", w / 2, h / 2 - 40);
 
     ctx.fillStyle = this.state.winner.color;
-    ctx.font = 'bold 40px "Courier New", monospace';
+    ctx.font = 'bold 38px "Kalbe Rounded", "Inter", sans-serif';
     ctx.fillText(`${this.state.winner.name.toUpperCase()} MENANG!`, w / 2, h / 2 + 20);
 
     ctx.fillStyle = '#ffffff';
-    ctx.font = '20px "Courier New", monospace';
+    ctx.font = '18px "Kalbe System", "Inter", sans-serif';
     ctx.fillText("Selamat kepada seluruh anggota tim atas kerja sama yang luar biasa!", w / 2, h / 2 + 70);
     ctx.restore();
   }

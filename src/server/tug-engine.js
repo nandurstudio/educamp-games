@@ -76,27 +76,30 @@ class TugEngine {
     }
   }
 
-  reset() {
+  reset(keepTeams = true) {
     this.status = 'WAITING'; // WAITING, PLAYING, FINISHED
-    this.durationSeconds = 180; // Default 3 menit untuk tarik tambang
-    this.remainingSeconds = 180;
-    this.turnTimeoutSeconds = 15; // Batas waktu per giliran (detik). 0 = disabled / tidak ada batas waktu
+    this.durationSeconds = this.durationSeconds || 180; // Default 3 menit untuk tarik tambang
+    this.remainingSeconds = this.durationSeconds;
+    this.turnTimeoutSeconds = typeof this.turnTimeoutSeconds === 'number' ? this.turnTimeoutSeconds : 15;
     this.ropeOffset = 0; // -100 (Kiri Menang Mutlak) s/d +100 (Kanan Menang Mutlak)
-    this.pullStep = 8; // Besaran tarikan saat 1 tim benar (8%: butuh ~12-13 tarikan bersih untuk knockout)
-    this.slipPenalty = 5; // Sentakan ke arah lawan jika salah (5%)
-    this.pointsPerCorrect = 100; // Default 100 poin per jawaban benar (configurable)
+    this.pullStep = this.pullStep || 8;
+    this.slipPenalty = this.slipPenalty || 5;
+    this.pointsPerCorrect = this.pointsPerCorrect || 100;
     this.winner = null;
     this.winnerReason = null;
     this.startTime = null;
     this.endTime = null;
     this.sessionRecorded = false;
 
-    // Tim Kiri (Default QATRA)
+    const prevLeft = this.teamLeft;
+    const prevRight = this.teamRight;
+
+    // Tim Kiri (Default QATRA atau pertahankan konfigurasi tersimpan)
     this.teamLeft = {
       id: 'left',
-      name: 'QATRA',
-      color: '#e74c3c',
-      members: [
+      name: (keepTeams && prevLeft && prevLeft.name) ? prevLeft.name : 'QATRA',
+      color: (keepTeams && prevLeft && prevLeft.color) ? prevLeft.color : '#e74c3c',
+      members: (keepTeams && prevLeft && Array.isArray(prevLeft.members) && prevLeft.members.length > 0) ? prevLeft.members : [
         { name: "Fajar Fauzan", bodyType: "tall-skinny", skinTone: "fair" },
         { name: "Irvan Hasan", bodyType: "tall-chubby", skinTone: "tan" },
         { name: "Sri Rejeki", bodyType: "short-skinny", skinTone: "fair" },
@@ -112,12 +115,12 @@ class TugEngine {
       questionStartTime: null
     };
 
-    // Tim Kanan (Default V-BOM)
+    // Tim Kanan (Default V-BOM atau pertahankan konfigurasi tersimpan)
     this.teamRight = {
       id: 'right',
-      name: 'V-BOM',
-      color: '#3498db',
-      members: [
+      name: (keepTeams && prevRight && prevRight.name) ? prevRight.name : 'V-BOM',
+      color: (keepTeams && prevRight && prevRight.color) ? prevRight.color : '#3498db',
+      members: (keepTeams && prevRight && Array.isArray(prevRight.members) && prevRight.members.length > 0) ? prevRight.members : [
         { name: "Andy Chendra", bodyType: "tall-skinny", skinTone: "fair" },
         { name: "Cahyo Agung Martanto", bodyType: "tall-chubby", skinTone: "tan" },
         { name: "Joko S", bodyType: "short-skinny", skinTone: "olive" },
@@ -137,15 +140,15 @@ class TugEngine {
   setTeams({ teamLeft, teamRight }) {
     if (teamLeft) {
       this.teamLeft.id = 'left';
-      if (teamLeft.name) this.teamLeft.name = teamLeft.name;
-      if (teamLeft.color) this.teamLeft.color = teamLeft.color;
-      if (Array.isArray(teamLeft.members)) this.teamLeft.members = teamLeft.members;
+      if (teamLeft.name && typeof teamLeft.name === 'string') this.teamLeft.name = teamLeft.name.trim();
+      if (teamLeft.color && typeof teamLeft.color === 'string') this.teamLeft.color = teamLeft.color;
+      if (Array.isArray(teamLeft.members) && teamLeft.members.length > 0) this.teamLeft.members = teamLeft.members;
     }
     if (teamRight) {
       this.teamRight.id = 'right';
-      if (teamRight.name) this.teamRight.name = teamRight.name;
-      if (teamRight.color) this.teamRight.color = teamRight.color;
-      if (Array.isArray(teamRight.members)) this.teamRight.members = teamRight.members;
+      if (teamRight.name && typeof teamRight.name === 'string') this.teamRight.name = teamRight.name.trim();
+      if (teamRight.color && typeof teamRight.color === 'string') this.teamRight.color = teamRight.color;
+      if (Array.isArray(teamRight.members) && teamRight.members.length > 0) this.teamRight.members = teamRight.members;
     }
     this.saveStorage();
   }
@@ -211,7 +214,19 @@ class TugEngine {
   }
 
   pickNextQuestion() {
-    const pool = questionBank.getRandomPool(1);
+    // Tingkat kesulitan berjenjang di Tarik Tambang:
+    // Awal / seimbang (|ropeOffset| < 35) = EASY
+    // Mulai saling tarik (|ropeOffset| >= 35 && < 70) = MEDIUM
+    // Fase kritis / mendekati garis finis (|ropeOffset| >= 70) = HARD
+    const absOffset = Math.abs(this.ropeOffset || 0);
+    let difficulty = 'EASY';
+    if (absOffset >= 70) {
+      difficulty = 'HARD';
+    } else if (absOffset >= 35) {
+      difficulty = 'MEDIUM';
+    }
+
+    const pool = questionBank.getRandomPool(1, { game: 'TUG', difficulty });
     if (pool && pool[0]) return pool[0];
 
     const fallbackOptions = ["Siap", "Maju", "Pasti Bisa", "Juara"];
@@ -432,6 +447,72 @@ class TugEngine {
         right: this.teamRight.score
       }
     };
+  }
+
+  getStorageData() {
+    return {
+      durationSeconds: this.durationSeconds,
+      turnTimeoutSeconds: typeof this.turnTimeoutSeconds === 'number' ? this.turnTimeoutSeconds : 15,
+      pullStep: this.pullStep,
+      slipPenalty: this.slipPenalty,
+      pointsPerCorrect: this.pointsPerCorrect || 100,
+      history: this.history || [],
+      teamLeft: {
+        id: this.teamLeft.id,
+        name: this.teamLeft.name,
+        color: this.teamLeft.color,
+        members: this.teamLeft.members
+      },
+      teamRight: {
+        id: this.teamRight.id,
+        name: this.teamRight.name,
+        color: this.teamRight.color,
+        members: this.teamRight.members
+      }
+    };
+  }
+
+  restoreData(data, includeHistory = true) {
+    if (!data || typeof data !== 'object') return false;
+    if (typeof data.durationSeconds === 'number') {
+      this.durationSeconds = data.durationSeconds;
+      this.remainingSeconds = data.durationSeconds;
+    }
+    if (typeof data.turnTimeoutSeconds === 'number') {
+      this.turnTimeoutSeconds = data.turnTimeoutSeconds;
+    }
+    if (typeof data.pullStep === 'number') {
+      this.pullStep = data.pullStep;
+    }
+    if (typeof data.slipPenalty === 'number') {
+      this.slipPenalty = data.slipPenalty;
+    }
+    if (typeof data.pointsPerCorrect === 'number') {
+      this.pointsPerCorrect = data.pointsPerCorrect;
+    }
+    if (includeHistory && Array.isArray(data.history)) {
+      this.history = data.history;
+    }
+    if (data.teamLeft && typeof data.teamLeft === 'object') {
+      this.teamLeft = {
+        ...this.teamLeft,
+        id: data.teamLeft.id || 'left',
+        name: data.teamLeft.name || this.teamLeft.name,
+        color: data.teamLeft.color || this.teamLeft.color,
+        members: Array.isArray(data.teamLeft.members) ? data.teamLeft.members : this.teamLeft.members
+      };
+    }
+    if (data.teamRight && typeof data.teamRight === 'object') {
+      this.teamRight = {
+        ...this.teamRight,
+        id: data.teamRight.id || 'right',
+        name: data.teamRight.name || this.teamRight.name,
+        color: data.teamRight.color || this.teamRight.color,
+        members: Array.isArray(data.teamRight.members) ? data.teamRight.members : this.teamRight.members
+      };
+    }
+    this.saveStorage();
+    return true;
   }
 
   getPublicState() {

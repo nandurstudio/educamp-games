@@ -4,16 +4,117 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Arena Panjat Pinang Virtual - Educamp</title>
+  <link id="app-favicon" rel="icon" type="image/png" href="/images/Logo%20Educamp%202026.png">
   <link rel="stylesheet" href="/css/arena.css">
+  <link rel="stylesheet" href="/css/footer.css">
+  <style>
+    .event-ticker { bottom: 44px !important; }
+
+    /* Dual Team Live Answer Logs (Mirip Tarik Tambang) */
+    .team-live-log {
+      position: absolute;
+      top: 75px;
+      width: 270px;
+      max-height: 250px;
+      background: rgba(15, 23, 42, 0.85);
+      border-radius: 10px;
+      padding: 10px 12px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(6px);
+      z-index: 90;
+      display: flex;
+      flex-direction: column;
+      pointer-events: auto;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .team-live-log.left-log {
+      left: 18px;
+      border: 1px solid rgba(239, 68, 68, 0.45);
+      border-left: 4px solid #ef4444;
+    }
+    .team-live-log.right-log {
+      right: 18px;
+      border: 1px solid rgba(59, 130, 246, 0.45);
+      border-right: 4px solid #3b82f6;
+    }
+    .team-live-log .log-title {
+      font-size: 11px;
+      font-weight: bold;
+      font-family: 'Courier New', monospace;
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px solid #334155;
+      padding-bottom: 4px;
+    }
+    .team-live-log .log-list {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      overflow-y: auto;
+      flex: 1;
+      max-height: 200px;
+    }
+    .log-item {
+      font-size: 11px;
+      padding: 4px 6px;
+      border-radius: 4px;
+      background: rgba(30, 41, 59, 0.7);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      animation: fadeInLog 0.25s ease-out;
+    }
+    .log-item.correct {
+      border-left: 3px solid #2ecc71;
+      color: #86efac;
+    }
+    .log-item.wrong {
+      border-left: 3px solid #ef4444;
+      color: #fca5a5;
+    }
+    .log-item.timeout {
+      border-left: 3px solid #f59e0b;
+      color: #fde047;
+    }
+    @keyframes fadeInLog {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
 </head>
 <body>
 
   <!-- Layar Arena Pixel Art Canvas -->
   <canvas id="arena-canvas"></canvas>
 
+  <!-- Dual Team Live Answer Logs (Sistem Log Seperti Tarik Tambang) -->
+  <div class="team-live-log left-log" id="panel-left-log">
+    <div class="log-title" id="left-log-title" style="color: #ef4444;">
+      <span>◀ LOG TIM KIRI</span>
+      <span style="color: #94a3b8; font-weight: normal; font-size: 10px;">15s/soal</span>
+    </div>
+    <div class="log-list" id="left-log-list">
+      <div style="color: #64748b; font-size: 11px; font-style: italic; text-align: center; padding: 10px;">Menunggu jawaban...</div>
+    </div>
+  </div>
+
+  <div class="team-live-log right-log" id="panel-right-log">
+    <div class="log-title" id="right-log-title" style="color: #3b82f6;">
+      <span style="color: #94a3b8; font-weight: normal; font-size: 10px;">15s/soal</span>
+      <span>LOG TIM KANAN ▶</span>
+    </div>
+    <div class="log-list" id="right-log-list">
+      <div style="color: #64748b; font-size: 11px; font-style: italic; text-align: center; padding: 10px;">Menunggu jawaban...</div>
+    </div>
+  </div>
+
   <!-- HUD Atas -->
   <div class="arena-hud">
     <div class="hud-left" style="display: flex; gap: 10px; align-items: center; pointer-events: auto;">
+      <a href="/index.html" title="Kembali ke Lobby" style="display: flex; align-items: center;">
+        <img id="arena-header-logo" src="/images/Logo%20Educamp%202026_tagline_white.png" alt="Educamp 2026" style="height: 36px; object-fit: contain; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.6));">
+      </a>
       <div class="hud-badge" id="mode-badge">MODE: VERSUS BATTLE</div>
       <div class="hud-badge timer-badge" id="timer-badge">⏱️ 05:00</div>
     </div>
@@ -47,9 +148,21 @@
     </div>
   </div>
 
-  <!-- Watermark Copyright Nandur Studio -->
-  <div style="position: absolute; bottom: 10px; right: 15px; color: rgba(255, 255, 255, 0.4); font-size: 12px; pointer-events: none; font-family: 'Courier New', monospace;">
-    © 2026 Nandur Studio
+  <!-- Sticky Footer Konsisten -->
+  <div class="arena-footer-wrapper">
+    <footer class="app-sticky-footer" id="app-sticky-footer">
+      <div class="footer-left">
+        <img src="/images/Logo%20Educamp%202026.png" alt="Nandur Studio" class="footer-logo">
+        <span class="footer-copyright">&copy; 2026 Nandur Studio. All rights reserved.</span>
+      </div>
+      <div class="footer-right">
+        <div class="footer-semver" title="Semantic Versioning">
+          <span class="semver-dot"></span>
+          <span class="semver-label">SemVer</span>
+          <span>v1.1.0</span>
+        </div>
+      </div>
+    </footer>
   </div>
 
   <!-- Scripts -->
@@ -141,9 +254,12 @@
         let scoresChips = '';
         if (sess.scores) {
           Object.values(sess.scores).forEach(s => {
+            const matchPts = (sess.matchScores && s.id && sess.matchScores[s.id] !== undefined)
+              ? sess.matchScores[s.id]
+              : (sess.winner && sess.winner.id === s.id ? 300 : 150);
             scoresChips += `
               <div style="background: #0f172a; border-left: 4px solid ${s.color}; border-radius: 6px; padding: 6px 10px; font-size: 13px;">
-                <strong>${s.name}</strong>: 🪜 ${s.climbers}/${s.totalMembers} orang (${s.score} pts)
+                <strong>${s.name}</strong>: 🪜 ${s.climbers}/${s.totalMembers} orang &bull; <span style="color:#f1c40f;font-weight:bold;">${matchPts} Pts Sesi</span>
               </div>
             `;
           });
@@ -159,8 +275,8 @@
                 <span style="color: #cbd5e1; font-size: 13px; font-family: monospace;">⏱️ ${elapsedMin}m ${elapsedSec}s</span>
               </div>
               <div style="font-size: 18px; font-weight: bold; color: ${sess.winner ? sess.winner.color : '#cbd5e1'};">
-                👑 JUARA: ${sess.winner ? sess.winner.name : 'SERI'} 
-                <span style="font-size: 12px; font-weight: normal; color: #94a3b8;">(${sess.winnerReason === 'REACHED_TOP' ? 'Mencapai Puncak Pinang' : 'Waktu Habis'})</span>
+                👑 JUARA: ${sess.winner ? sess.winner.name : 'SERI (HASIL IMBANG)'} 
+                <span style="font-size: 12px; font-weight: normal; color: #94a3b8;">(${sess.winnerReason === 'REACHED_TOP' ? 'Mencapai Puncak Pinang (+300 Pts)' : (sess.winner ? 'Orang Terbanyak Saat Waktu Habis (+300 Pts)' : 'Jumlah Orang Sama 150 Pts Masing-masing')})</span>
               </div>
             </div>
             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
@@ -171,6 +287,30 @@
       });
       html += '</div>';
       container.innerHTML = html;
+    }
+
+    // Map untuk side log tim
+    const teamSideMap = {};
+
+    function appendTeamLog(side, htmlContent) {
+      const listEl = document.getElementById(side === 'left' ? 'left-log-list' : 'right-log-list');
+      if (!listEl) return;
+      if (listEl.children.length === 1 && listEl.children[0].textContent.includes('Menunggu')) {
+        listEl.innerHTML = '';
+      }
+      const itemEl = document.createElement('div');
+      itemEl.innerHTML = htmlContent;
+      listEl.insertBefore(itemEl.firstElementChild, listEl.firstChild);
+      while (listEl.children.length > 15) {
+        listEl.removeChild(listEl.lastChild);
+      }
+    }
+
+    function resetTeamLogs() {
+      const lList = document.getElementById('left-log-list');
+      const rList = document.getElementById('right-log-list');
+      if (lList) lList.innerHTML = '<div style="color: #64748b; font-size: 11px; font-style: italic; text-align: center; padding: 10px;">Menunggu jawaban...</div>';
+      if (rList) rList.innerHTML = '<div style="color: #64748b; font-size: 11px; font-style: italic; text-align: center; padding: 10px;">Menunggu jawaban...</div>';
     }
 
     // Sambung ke WebSocket sebagai Layar Arena
@@ -196,6 +336,41 @@
       modeBadge.textContent = `MODE: ${state.mode} (${state.wipeoutMode})`;
       statusBadge.textContent = `STATUS: ${state.status}`;
 
+      // Update Dual Live Log Panels berdasarkan tim aktif
+      const entries = Object.entries(state.teams || {});
+      const turnTimeoutSec = state.turnTimeoutSeconds || 15;
+
+      if (entries.length > 0) {
+        const [leftId, leftTeam] = entries[0];
+        teamSideMap[leftId] = 'left';
+        const leftTitle = document.getElementById('left-log-title');
+        if (leftTitle) {
+          leftTitle.innerHTML = `<span style="color:${leftTeam.color || '#ef4444'};">◀ LOG ${leftTeam.name.toUpperCase()}</span><span style="color:#94a3b8;font-weight:normal;font-size:10px;">${turnTimeoutSec}s/soal</span>`;
+        }
+        const leftPanel = document.getElementById('panel-left-log');
+        if (leftPanel) {
+          leftPanel.style.display = 'flex';
+          leftPanel.style.borderLeftColor = leftTeam.color || '#ef4444';
+        }
+      }
+
+      if (entries.length > 1) {
+        const [rightId, rightTeam] = entries[1];
+        teamSideMap[rightId] = 'right';
+        const rightTitle = document.getElementById('right-log-title');
+        if (rightTitle) {
+          rightTitle.innerHTML = `<span style="color:#94a3b8;font-weight:normal;font-size:10px;">${turnTimeoutSec}s/soal</span><span style="color:${rightTeam.color || '#3b82f6'};">LOG ${rightTeam.name.toUpperCase()} ▶</span>`;
+        }
+        const rightPanel = document.getElementById('panel-right-log');
+        if (rightPanel) {
+          rightPanel.style.display = 'flex';
+          rightPanel.style.borderRightColor = rightTeam.color || '#3b82f6';
+        }
+      } else {
+        const rightPanel = document.getElementById('panel-right-log');
+        if (rightPanel) rightPanel.style.display = 'none';
+      }
+
       if (typeof state.remainingSeconds === 'number') {
         timerBadge.textContent = formatTime(state.remainingSeconds);
         if (state.remainingSeconds <= 30 && state.status === 'PLAYING') {
@@ -212,16 +387,18 @@
 
     // Event Game Dimulai
     socket.on('GAME_STARTED', () => {
+      resetTeamLogs();
       if (window.soundFX && bgmEnabled) {
         window.soundFX.start8BitAgustusanBGM();
       }
-      showTicker("🚩 PERTANDINGAN DIMULAI! AYO PANJAT SECEPATNYA!");
+      showTicker("🚩 PERTANDINGAN DIMULAI! AYO PANJAT SECEPATNYA! BATAS 15 DETIK/GILIRAN!");
     });
 
     // Event Game Direset
     socket.on('GAME_RESET', () => {
       if (window.soundFX) window.soundFX.stop8BitAgustusanBGM();
       timerBadge.classList.remove('urgent');
+      resetTeamLogs();
       showTicker("🔄 Pertandingan di-reset oleh Admin.");
     });
 
@@ -235,25 +412,76 @@
       }
     });
 
-    // Event Game Selesai
-    socket.on('GAME_OVER', ({ winner, reason }) => {
+    // Event Game Selesai (Aturan Skor 300 / 150 / 150)
+    socket.on('GAME_OVER', ({ winner, reason, matchScores, isDraw }) => {
       if (window.soundFX) window.soundFX.stop8BitAgustusanBGM();
-      if (reason === 'TIME_OUT') {
-        showTicker(`⏰ WAKTU HABIS (5 MENIT)! Pemenang: ${winner ? winner.name.toUpperCase() : 'SERI'}!`, true);
+      if (isDraw) {
+        showTicker(`🤝 PERTANDINGAN SERI! Waktu habis dengan jumlah orang seimbang (Skor: 150 - 150)!`, false);
+      } else if (reason === 'TIME_OUT') {
+        const winName = winner ? winner.name.toUpperCase() : 'PEMENANG';
+        showTicker(`⏰ WAKTU HABIS! ${winName} menang terbanyak (300 Poin)! Tim lawan 150 Poin!`, false);
+      } else {
+        const winName = winner ? winner.name.toUpperCase() : 'PEMENANG';
+        showTicker(`🏆 KEMENANGAN PUNCAK! ${winName} mencapai puncak tiang lebih dulu (+300 Poin)! Lawan (+150 Poin)!`);
       }
     });
 
-    // Jawaban Masuk
+    // Jawaban Masuk & Penalti Waktu 15 Detik
     socket.on('ANSWER_RESULT', (res) => {
-      if (res.eventType === 'TOTAL_WIPEOUT') {
+      const side = teamSideMap[res.teamId] || (res.teamId === Object.keys(arena.state?.teams || {})[0] ? 'left' : 'right');
+
+      if (res.reason === 'TIMEOUT_TURN' || res.eventType === 'TIMEOUT_PENALTY') {
+        arena.triggerFall(res.teamId);
+        showTicker(`⏳ ${res.answeredBy} (${res.teamName}) WAKTU HABIS (15s)! Melorot & ganti giliran!`, true);
+        appendTeamLog(side, `
+          <div class="log-item timeout">
+            <span>⏳ <b>${res.answeredBy}</b> (15s Habis)</span>
+            <span style="font-family:monospace;font-size:10px;">Melorot</span>
+          </div>
+        `);
+      } else if (res.eventType === 'TOTAL_WIPEOUT') {
         arena.triggerFall(res.teamId);
         showTicker(`💥 ${res.teamName.toUpperCase()} SALAH JAWAB! RUNTUH SEMUA KE TANAH!`, true);
+        appendTeamLog(side, `
+          <div class="log-item wrong">
+            <span>💥 <b>${res.answeredBy}</b> (Salah)</span>
+            <span style="font-family:monospace;font-size:10px;">Wipeout 0</span>
+          </div>
+        `);
       } else if (res.eventType === 'CLIMB_SUCCESS') {
         arena.triggerClimb(res.teamId);
         showTicker(`✅ ${res.answeredBy} (${res.teamName}) BENAR! Naik 1 tingkat!`);
+        appendTeamLog(side, `
+          <div class="log-item correct">
+            <span>✅ <b>${res.answeredBy}</b></span>
+            <span style="font-family:monospace;font-size:10px;">+1 Naik</span>
+          </div>
+        `);
       } else if (res.eventType === 'VICTORY') {
         arena.triggerVictory(res.teamName);
-        showTicker(`🏆 LUAR BIASA! ${res.teamName.toUpperCase()} MENCAPAI PUNCAK PINANG!`);
+        showTicker(`🏆 LUAR BIASA! ${res.teamName.toUpperCase()} MENCAPAI PUNCAK PINANG (+300 PTS)!`);
+        appendTeamLog(side, `
+          <div class="log-item correct" style="border-left-color:#f1c40f; color:#fef08a;">
+            <span>🏆 <b>${res.answeredBy}</b> (PUNCAK!)</span>
+            <span style="font-family:monospace;font-size:10px;">Juara 300</span>
+          </div>
+        `);
+      } else if (res.isCorrect) {
+        appendTeamLog(side, `
+          <div class="log-item correct">
+            <span>✅ <b>${res.answeredBy}</b></span>
+            <span style="font-family:monospace;font-size:10px;">+Naik</span>
+          </div>
+        `);
+      } else {
+        arena.triggerFall(res.teamId);
+        showTicker(`💥 ${res.answeredBy} (${res.teamName}) SALAH! Melorot 1 pemanjat!`, true);
+        appendTeamLog(side, `
+          <div class="log-item wrong">
+            <span>❌ <b>${res.answeredBy}</b> (Salah)</span>
+            <span style="font-family:monospace;font-size:10px;">Melorot</span>
+          </div>
+        `);
       }
     });
 

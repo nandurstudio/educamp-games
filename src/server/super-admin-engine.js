@@ -101,9 +101,12 @@ class SuperAdminEngine {
     this.masterTeams = {};
     this.customGames = [];
     this.digitalSettings = {
-      pinangPointsPerWin: 200,
+      pinangPointsPerWin: 300,
+      pinangPointsPerLose: 150,
+      pinangPointsPerDraw: 150,
+      pinangTurnTimeoutSeconds: 15,
       tugPointsPerWin: 200,
-      includeActiveScore: true
+      includeActiveScore: false
     };
     this.loadStorage();
   }
@@ -200,6 +203,30 @@ class SuperAdminEngine {
     }
   }
 
+  getStorageData() {
+    return {
+      masterTeams: this.masterTeams,
+      customGames: this.customGames,
+      digitalSettings: this.digitalSettings,
+      updatedAt: new Date().toISOString()
+    };
+  }
+
+  restoreData(data) {
+    if (!data || typeof data !== 'object') return false;
+    if (data.masterTeams && typeof data.masterTeams === 'object' && Object.keys(data.masterTeams).length > 0) {
+      this.masterTeams = data.masterTeams;
+    }
+    if (Array.isArray(data.customGames)) {
+      this.customGames = data.customGames;
+    }
+    if (data.digitalSettings && typeof data.digitalSettings === 'object') {
+      this.digitalSettings = { ...this.digitalSettings, ...data.digitalSettings };
+    }
+    this.saveStorage();
+    return true;
+  }
+
   // === MASTER TEAMS MANAGEMENT (CRUD DINAMIS) ===
   getMasterTeams() {
     return this.masterTeams;
@@ -290,8 +317,8 @@ class SuperAdminEngine {
     };
 
     // 1. Poin dari Panjat Pinang
-    // A. Skor aktif
-    if (this.digitalSettings.includeActiveScore) {
+    // A. Skor aktif (hanya dihitung jika includeActiveScore aktif dan game sedang bermain)
+    if (this.digitalSettings.includeActiveScore && gameEngine.status === 'PLAYING') {
       Object.entries(gameEngine.teams || {}).forEach(([tKey, team]) => {
         const matchedId = findTeamId(team.id) || findTeamId(team.name) || findTeamId(tKey);
         if (matchedId && digitalScores[matchedId]) {
@@ -300,14 +327,29 @@ class SuperAdminEngine {
       });
     }
 
-    // B. Riwayat sesi Panjat Pinang
+    // B. Riwayat sesi Panjat Pinang (Aturan 300 Pemenang / 150 Kalah / 150 Seri)
     const pinangHistory = gameEngine.history || [];
     pinangHistory.forEach(session => {
-      if (session.winner && session.winner.name) {
-        const matchedId = findTeamId(session.winner.id) || findTeamId(session.winner.name);
-        if (matchedId && digitalScores[matchedId]) {
-          digitalScores[matchedId].pinangWins += 1;
-          digitalScores[matchedId].pinangScore += this.digitalSettings.pinangPointsPerWin;
+      if (session.matchScores && typeof session.matchScores === 'object' && Object.keys(session.matchScores).length > 0) {
+        Object.entries(session.matchScores).forEach(([tKey, pts]) => {
+          const matchedId = findTeamId(tKey);
+          if (matchedId && digitalScores[matchedId]) {
+            digitalScores[matchedId].pinangScore += (Number(pts) || 0);
+          }
+        });
+        if (session.winner && session.winner.name) {
+          const winId = findTeamId(session.winner.id) || findTeamId(session.winner.name);
+          if (winId && digitalScores[winId]) {
+            digitalScores[winId].pinangWins += 1;
+          }
+        }
+      } else {
+        if (session.winner && session.winner.name) {
+          const matchedId = findTeamId(session.winner.id) || findTeamId(session.winner.name);
+          if (matchedId && digitalScores[matchedId]) {
+            digitalScores[matchedId].pinangWins += 1;
+            digitalScores[matchedId].pinangScore += (this.digitalSettings.pinangPointsPerWin || 300);
+          }
         }
       }
     });
@@ -472,6 +514,15 @@ class SuperAdminEngine {
     if (!settings || typeof settings !== 'object') return this.digitalSettings;
     if (typeof settings.pinangPointsPerWin === 'number') {
       this.digitalSettings.pinangPointsPerWin = settings.pinangPointsPerWin;
+    }
+    if (typeof settings.pinangPointsPerLose === 'number') {
+      this.digitalSettings.pinangPointsPerLose = settings.pinangPointsPerLose;
+    }
+    if (typeof settings.pinangPointsPerDraw === 'number') {
+      this.digitalSettings.pinangPointsPerDraw = settings.pinangPointsPerDraw;
+    }
+    if (typeof settings.pinangTurnTimeoutSeconds === 'number') {
+      this.digitalSettings.pinangTurnTimeoutSeconds = settings.pinangTurnTimeoutSeconds;
     }
     if (typeof settings.tugPointsPerWin === 'number') {
       this.digitalSettings.tugPointsPerWin = settings.tugPointsPerWin;

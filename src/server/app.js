@@ -9,6 +9,7 @@ const gameEngine = require('./game-engine');
 const tugEngine = require('./tug-engine');
 const superAdminEngine = require('./super-admin-engine');
 const questionBank = require('./question-bank');
+const backupManager = require('./backup-manager');
 const { generateQuizQuestions } = require('./gemini-service');
 
 const app = express();
@@ -20,11 +21,24 @@ const io = new Server(server, {
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '15mb' }));
+
+// Graceful font handler: jika file font korporasi belum diunggah, return 204 No Content agar browser tidak mencatat 404
+const fs = require('fs');
+app.get('/fonts/:fontname', (req, res, next) => {
+  const fontPath = path.join(__dirname, '../public/fonts', req.params.fontname);
+  if (fs.existsSync(fontPath)) {
+    return res.sendFile(fontPath);
+  }
+  res.status(204).end();
+});
+
 app.use(express.static(path.join(__dirname, '../public')));
 
-// Fallback favicon agar tidak 404 di browser
-app.get('/favicon.ico', (req, res) => res.status(204).end());
+// Favicon route
+app.get('/favicon.ico', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/images/Logo Educamp 2026.png'));
+});
 
 // === REST API ENDPOINTS (PANJAT PINANG) ===
 
@@ -35,10 +49,32 @@ app.get('/api/state', (req, res) => {
 
 // 2. Ambil bank soal
 app.get('/api/questions', (req, res) => {
+  const all = questionBank.getAll();
+  const game = req.query.game ? req.query.game.toUpperCase() : null;
+  const filtered = game ? questionBank.getQuestionsForGame(game) : all;
+
+  const pinangQuestions = all.filter(q => q.game === 'PINANG');
+  const tugQuestions = all.filter(q => q.game === 'TUG');
+
   res.json({
     source: questionBank.getSource(),
-    questions: questionBank.getAll(),
-    count: questionBank.getAll().length
+    questions: filtered,
+    count: filtered.length,
+    totalMaster: all.length,
+    distribution: {
+      pinang: {
+        total: pinangQuestions.length,
+        easy: pinangQuestions.filter(q => q.difficulty === 'EASY').length,
+        medium: pinangQuestions.filter(q => q.difficulty === 'MEDIUM').length,
+        hard: pinangQuestions.filter(q => q.difficulty === 'HARD').length
+      },
+      tug: {
+        total: tugQuestions.length,
+        easy: tugQuestions.filter(q => q.difficulty === 'EASY').length,
+        medium: tugQuestions.filter(q => q.difficulty === 'MEDIUM').length,
+        hard: tugQuestions.filter(q => q.difficulty === 'HARD').length
+      }
+    }
   });
 });
 
@@ -176,6 +212,20 @@ app.delete('/api/super/custom-games/:id', (req, res) => {
 app.post('/api/super/digital-settings', (req, res) => {
   try {
     const updated = superAdminEngine.updateDigitalSettings(req.body);
+    if (typeof req.body.pinangPointsPerWin === 'number') {
+      gameEngine.winScore = req.body.pinangPointsPerWin;
+    }
+    if (typeof req.body.pinangPointsPerLose === 'number') {
+      gameEngine.loseScore = req.body.pinangPointsPerLose;
+    }
+    if (typeof req.body.pinangPointsPerDraw === 'number') {
+      gameEngine.drawScore = req.body.pinangPointsPerDraw;
+    }
+    if (typeof req.body.pinangTurnTimeoutSeconds === 'number') {
+      gameEngine.turnTimeoutSeconds = req.body.pinangTurnTimeoutSeconds;
+    }
+    gameEngine.saveStorage();
+    io.emit('STATE_UPDATE', gameEngine.getPublicState());
     io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
     res.json({ success: true, settings: updated, message: 'Pengaturan poin digital berhasil disimpan' });
   } catch (err) {
@@ -246,6 +296,62 @@ app.post('/api/super/set-score', (req, res) => {
   }
 });
 
+// === REST API BACKUP & RESTORE DATA GAME ===
+
+// 14. Export / Download Full Backup Data Game (.json)
+app.get('/api/backup/export', (req, res) => {
+  try {
+    const backup = backupManager.createBackup();
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `educamp-2026-backup-${timestamp}.json`;
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(JSON.stringify(backup, null, 2));
+  } catch (err) {
+    console.error('[Backup Export Error]', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 15. Ambil status & statistik penyimpanan game saat ini
+app.get('/api/backup/status', (req, res) => {
+  try {
+    res.json(backupManager.getStatus());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 16. Restore Data Game dari payload JSON
+app.post('/api/backup/restore', (req, res) => {
+  try {
+    const { backup, options } = req.body;
+    const payload = backup || req.body;
+    const result = backupManager.restoreBackup(payload, options || {});
+
+    // Broadcast update real-time ke semua client tersambung (Arena, Tablet, Leaderboard, Admin)
+    io.emit('STATE_UPDATE', gameEngine.getPublicState());
+    io.emit('TUG_STATE_UPDATE', tugEngine.getPublicState());
+    io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
+    io.emit('MASTER_TEAMS_UPDATE', superAdminEngine.getMasterTeams());
+    io.emit('CUSTOM_GAMES_UPDATE', superAdminEngine.getCustomGames());
+
+    res.json({
+      success: true,
+      message: result.message,
+      restoredItems: result.restoredItems,
+      state: {
+        pinang: gameEngine.getPublicState(),
+        tug: tugEngine.getPublicState(),
+        leaderboard: superAdminEngine.getUnifiedLeaderboard()
+      }
+    });
+  } catch (err) {
+    console.error('[Backup Restore Error]', err);
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // === REALTIME SOCKET.IO DISPATCHER ===
 io.on('connection', (socket) => {
   console.log(`[Socket Connected] ID: ${socket.id}`);
@@ -288,13 +394,43 @@ io.on('connection', (socket) => {
           durationSeconds: gameEngine.durationSeconds
         });
 
+        // Anti-Stalling Rule: Batas Waktu Giliran Menjawab Per Tim (15s default, 0 = disabled)
+        const timeoutLimitSec = typeof gameEngine.turnTimeoutSeconds === 'number' ? gameEngine.turnTimeoutSeconds : 15;
+        if (timeoutLimitSec > 0) {
+          const timeoutLimitMs = timeoutLimitSec * 1000;
+          const now = Date.now();
+          Object.keys(gameEngine.teams || {}).forEach(tId => {
+            const team = gameEngine.teams[tId];
+            if (team && team.questionStartTime && (now - team.questionStartTime >= timeoutLimitMs)) {
+              const timeoutRes = gameEngine.handleTurnTimeout(tId);
+              if (timeoutRes) {
+                io.emit('ANSWER_RESULT', timeoutRes);
+                io.emit('STATE_UPDATE', gameEngine.getPublicState());
+
+                if (timeoutRes.isWinner) {
+                  stopTimer();
+                  io.emit('GAME_OVER', {
+                    winner: gameEngine.winner,
+                    reason: gameEngine.winnerReason,
+                    isDraw: gameEngine.isDraw,
+                    matchScores: gameEngine.matchScores
+                  });
+                  io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
+                }
+              }
+            }
+          });
+        }
+
         if (gameEngine.remainingSeconds <= 0) {
           const timeoutResult = gameEngine.handleTimeout();
           stopTimer();
           io.emit('STATE_UPDATE', gameEngine.getPublicState());
           io.emit('GAME_OVER', {
             winner: gameEngine.winner,
-            reason: 'TIME_OUT'
+            reason: gameEngine.winnerReason || 'TIME_OUT',
+            isDraw: gameEngine.isDraw,
+            matchScores: gameEngine.matchScores
           });
           io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
         }
@@ -321,18 +457,27 @@ io.on('connection', (socket) => {
     io.emit('GAME_RESET');
   });
 
-  // Action: UPDATE CONFIG (Mode, Wipeout style, Duration, Points, Team members)
+  // Action: UPDATE CONFIG (Mode, Wipeout style, Duration, Points, Team members, Turn Timeout, Match Scores)
   socket.on('UPDATE_CONFIG', (config) => {
     if (config.mode) gameEngine.setMode(config.mode);
     if (config.wipeoutMode) gameEngine.wipeoutMode = config.wipeoutMode;
-    if (typeof config.pointsPerCorrect === 'number' && config.pointsPerCorrect > 0) {
-      gameEngine.pointsPerCorrect = config.pointsPerCorrect;
-    }
     if (typeof config.durationSeconds === 'number' && config.durationSeconds > 0) {
       gameEngine.durationSeconds = config.durationSeconds;
       if (gameEngine.status !== 'PLAYING') {
         gameEngine.remainingSeconds = config.durationSeconds;
       }
+    }
+    if (typeof config.turnTimeoutSeconds === 'number') {
+      gameEngine.turnTimeoutSeconds = Math.max(0, config.turnTimeoutSeconds);
+    }
+    if (typeof config.winScore === 'number') {
+      gameEngine.winScore = Math.max(0, config.winScore);
+    }
+    if (typeof config.loseScore === 'number') {
+      gameEngine.loseScore = Math.max(0, config.loseScore);
+    }
+    if (typeof config.drawScore === 'number') {
+      gameEngine.drawScore = Math.max(0, config.drawScore);
     }
     if (config.teams) {
       gameEngine.setTeamsConfig(config.teams);
@@ -355,7 +500,9 @@ io.on('connection', (socket) => {
       stopTimer();
       io.emit('GAME_OVER', {
         winner: gameEngine.winner,
-        reason: 'REACHED_TOP'
+        reason: 'REACHED_TOP',
+        isDraw: false,
+        matchScores: gameEngine.matchScores
       });
       io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
     }

@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Grand Leaderboard - Educamp Champions</title>
+  <link id="app-favicon" rel="icon" type="image/png" href="/images/Logo%20Educamp%202026.png">
+  <link rel="stylesheet" href="/css/fonts.css">
+  <link rel="stylesheet" href="/css/footer.css">
   <style>
     :root {
       --gold: #f59e0b;
@@ -24,10 +27,12 @@
     body {
       background: radial-gradient(circle at 50% 20%, #1e1b4b 0%, #070a13 70%);
       color: #f8fafc;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: var(--font-body);
       min-height: 100vh;
       overflow-x: hidden;
-      padding-bottom: 40px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
     }
 
     /* Ambient Spotlight Header */
@@ -189,8 +194,9 @@
     /* Breakdown Matrix Section */
     .matrix-section {
       max-width: 1150px;
-      margin: 0 auto;
+      margin: 0 auto 36px auto;
       padding: 0 20px;
+      flex: 1 0 auto;
     }
     .matrix-card {
       background: var(--card-bg);
@@ -306,7 +312,7 @@
   <!-- Universal Admin Navigation Bar -->
   <nav style="background: rgba(13, 21, 39, 0.9); backdrop-filter: blur(8px); border-bottom: 1px solid #1e293b; padding: 6px 16px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; position: relative; z-index: 100;">
     <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; color: #f59e0b;">
-      <span>🏆</span>
+      <img id="nav-leaderboard-logo" src="/images/Logo%20Educamp%202026.png" alt="Logo" style="height: 24px; object-fit: contain;">
       <span>EDUCAMP GRAND LEADERBOARD</span>
     </div>
     <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
@@ -320,13 +326,13 @@
         🎋 Admin Pinang
       </a>
       <a href="/tug-admin.html" style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none; color: #94a3b8; background: #17253d; border: 1px solid #1e293b;">
-        🪢 Admin Tug
+        🪢 Admin Tarik Tambang
       </a>
       <a href="/arena.html" target="_blank" style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none; color: #94a3b8; background: #17253d; border: 1px solid #1e293b;">
         🌴 Arena Pinang ↗
       </a>
       <a href="/tug-arena.html" target="_blank" style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none; color: #94a3b8; background: #17253d; border: 1px solid #1e293b;">
-        🪢 Arena Tug ↗
+        🪢 Arena Tarik Tambang ↗
       </a>
       <a href="/index.html" style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none; color: #94a3b8; background: #17253d; border: 1px solid #1e293b;">
         🏠 Hub Utama
@@ -335,6 +341,9 @@
   </nav>
 
   <header class="board-header">
+    <div style="margin-bottom: 16px;">
+      <img id="leaderboard-logo" src="/images/Logo%20Educamp%202026_tagline_white.png" alt="Educamp 2026 - One Vision One Culture One Excellence" style="max-height: 85px; max-width: 90%; object-fit: contain; filter: drop-shadow(0 6px 20px rgba(0,0,0,0.6));">
+    </div>
     <div class="header-badge">
       <span>🏆 EDUCAMP GRAND CHAMPIONSHIP 2026</span>
     </div>
@@ -373,8 +382,19 @@
     </div>
   </section>
 
-  <footer style="text-align: center; margin-top: 40px; color: #64748b; font-size: 12px; font-family: monospace;">
-    © 2026 Nandur Studio • Powered by Educamp Realtime Engine
+  <!-- Sticky Footer Konsisten -->
+  <footer class="app-sticky-footer" id="app-sticky-footer">
+    <div class="footer-left">
+      <img src="/images/Logo%20Educamp%202026.png" alt="Nandur Studio" class="footer-logo">
+      <span class="footer-copyright">&copy; 2026 Nandur Studio. All rights reserved.</span>
+    </div>
+    <div class="footer-right">
+      <div class="footer-semver" title="Semantic Versioning">
+        <span class="semver-dot"></span>
+        <span class="semver-label">SemVer</span>
+        <span>v1.1.0</span>
+      </div>
+    </div>
   </footer>
 
   <script src="/socket.io/socket.io.js"></script>
