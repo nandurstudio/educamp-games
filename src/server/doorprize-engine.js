@@ -14,6 +14,7 @@ class DoorprizeEngine {
     this.activeEventId = null;
     this.activePrizeId = null;
     this.isRolling = false;
+    this.pendingDraw = null;
     this.updatedAt = new Date().toISOString();
 
     this.ensureDataDir();
@@ -255,6 +256,7 @@ class DoorprizeEngine {
       totalWinnersCount: activeWinners.length,
       winners: activeWinners,
       isRolling: this.isRolling,
+      pendingDraw: this.pendingDraw,
       updatedAt: this.updatedAt
     };
   }
@@ -427,11 +429,15 @@ class DoorprizeEngine {
 
   // --- LOTTERY / DRAWING LOGIC ---
 
-  getEligiblePool(prizeId) {
+  getEligiblePool(prizeId, replacingWinnerId = null) {
     const prize = this.prizes.find(p => p.id === prizeId) || this.prizes.find(p => p.id === this.activePrizeId);
     if (!prize) return [];
 
-    const activeWinners = this.winners.filter(w => w.eventId === this.activeEventId && w.active !== false);
+    let activeWinners = this.winners.filter(w => w.eventId === this.activeEventId && w.active !== false);
+    if (replacingWinnerId) {
+      // Jika sedang mengganti pemenang tertentu, pemenang tersebut dikecualikan dari activeWinners
+      activeWinners = activeWinners.filter(w => w.id !== replacingWinnerId);
+    }
     const winnerNiks = new Set(activeWinners.map(w => w.nik));
 
     let pool = this.participants.filter(p => p.eventId === this.activeEventId && p.active && !winnerNiks.has(p.nik));
@@ -448,16 +454,33 @@ class DoorprizeEngine {
     return pool;
   }
 
-  drawWinners(prizeId, count = 1) {
+  // 1. Draw candidate pemenang (TIDAK LANGSUNG DISIMPAN, menunggu konfirmasi Game Master)
+  drawCandidates(prizeId, count = 1, replaceWinnerId = null) {
     const prize = this.prizes.find(p => p.id === prizeId) || this.prizes.find(p => p.id === this.activePrizeId);
     if (!prize) throw new Error('Hadiah tidak ditemukan');
 
-    const pool = this.getEligiblePool(prize.id);
+    const pool = this.getEligiblePool(prize.id, replaceWinnerId);
     if (pool.length === 0) {
       throw new Error('Tidak ada peserta yang memenuhi syarat untuk diundi');
     }
 
-    const drawCount = Math.min(count, pool.length);
+    // Cek pemenang aktif saat ini untuk hadiah ini
+    const existingPrizeWinners = this.winners.filter(w => w.prizeId === prize.id && w.eventId === this.activeEventId && w.active !== false);
+
+    // Deteksi apakah ini merupakan mode REPLACEMENT (kocok ulang)
+    // Mode replace aktif jika:
+    // a) replaceWinnerId dispesifikasikan secara eksplisit, ATAU
+    // b) Jumlah pemenang yang sudah ada telah mencapai atau melebihi kuota awal (existingPrizeWinners.length >= prize.totalWinners)
+    const isReplacement = !!replaceWinnerId || (existingPrizeWinners.length >= prize.totalWinners);
+
+    let targetReplaceWinnerId = replaceWinnerId;
+    if (!targetReplaceWinnerId && isReplacement && existingPrizeWinners.length > 0) {
+      // Default ganti pemenang terakhir yang ada
+      targetReplaceWinnerId = existingPrizeWinners[existingPrizeWinners.length - 1].id;
+    }
+
+    const drawCount = isReplacement ? 1 : Math.min(count, pool.length);
+
     // Fisher-Yates shuffle untuk pengacakan merata
     const shuffled = [...pool];
     for (let i = shuffled.length - 1; i > 0; i--) {
@@ -466,7 +489,7 @@ class DoorprizeEngine {
     }
 
     const selected = shuffled.slice(0, drawCount);
-    const newWinners = selected.map(p => ({
+    const candidateWinners = selected.map(p => ({
       id: 'win-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
       eventId: this.activeEventId,
       prizeId: prize.id,
@@ -481,13 +504,81 @@ class DoorprizeEngine {
       active: true
     }));
 
-    this.winners.push(...newWinners);
-    this.saveStorage();
+    // Simpan ke state pendingDraw (JANGAN masukkan ke this.winners dulu!)
+    this.pendingDraw = {
+      prizeId: prize.id,
+      prize,
+      candidates: candidateWinners,
+      isReplacement,
+      replaceWinnerId: targetReplaceWinnerId,
+      targetReplaceWinner: existingPrizeWinners.find(w => w.id === targetReplaceWinnerId) || null,
+      drawnAt: new Date().toISOString()
+    };
 
     return {
       prize,
-      winners: newWinners,
+      candidates: candidateWinners,
+      isReplacement,
+      replaceWinnerId: targetReplaceWinnerId,
+      targetReplaceWinner: this.pendingDraw.targetReplaceWinner,
       remainingCount: pool.length - drawCount
+    };
+  }
+
+  // 2. Konfirmasi simpan pemenang (menangani opsi Simpan atau Replace kuota)
+  confirmPendingDraw(chosenReplaceWinnerId = null) {
+    if (!this.pendingDraw || !this.pendingDraw.candidates || this.pendingDraw.candidates.length === 0) {
+      throw new Error('Tidak ada calon pemenang yang menunggu konfirmasi');
+    }
+
+    const { prizeId, candidates, prize } = this.pendingDraw;
+    const targetReplaceId = chosenReplaceWinnerId || this.pendingDraw.replaceWinnerId;
+
+    // Ambil pemenang aktif hadiah ini
+    const existingPrizeWinners = this.winners.filter(w => w.prizeId === prizeId && w.eventId === this.activeEventId && w.active !== false);
+
+    // Jika ada target replace atau jika total pemenang saat ini + baru melebihi total kuota yang di-setup:
+    if (targetReplaceId) {
+      // Hapus pemenang yang digantikan (REPLACE)
+      this.winners = this.winners.filter(w => w.id !== targetReplaceId);
+    } else if (existingPrizeWinners.length + candidates.length > prize.totalWinners) {
+      // Kuota sudah penuh: Replace pemenang yang ada sebanyak selisihnya
+      const excess = (existingPrizeWinners.length + candidates.length) - prize.totalWinners;
+      const toRemoveIds = new Set(existingPrizeWinners.slice(-excess).map(w => w.id));
+      this.winners = this.winners.filter(w => !toRemoveIds.has(w.id));
+    }
+
+    // Masukkan kandidat baru ke dalam daftar pemenang resmi
+    this.winners.push(...candidates);
+
+    const savedWinners = [...candidates];
+    this.pendingDraw = null;
+    this.saveStorage();
+
+    return {
+      success: true,
+      winners: savedWinners,
+      state: this.getState()
+    };
+  }
+
+  // 3. Batalkan hasil undian (tidak disimpan / kocok ulang)
+  cancelPendingDraw() {
+    this.pendingDraw = null;
+    return {
+      success: true,
+      state: this.getState()
+    };
+  }
+
+  // Metode drawWinners lama dipertahankan untuk kompatibilitas
+  drawWinners(prizeId, count = 1) {
+    const drawRes = this.drawCandidates(prizeId, count);
+    const confirmRes = this.confirmPendingDraw();
+    return {
+      prize: drawRes.prize,
+      winners: confirmRes.winners,
+      remainingCount: drawRes.remainingCount
     };
   }
 

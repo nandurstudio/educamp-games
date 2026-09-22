@@ -192,8 +192,7 @@
   </div>
 </footer>
 
-<audio id="audio-celebration" src="/audio/celebration_short.mp3" preload="auto"></audio>
-
+<!-- Script Socket.io & Live Logic -->
 <script src="/socket.io/socket.io.js"></script>
 <script>
   const socket = io();
@@ -219,14 +218,9 @@
     } catch(e) {}
   }
 
+  // Sesuai permintaan: DILARANG ada musik ketika pemenang sudah didapat
   function playWinChime() {
-    try {
-      const audio = document.getElementById('audio-celebration');
-      if (audio) {
-        audio.currentTime = 0;
-        audio.play().catch(e => console.log('Audio autoplay prevented'));
-      }
-    } catch(e) {}
+    // No-op: musik dinonaktifkan
   }
 
   // Socket Connection Status
@@ -276,27 +270,57 @@
     }, 60);
   });
 
-  // Winners Announced
+  // Candidates / Winners Announced (Saat baru dapat hasil kocokan)
   socket.on('DOORPRIZE_WINNERS_DRAWN', (data) => {
     clearInterval(rollingInterval);
     rollingInterval = null;
 
     document.getElementById('connection-dot').className = 'status-dot active';
-    document.getElementById('connection-text').textContent = 'PEMENANG TERPILIH!';
-    document.getElementById('rolling-status-badge').textContent = 'SELAMAT!';
+    document.getElementById('connection-text').textContent = 'KANDIDAT TERPILIH!';
+    document.getElementById('rolling-status-badge').textContent = data.isReplacement ? 'KOCOK ULANG' : 'KANDIDAT TERPILIH';
     document.getElementById('rolling-status-badge').className = 'gold-badge';
 
-    const winners = data.winners || [];
+    const winners = data.winners || data.candidates || [];
     if (winners.length > 0) {
-      // Ambil pemenang pertama untuk showcase roller
       const primaryWinner = winners[0];
       document.getElementById('roller-nik').textContent = primaryWinner.nik;
       document.getElementById('roller-name').textContent = primaryWinner.name;
-      document.getElementById('roller-dept').textContent = `${primaryWinner.department} • SELAMAT!`;
+      document.getElementById('roller-dept').textContent = `${primaryWinner.department} • MENUNGGU VERIFIKASI GAME MASTER`;
     }
 
-    playWinChime();
+    // Tanpa musik apapun saat dapat pemenang
+  });
+
+  // Saat pemenang resmi dikonfirmasi & disimpan
+  socket.on('DOORPRIZE_WINNER_CONFIRMED', (data) => {
+    document.getElementById('connection-dot').className = 'status-dot active';
+    document.getElementById('connection-text').textContent = 'PEMENANG SAH!';
+    document.getElementById('rolling-status-badge').textContent = 'SELAMAT!';
+    document.getElementById('rolling-status-badge').className = 'gold-badge grand-prize-badge';
+
+    const winners = data.winners || [];
+    if (winners.length > 0) {
+      const primaryWinner = winners[0];
+      document.getElementById('roller-nik').textContent = primaryWinner.nik;
+      document.getElementById('roller-name').textContent = primaryWinner.name;
+      document.getElementById('roller-dept').textContent = `${primaryWinner.department} • RESMI TERPILIH`;
+    }
+
+    // Luncurkan confetti visual tanda selamat, tetap tanpa musik
     launchConfetti();
+  });
+
+  // Saat undian dibatalkan / tidak disimpan
+  socket.on('DOORPRIZE_DRAW_CANCELLED', () => {
+    clearInterval(rollingInterval);
+    rollingInterval = null;
+    document.getElementById('connection-dot').className = 'status-dot active';
+    document.getElementById('connection-text').textContent = 'Terhubung Live';
+    document.getElementById('rolling-status-badge').textContent = 'STANDBY';
+    document.getElementById('rolling-status-badge').className = 'gold-badge';
+    document.getElementById('roller-nik').textContent = '-------';
+    document.getElementById('roller-name').textContent = 'SIAP UNTUK DIUNDI';
+    document.getElementById('roller-dept').textContent = 'Undian dibatalkan / Siap diundi kembali';
   });
 
   socket.on('DOORPRIZE_RESET_TRIGGERED', () => {

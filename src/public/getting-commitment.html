@@ -320,10 +320,10 @@
 
   <div class="page-wrap">
     <div style="width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-      <a href="/index.html" style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; background: rgba(30, 41, 59, 0.8); color: var(--text); border: 1px solid var(--border); border-radius: 12px; font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: none; transition: all 0.2s ease;">
+      <a href="/index.html" id="btn-back-beranda" style="display: none; align-items: center; gap: 8px; padding: 10px 18px; background: rgba(30, 41, 59, 0.8); color: var(--text); border: 1px solid var(--border); border-radius: 12px; font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: none; transition: all 0.2s ease;">
         &#8592; Beranda Educamp
       </a>
-      <div id="sync-status-badge" style="font-size: 12px; font-weight: 700; color: #4ade80; display: inline-flex; align-items: center; gap: 6px; background: rgba(34, 197, 94, 0.12); padding: 6px 14px; border-radius: 20px; border: 1px solid rgba(74, 222, 128, 0.3);">
+      <div id="sync-status-badge" style="margin-left: auto; font-size: 12px; font-weight: 700; color: #4ade80; display: inline-flex; align-items: center; gap: 6px; background: rgba(34, 197, 94, 0.12); padding: 6px 14px; border-radius: 20px; border: 1px solid rgba(74, 222, 128, 0.3);">
         <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 8px #4ade80;"></span>
         <span>Firebase Cloud Sync</span>
       </div>
@@ -626,6 +626,119 @@
     closeOverlayBtn.addEventListener('click', function() {
       overlay.classList.remove('active');
     });
+
+    // === ROLE CHECK UNTUK TOMBOL BERANDA ===
+    // Hapus tombol Beranda jika pengunjung adalah Tamu (guest) dan bukan Admin yang di-assign
+    (async function initAdminAuthCheck() {
+      const berandaBtn = document.getElementById('btn-back-beranda');
+      if (!berandaBtn) return;
+
+      const SCRIPT_CDN = 'https://www.gstatic.com/firebasejs/10.12.0/firebase-';
+
+      function loadScript(src) {
+        return new Promise((resolve, reject) => {
+          if (document.querySelector(`script[src="${src}"]`)) return resolve();
+          const s = document.createElement('script');
+          s.src = src;
+          s.onload = resolve;
+          s.onerror = reject;
+          document.head.appendChild(s);
+        });
+      }
+
+      async function verifyAdminRole(email, uid) {
+        if (!email) return false;
+        try {
+          const res = await fetch('/api/auth/check-role', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email.trim().toLowerCase(), uid })
+          });
+          if (!res.ok) return false;
+          const data = await res.json();
+          return !!(data && data.authorized);
+        } catch (e) {
+          console.warn('[AdminCheck] Gagal verifikasi role:', e.message);
+          return false;
+        }
+      }
+
+      function showBerandaButton() {
+        if (berandaBtn) {
+          berandaBtn.style.display = 'inline-flex';
+        }
+      }
+
+      function removeBerandaButton() {
+        if (berandaBtn && berandaBtn.parentNode) {
+          berandaBtn.remove();
+        }
+      }
+
+      // 1. Cek sesi lokal (localhost / bypass session jika tersimpan)
+      try {
+        const savedLocal = JSON.parse(localStorage.getItem('educamp_local_admin_session') || '{}');
+        if (savedLocal && savedLocal.email) {
+          const isAssignedAdmin = await verifyAdminRole(savedLocal.email, savedLocal.uid);
+          if (isAssignedAdmin) {
+            showBerandaButton();
+            return;
+          }
+        }
+      } catch (e) {}
+
+      // 2. Cek Firebase Authentication Session
+      try {
+        const cfgRes = await fetch('/api/auth/firebase-config');
+        if (!cfgRes.ok) {
+          removeBerandaButton();
+          return;
+        }
+        const firebaseConfig = await cfgRes.json();
+        if (!firebaseConfig || !firebaseConfig.apiKey) {
+          removeBerandaButton();
+          return;
+        }
+
+        await loadScript(SCRIPT_CDN + 'app-compat.js');
+        await loadScript(SCRIPT_CDN + 'auth-compat.js');
+
+        let app;
+        if (!window.firebase.apps.length) {
+          app = window.firebase.initializeApp(firebaseConfig);
+        } else {
+          app = window.firebase.app();
+        }
+
+        const auth = window.firebase.auth();
+
+        // Fallback timeout: Jika dalam 2.5 detik belum terverifikasi sebagai admin, hapus tombol beranda
+        const fallbackTimer = setTimeout(() => {
+          if (!auth.currentUser) {
+            removeBerandaButton();
+          }
+        }, 2500);
+
+        auth.onAuthStateChanged(async (user) => {
+          clearTimeout(fallbackTimer);
+          if (user && user.email) {
+            const isAssignedAdmin = await verifyAdminRole(user.email, user.uid);
+            if (isAssignedAdmin) {
+              showBerandaButton();
+            } else {
+              // Terautentikasi tetapi akun bukan admin yang di-assign -> Hapus tombol Beranda
+              removeBerandaButton();
+            }
+          } else {
+            // Tamu (Guest) / Tidak login -> Hapus tombol Beranda
+            removeBerandaButton();
+          }
+        });
+      } catch (err) {
+        console.warn('[AdminCheck] Firebase check error:', err.message);
+        removeBerandaButton();
+      }
+    })();
   </script>
 </body>
 </html>

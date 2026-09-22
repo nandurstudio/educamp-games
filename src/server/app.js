@@ -778,11 +778,46 @@ app.post('/api/doorprize/participants/toggle-gp', (req, res) => {
 
 app.post('/api/doorprize/draw', (req, res) => {
   try {
-    const { prizeId, count } = req.body;
-    const result = doorprizeEngine.drawWinners(prizeId, parseInt(count) || 1);
+    const { prizeId, count, replaceWinnerId } = req.body;
+    const result = doorprizeEngine.drawCandidates(prizeId, parseInt(count) || 1, replaceWinnerId);
     io.emit('DOORPRIZE_WINNERS_DRAWN', {
       prize: result.prize,
+      winners: result.candidates,
+      candidates: result.candidates,
+      isPending: true,
+      isReplacement: result.isReplacement,
+      replaceWinnerId: result.replaceWinnerId,
+      targetReplaceWinner: result.targetReplaceWinner,
+      timestamp: new Date().toISOString()
+    });
+    io.emit('DOORPRIZE_STATE_UPDATE', doorprizeEngine.getState());
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/doorprize/confirm', (req, res) => {
+  try {
+    const { replaceWinnerId } = req.body;
+    const result = doorprizeEngine.confirmPendingDraw(replaceWinnerId);
+    io.emit('DOORPRIZE_WINNER_CONFIRMED', {
       winners: result.winners,
+      state: result.state,
+      timestamp: new Date().toISOString()
+    });
+    io.emit('DOORPRIZE_STATE_UPDATE', doorprizeEngine.getState());
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/doorprize/cancel', (req, res) => {
+  try {
+    const result = doorprizeEngine.cancelPendingDraw();
+    io.emit('DOORPRIZE_DRAW_CANCELLED', {
+      state: result.state,
       timestamp: new Date().toISOString()
     });
     io.emit('DOORPRIZE_STATE_UPDATE', doorprizeEngine.getState());
@@ -1075,10 +1110,43 @@ io.on('connection', (socket) => {
     try {
       const prizeId = data.prizeId || doorprizeEngine.activePrizeId;
       const count = parseInt(data.count) || 1;
-      const result = doorprizeEngine.drawWinners(prizeId, count);
+      const replaceWinnerId = data.replaceWinnerId || null;
+      const result = doorprizeEngine.drawCandidates(prizeId, count, replaceWinnerId);
       io.emit('DOORPRIZE_WINNERS_DRAWN', {
         prize: result.prize,
+        winners: result.candidates,
+        candidates: result.candidates,
+        isPending: true,
+        isReplacement: result.isReplacement,
+        replaceWinnerId: result.replaceWinnerId,
+        targetReplaceWinner: result.targetReplaceWinner,
+        timestamp: new Date().toISOString()
+      });
+      io.emit('DOORPRIZE_STATE_UPDATE', doorprizeEngine.getState());
+    } catch (err) {
+      socket.emit('DOORPRIZE_ERROR', { message: err.message });
+    }
+  });
+
+  socket.on('DOORPRIZE_CONFIRM_WINNER', (data = {}) => {
+    try {
+      const result = doorprizeEngine.confirmPendingDraw(data.replaceWinnerId || null);
+      io.emit('DOORPRIZE_WINNER_CONFIRMED', {
         winners: result.winners,
+        state: result.state,
+        timestamp: new Date().toISOString()
+      });
+      io.emit('DOORPRIZE_STATE_UPDATE', doorprizeEngine.getState());
+    } catch (err) {
+      socket.emit('DOORPRIZE_ERROR', { message: err.message });
+    }
+  });
+
+  socket.on('DOORPRIZE_CANCEL_DRAW', () => {
+    try {
+      const result = doorprizeEngine.cancelPendingDraw();
+      io.emit('DOORPRIZE_DRAW_CANCELLED', {
+        state: result.state,
         timestamp: new Date().toISOString()
       });
       io.emit('DOORPRIZE_STATE_UPDATE', doorprizeEngine.getState());
