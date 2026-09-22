@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Layar Panggung Undian Doorprize & Grandprize - Educamp 2026</title>
+  <link rel="icon" type="image/png" href="/images/Logo%20Educamp%202026.png">
+  <link rel="stylesheet" href="/css/fonts.css">
+  <link rel="stylesheet" href="/css/footer.css">
+  <link rel="stylesheet" href="/css/doorprize.css">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: var(--font-body); }
+    body {
+      background: var(--bg-primary);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow-x: hidden;
+    }
+    .arena-container {
+      max-width: 1400px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 24px;
+      flex: 1;
+    }
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--border-color);
+      border-radius: 30px;
+      padding: 6px 16px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #94a3b8;
+    }
+    .status-dot.active { background: #22c55e; box-shadow: 0 0 10px #22c55e; }
+    .status-dot.rolling { background: #f1c40f; box-shadow: 0 0 12px #f1c40f; animation: pulse 0.8s infinite; }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.4); opacity: 0.6; }
+    }
+    .fullscreen-btn {
+      background: transparent;
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      padding: 8px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 13px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .fullscreen-btn:hover {
+      background: var(--bg-card);
+      color: #ffffff;
+      border-color: var(--gold-primary);
+    }
+    .stats-badge-row {
+      display: flex;
+      gap: 16px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+    .stat-chip {
+      background: #0f172a;
+      border: 1px solid #334155;
+      padding: 6px 16px;
+      border-radius: 12px;
+      font-size: 13px;
+      color: #94a3b8;
+    }
+    .stat-chip strong {
+      color: #f8fafc;
+      font-family: var(--font-number);
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="confetti-canvas"></canvas>
+
+<!-- Top Header Navigation -->
+<header class="arena-header">
+  <div style="display: flex; align-items: center; gap: 16px;">
+    <a href="/index.html" style="text-decoration: none;">
+      <img src="/images/Logo%20Educamp%202026_tagline_white.png" alt="Educamp 2026" style="height: 48px; object-fit: contain;">
+    </a>
+    <div>
+      <h2 style="font-family: var(--font-heading); font-size: 18px; font-weight: 800; color: #ffffff; letter-spacing: -0.3px;">
+        PANGGUNG UNDIAN DOORPRIZE & GRANDPRIZE
+      </h2>
+      <div id="event-name-display" style="font-size: 12px; color: var(--gold-primary); font-weight: 700; text-transform: uppercase;">
+        MEMUAT EVENT...
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 14px;">
+    <div class="status-pill">
+      <span class="status-dot" id="connection-dot"></span>
+      <span id="connection-text">Menyambungkan...</span>
+    </div>
+    <button class="fullscreen-btn" onclick="toggleFullScreen()">
+      <span>⛶</span> Fullscreen
+    </button>
+  </div>
+</header>
+
+<!-- Main Arena Container -->
+<main class="arena-container">
+  
+  <!-- Showcase Hadiah Aktif -->
+  <section class="prize-showcase" id="prize-showcase-panel">
+    <div class="prize-image-box">
+      <img id="active-prize-img" src="/images/doorprize/grandprize/TV.png" alt="Hadiah">
+    </div>
+    <div style="flex: 1;">
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+        <span class="gold-badge" id="active-prize-category">GRAND PRIZE</span>
+        <span style="color: #94a3b8; font-size: 13px;">Kuota: <strong style="color: #38bdf8;" id="active-prize-quota">1 Pemenang</strong></span>
+      </div>
+      <h1 id="active-prize-name" style="font-family: var(--font-heading); font-size: 34px; font-weight: 900; color: #f8fafc; line-height: 1.2; margin-bottom: 6px;">
+        Smart TV 55 Inch 4K UHD
+      </h1>
+      <div class="stats-badge-row">
+        <div class="stat-chip">Total Peserta: <strong id="total-participants-stat">0</strong></div>
+        <div class="stat-chip">Peserta Siap Diundi: <strong id="available-participants-stat" style="color: #22c55e;">0</strong></div>
+        <div class="stat-chip">Pemenang Terpilih: <strong id="winners-count-stat" style="color: #f1c40f;">0</strong></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Rolling Slot Machine Screen -->
+  <section class="rolling-stage" id="stage-box">
+    <div style="position: absolute; top: 16px; left: 24px;">
+      <span class="gold-badge" id="rolling-status-badge">STANDBY</span>
+    </div>
+    <div style="position: absolute; top: 16px; right: 24px; font-size: 13px; color: #94a3b8;">
+      Educamp Live Randomizer
+    </div>
+
+    <div class="roller-box">
+      <div class="roller-nik" id="roller-nik">-------</div>
+      <div class="roller-name" id="roller-name">SIAP UNTUK DIUNDI</div>
+      <div class="roller-dept" id="roller-dept">Menunggu Game Master memulai undian</div>
+    </div>
+  </section>
+
+  <!-- Daftar Pemenang Sesi Hadiah Ini -->
+  <section style="margin-top: 36px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <h3 style="font-family: var(--font-heading); font-size: 20px; font-weight: 800; color: #ffffff; display: flex; align-items: center; gap: 8px;">
+        <span>🏆</span> DAFTAR PEMENANG RESMI (<span id="current-winners-count" style="color: var(--gold-primary);">0</span>)
+      </h3>
+      <span style="font-size: 12px; color: #64748b;">Tersinkronisasi Realtime via Cloud Firestore</span>
+    </div>
+
+    <div class="winners-grid" id="winners-grid">
+      <!-- Winner cards diinjeksi via JavaScript -->
+      <div style="grid-column: 1 / -1; text-align: center; color: #64748b; padding: 32px 0;" id="empty-winners-msg">
+        Belum ada pemenang untuk sesi hadiah ini. Siap diputar!
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- Sticky Footer Konsisten -->
+<footer class="app-sticky-footer" id="app-sticky-footer">
+  <div class="footer-left">
+    <img src="/images/Logo%20Educamp%202026.png" alt="Nandur Studio" class="footer-logo">
+    <span class="footer-copyright">&copy; 2026 Nandur Studio. All rights reserved.</span>
+  </div>
+  <div class="footer-right">
+    <div class="footer-semver" title="Semantic Versioning">
+      <span class="semver-dot"></span>
+      <span class="semver-label">SemVer</span>
+      <span>v1.2.0</span>
+    </div>
+  </div>
+</footer>
+
+<audio id="audio-celebration" src="/audio/celebration_short.mp3" preload="auto"></audio>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io();
+
+  let state = null;
+  let rollingInterval = null;
+  let audioContext = null;
+
+  // Sound Synth Synthesizer untuk drumroll / slot rolling
+  function playTickSound() {
+    try {
+      if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(300 + Math.random() * 200, audioContext.currentTime);
+      gain.gain.setValueAtTime(0.12, audioContext.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.06);
+      osc.connect(gain);
+      gain.connect(audioContext.destination);
+      osc.start();
+      osc.stop(audioContext.currentTime + 0.06);
+    } catch(e) {}
+  }
+
+  function playWinChime() {
+    try {
+      const audio = document.getElementById('audio-celebration');
+      if (audio) {
+        audio.currentTime = 0;
+        audio.play().catch(e => console.log('Audio autoplay prevented'));
+      }
+    } catch(e) {}
+  }
+
+  // Socket Connection Status
+  socket.on('connect', () => {
+    document.getElementById('connection-dot').className = 'status-dot active';
+    document.getElementById('connection-text').textContent = 'Terhubung Live';
+    socket.emit('DOORPRIZE_JOIN');
+  });
+
+  socket.on('disconnect', () => {
+    document.getElementById('connection-dot').className = 'status-dot';
+    document.getElementById('connection-text').textContent = 'Terputus';
+  });
+
+  // State Updates
+  socket.on('DOORPRIZE_STATE_UPDATE', (newState) => {
+    state = newState;
+    renderState();
+  });
+
+  socket.on('DOORPRIZE_PRIZE_CHANGED', (data) => {
+    if (state) {
+      state.activePrize = data.prize;
+      renderState();
+    }
+  });
+
+  // Rolling Started
+  socket.on('DOORPRIZE_ROLL_STARTED', (data) => {
+    const candidates = data.candidates || [];
+    if (candidates.length === 0) return;
+
+    document.getElementById('connection-dot').className = 'status-dot rolling';
+    document.getElementById('connection-text').textContent = 'SEDANG DIUNDI';
+    document.getElementById('rolling-status-badge').textContent = 'ROLLING...';
+    document.getElementById('rolling-status-badge').className = 'gold-badge grand-prize-badge';
+
+    clearInterval(rollingInterval);
+    let index = 0;
+    rollingInterval = setInterval(() => {
+      const candidate = candidates[index % candidates.length];
+      document.getElementById('roller-nik').textContent = candidate.nik;
+      document.getElementById('roller-name').textContent = candidate.name;
+      document.getElementById('roller-dept').textContent = candidate.department || 'Umum';
+      playTickSound();
+      index++;
+    }, 60);
+  });
+
+  // Winners Announced
+  socket.on('DOORPRIZE_WINNERS_DRAWN', (data) => {
+    clearInterval(rollingInterval);
+    rollingInterval = null;
+
+    document.getElementById('connection-dot').className = 'status-dot active';
+    document.getElementById('connection-text').textContent = 'PEMENANG TERPILIH!';
+    document.getElementById('rolling-status-badge').textContent = 'SELAMAT!';
+    document.getElementById('rolling-status-badge').className = 'gold-badge';
+
+    const winners = data.winners || [];
+    if (winners.length > 0) {
+      // Ambil pemenang pertama untuk showcase roller
+      const primaryWinner = winners[0];
+      document.getElementById('roller-nik').textContent = primaryWinner.nik;
+      document.getElementById('roller-name').textContent = primaryWinner.name;
+      document.getElementById('roller-dept').textContent = `${primaryWinner.department} • SELAMAT!`;
+    }
+
+    playWinChime();
+    launchConfetti();
+  });
+
+  socket.on('DOORPRIZE_RESET_TRIGGERED', () => {
+    clearInterval(rollingInterval);
+    rollingInterval = null;
+    document.getElementById('rolling-status-badge').textContent = 'STANDBY';
+    document.getElementById('rolling-status-badge').className = 'gold-badge';
+    document.getElementById('roller-nik').textContent = '-------';
+    document.getElementById('roller-name').textContent = 'SIAP UNTUK DIUNDI';
+    document.getElementById('roller-dept').textContent = 'Menunggu Game Master memulai undian';
+  });
+
+  function renderState() {
+    if (!state) return;
+
+    if (state.activeEvent) {
+      document.getElementById('event-name-display').textContent = state.activeEvent.name;
+    }
+
+    if (state.activePrize) {
+      const p = state.activePrize;
+      document.getElementById('active-prize-name').textContent = p.name;
+      document.getElementById('active-prize-category').textContent = p.category;
+      document.getElementById('active-prize-category').className = p.category === 'GRAND PRIZE' ? 'gold-badge grand-prize-badge' : 'gold-badge';
+      document.getElementById('active-prize-quota').textContent = `${p.totalWinners} Pemenang`;
+      if (p.photo) {
+        document.getElementById('active-prize-img').src = p.photo;
+      }
+    }
+
+    document.getElementById('total-participants-stat').textContent = state.totalParticipants || 0;
+    document.getElementById('available-participants-stat').textContent = state.availableParticipantsCount || 0;
+    document.getElementById('winners-count-stat').textContent = state.totalWinnersCount || 0;
+
+    // Render podium pemenang
+    const grid = document.getElementById('winners-grid');
+    grid.innerHTML = '';
+    const activePrizeWinners = (state.winners || []).filter(w => !state.activePrize || w.prizeId === state.activePrize.id);
+
+    document.getElementById('current-winners-count').textContent = activePrizeWinners.length;
+
+    if (activePrizeWinners.length === 0) {
+      grid.innerHTML = `
+        <div style="grid-column: 1 / -1; text-align: center; color: #64748b; padding: 32px 0;" id="empty-winners-msg">
+          Belum ada pemenang untuk sesi hadiah ini. Siap diputar!
+        </div>
+      `;
+    } else {
+      activePrizeWinners.forEach((w, i) => {
+        const isGP = w.prizeCategory === 'GRAND PRIZE';
+        const card = document.createElement('div');
+        card.className = `winner-card ${isGP ? 'grandprize-card' : ''}`;
+        card.innerHTML = `
+          <div style="font-size: 28px; margin-bottom: 6px;">${isGP ? '👑' : '🎁'}</div>
+          <div style="font-size: 11px; font-weight: 800; color: ${isGP ? '#f1c40f' : '#22c55e'}; letter-spacing: 1px;">
+            PEMENANG #${i + 1}
+          </div>
+          <div style="font-family: var(--font-number); font-size: 16px; font-weight: 800; color: #38bdf8; margin: 4px 0;">
+            ${w.nik}
+          </div>
+          <div style="font-family: var(--font-heading); font-size: 18px; font-weight: 900; color: #ffffff; text-transform: uppercase;">
+            ${w.name}
+          </div>
+          <div style="font-size: 12px; color: #94a3b8; margin-top: 4px;">
+            ${w.department}
+          </div>
+          <div style="margin-top: 8px; font-size: 11px; color: #f59e0b; background: rgba(0,0,0,0.3); padding: 3px 8px; border-radius: 6px;">
+            ${w.prizeName}
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+  }
+
+  // Fullscreen Helper
+  function toggleFullScreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(err => {});
+    } else {
+      if (document.exitFullscreen) document.exitFullscreen();
+    }
+  }
+
+  // Confetti Particle Engine
+  function launchConfetti() {
+    const canvas = document.getElementById('confetti-canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const colors = ['#f1c40f', '#e74c3c', '#3498db', '#2ecc71', '#9b59b6', '#ffffff'];
+    const particles = [];
+    for (let i = 0; i < 180; i++) {
+      particles.push({
+        x: canvas.width / 2,
+        y: canvas.height / 2,
+        vx: (Math.random() - 0.5) * 22,
+        vy: (Math.random() - 0.7) * 20 - 4,
+        size: Math.random() * 8 + 4,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        rotation: Math.random() * 360,
+        vRot: (Math.random() - 0.5) * 12,
+        gravity: 0.45,
+        opacity: 1
+      });
+    }
+
+    let animationFrame = null;
+    function render() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      let alive = false;
+      particles.forEach(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += p.gravity;
+        p.rotation += p.vRot;
+        p.opacity -= 0.007;
+
+        if (p.opacity > 0 && p.y < canvas.height + 20) {
+          alive = true;
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate((p.rotation * Math.PI) / 180);
+          ctx.globalAlpha = Math.max(0, p.opacity);
+          ctx.fillStyle = p.color;
+          ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 1.4);
+          ctx.restore();
+        }
+      });
+
+      if (alive) {
+        animationFrame = requestAnimationFrame(render);
+      } else {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+    }
+    cancelAnimationFrame(animationFrame);
+    render();
+  }
+
+  window.addEventListener('resize', () => {
+    const canvas = document.getElementById('confetti-canvas');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  });
+</script>
+
+</body>
+</html>

@@ -13,15 +13,16 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: var(--font-body); }
     body { background: #0b1329; color: #ffffff; min-height: 100vh; display: flex; flex-direction: column; justify-content: space-between; padding: 32px 20px 0 20px; font-family: var(--font-body); }
-    .hub-container { max-width: 900px; width: 100%; text-align: center; margin: 0 auto 36px auto; }
+    .hub-container { max-width: 1080px; width: 100%; text-align: center; margin: 0 auto 36px auto; }
     h1 { font-family: var(--font-heading); font-size: 32px; color: #f1c40f; margin-bottom: 8px; font-weight: 800; letter-spacing: -0.5px; }
     .subtitle { color: #94a3b8; font-size: 16px; margin-bottom: 36px; }
-    .game-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; text-align: left; }
+    .game-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 24px; text-align: left; }
     .game-card { background: #1e293b; border: 2px solid #334155; border-radius: 20px; padding: 28px; display: flex; flex-direction: column; justify-content: space-between; transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
     .game-card:hover { transform: translateY(-4px); border-color: #f1c40f; box-shadow: 0 20px 35px rgba(0,0,0,0.5); }
     .game-badge { font-family: var(--font-number); display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: bold; margin-bottom: 12px; }
     .badge-pinang { background: #ef444422; color: #ef4444; border: 1px solid #ef4444; }
     .badge-tug { background: #3b82f622; color: #38bdf8; border: 1px solid #38bdf8; }
+    .badge-doorprize { background: #f59e0b22; color: #f59e0b; border: 1px solid #f59e0b; }
     .game-title { font-family: var(--font-heading); font-size: 22px; font-weight: bold; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; }
     .game-desc { font-size: 14px; color: #94a3b8; line-height: 1.6; margin-bottom: 24px; }
     .button-group { display: flex; flex-direction: column; gap: 10px; }
@@ -30,6 +31,8 @@
     .btn-arena { background: #22c55e; color: white; }
     .btn-ctrl { background: #3b82f6; color: white; }
     .btn-admin { background: #64748b; color: white; }
+    .btn-doorprize-arena { background: linear-gradient(135deg, #f59e0b, #d97706); color: #000; font-weight: 800; }
+    .btn-doorprize-admin { background: #4f46e5; color: white; }
     @media (max-width: 768px) {
       .game-grid { grid-template-columns: 1fr; }
     }
@@ -120,6 +123,30 @@
           <span>➔</span>
         </a>
         <a href="/tug-admin.html" target="_blank" class="btn-link btn-admin">
+          <span>🔐 Game Master / Admin Panel</span>
+          <span>➔</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Game 3: Undian Doorprize & Grandprize -->
+    <div class="game-card">
+      <div>
+        <span class="game-badge badge-doorprize">LUCKY DRAW ARENA</span>
+        <div class="game-title" style="color: #f59e0b;">
+          <span>🎁</span> Doorprize & Grandprize
+        </div>
+        <p class="game-desc">
+          Panggung pengundian acak real-time berbasis Firebase Firestore & Slot Roller. Lengkap dengan filter Batch Hadiah, anti-duplikasi pemenang, dan isolasi peserta Grandprize khusus!
+        </p>
+      </div>
+
+      <div class="button-group">
+        <a href="/doorprize-arena.html" target="_blank" class="btn-link btn-doorprize-arena">
+          <span>🖥️ Buka Layar Proyektor Arena</span>
+          <span>➔</span>
+        </a>
+        <a href="/doorprize-admin.html" target="_blank" class="btn-link btn-doorprize-admin">
           <span>🔐 Game Master / Admin Panel</span>
           <span>➔</span>
         </a>

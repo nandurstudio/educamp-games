@@ -1,7 +1,13 @@
 node_modules/
 .env
+.env.*
 .DS_Store
 *.log
 npm-debug.log*
 data/
 data/*.json
+
+# Firebase & Secret Credentials
+firebase-applet-config.json
+serviceAccountKey.json
+*.secret.json

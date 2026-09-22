@@ -11,6 +11,19 @@ try {
   console.warn('[Firebase Client] Warning: firebase-applet-config.json not loaded:', e.message);
 }
 
+// Override / fallback with environment variables if available
+if (process.env.FIREBASE_API_KEY) {
+  firebaseConfig = {
+    projectId: process.env.FIREBASE_PROJECT_ID || (firebaseConfig && firebaseConfig.projectId),
+    appId: process.env.FIREBASE_APP_ID || (firebaseConfig && firebaseConfig.appId),
+    apiKey: process.env.FIREBASE_API_KEY,
+    authDomain: process.env.FIREBASE_AUTH_DOMAIN || (firebaseConfig && firebaseConfig.authDomain),
+    firestoreDatabaseId: process.env.FIREBASE_FIRESTORE_DATABASE_ID || (firebaseConfig && firebaseConfig.firestoreDatabaseId),
+    storageBucket: process.env.FIREBASE_STORAGE_BUCKET || (firebaseConfig && firebaseConfig.storageBucket),
+    messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || (firebaseConfig && firebaseConfig.messagingSenderId)
+  };
+}
+
 class FirestoreSyncService {
   constructor() {
     this.config = firebaseConfig;
@@ -21,6 +34,10 @@ class FirestoreSyncService {
     } else {
       console.log('[Firebase Service] Firebase config not detected. Running local storage fallback.');
     }
+  }
+
+  getConfig() {
+    return this.config;
   }
 
   isAvailable() {

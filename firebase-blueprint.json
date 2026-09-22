@@ -45,7 +45,7 @@
   "firestore": {
     "/educamp_data/{docId}": {
       "schema": "EducampStorage",
-      "description": "Koleksi data terpusat Educamp Games (superadmin, panjat_pinang, tarik_tambang, question_bank, getting_commitment)"
+      "description": "Koleksi data terpusat Educamp Games (superadmin, panjat_pinang, tarik_tambang, question_bank, getting_commitment, doorprize_storage)"
     },
     "/admins/{uid}": {
       "schema": "UserRole",

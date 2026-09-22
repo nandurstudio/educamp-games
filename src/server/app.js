@@ -12,6 +12,8 @@ const questionBank = require('./question-bank');
 const backupManager = require('./backup-manager');
 const authManager = require('./auth-manager');
 const commitmentEngine = require('./commitment-engine');
+const doorprizeEngine = require('./doorprize-engine');
+const firebaseService = require('./firebase-service');
 const { generateQuizQuestions } = require('./gemini-service');
 
 const app = express();
@@ -43,6 +45,22 @@ app.get('/favicon.ico', (req, res) => {
 });
 
 // === FIREBASE AUTHENTICATION & ROLE VERIFICATION ENDPOINTS ===
+
+// Serve client Firebase config dynamically to prevent hardcoding API keys in frontend JS
+app.get('/api/auth/firebase-config', (req, res) => {
+  const cfg = firebaseService.getConfig();
+  if (cfg && cfg.apiKey) {
+    return res.json({
+      apiKey: cfg.apiKey,
+      authDomain: cfg.authDomain,
+      projectId: cfg.projectId,
+      storageBucket: cfg.storageBucket,
+      messagingSenderId: cfg.messagingSenderId,
+      appId: cfg.appId
+    });
+  }
+  res.status(404).json({ error: 'Firebase config not found or inactive' });
+});
 
 // Check user role by email / token info
 app.post('/api/auth/check-role', (req, res) => {
@@ -525,6 +543,167 @@ app.post('/api/commitment/reset', (req, res) => {
   }
 });
 
+// === REST API ENDPOINTS (DOORPRIZE & GRANDPRIZE) ===
+app.get('/api/doorprize/state', (req, res) => {
+  try {
+    res.json(doorprizeEngine.getState());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/doorprize/participants', (req, res) => {
+  try {
+    const { filter, search } = req.query;
+    res.json({ participants: doorprizeEngine.getParticipants(filter, search) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/doorprize/pool', (req, res) => {
+  try {
+    const { prizeId } = req.query;
+    res.json({ pool: doorprizeEngine.getEligiblePool(prizeId) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/doorprize/event/select', (req, res) => {
+  try {
+    const { eventId } = req.body;
+    doorprizeEngine.setActiveEvent(eventId);
+    io.emit('DOORPRIZE_STATE_UPDATE', doorprizeEngine.getState());
+    res.json({ success: true, state: doorprizeEngine.getState() });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/doorprize/event', (req, res) => {
+  try {
+    const state = doorprizeEngine.saveEvent(req.body);
+    io.emit('DOORPRIZE_STATE_UPDATE', state);
+    res.json({ success: true, state });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/doorprize/prize/select', (req, res) => {
+  try {
+    const { prizeId } = req.body;
+    doorprizeEngine.setActivePrize(prizeId);
+    io.emit('DOORPRIZE_STATE_UPDATE', doorprizeEngine.getState());
+    res.json({ success: true, state: doorprizeEngine.getState() });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/doorprize/prize', (req, res) => {
+  try {
+    const state = doorprizeEngine.savePrize(req.body);
+    io.emit('DOORPRIZE_STATE_UPDATE', state);
+    res.json({ success: true, state });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.delete('/api/doorprize/prize/:id', (req, res) => {
+  try {
+    const state = doorprizeEngine.deletePrize(req.params.id);
+    io.emit('DOORPRIZE_STATE_UPDATE', state);
+    res.json({ success: true, state });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/doorprize/participants/import', (req, res) => {
+  try {
+    const { items, eventId } = req.body;
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: 'Data peserta tidak valid' });
+    }
+    const result = doorprizeEngine.importParticipants(items, eventId);
+    io.emit('DOORPRIZE_STATE_UPDATE', doorprizeEngine.getState());
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/doorprize/participants/toggle-gp', (req, res) => {
+  try {
+    const { participantId } = req.body;
+    doorprizeEngine.toggleGrandPrize(participantId);
+    io.emit('DOORPRIZE_STATE_UPDATE', doorprizeEngine.getState());
+    res.json({ success: true });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/doorprize/draw', (req, res) => {
+  try {
+    const { prizeId, count } = req.body;
+    const result = doorprizeEngine.drawWinners(prizeId, parseInt(count) || 1);
+    io.emit('DOORPRIZE_WINNERS_DRAWN', {
+      prize: result.prize,
+      winners: result.winners,
+      timestamp: new Date().toISOString()
+    });
+    io.emit('DOORPRIZE_STATE_UPDATE', doorprizeEngine.getState());
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/doorprize/reset/prize', (req, res) => {
+  try {
+    const { prizeId } = req.body;
+    const state = doorprizeEngine.resetPrizeWinners(prizeId);
+    io.emit('DOORPRIZE_STATE_UPDATE', state);
+    io.emit('DOORPRIZE_RESET_TRIGGERED', { type: 'PRIZE', prizeId });
+    res.json({ success: true, state });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/doorprize/reset/all', (req, res) => {
+  try {
+    const { eventId } = req.body;
+    const state = doorprizeEngine.resetAllWinners(eventId);
+    io.emit('DOORPRIZE_STATE_UPDATE', state);
+    io.emit('DOORPRIZE_RESET_TRIGGERED', { type: 'ALL', eventId });
+    res.json({ success: true, state });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.get('/api/doorprize/export-csv', (req, res) => {
+  try {
+    const list = doorprizeEngine.exportWinners();
+    if (list.length === 0) {
+      return res.status(404).send('Belum ada pemenang untuk diekspor');
+    }
+    const headers = Object.keys(list[0]).join(',');
+    const rows = list.map(item => Object.values(item).map(v => `"${v}"`).join(','));
+    const csv = [headers, ...rows].join('\n');
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="daftar_pemenang_doorprize_educamp.csv"');
+    res.send(csv);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // === REALTIME SOCKET.IO DISPATCHER ===
 io.on('connection', (socket) => {
   console.log(`[Socket Connected] ID: ${socket.id}`);
@@ -533,6 +712,7 @@ io.on('connection', (socket) => {
   socket.emit('STATE_UPDATE', gameEngine.getPublicState());
   socket.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
   socket.emit('COMMITMENT_STATE_UPDATE', commitmentEngine.getPublicState());
+  socket.emit('DOORPRIZE_STATE_UPDATE', doorprizeEngine.getState());
 
   // Bergabung ke room role tertentu (arena, controller-team1, controller-team2, admin)
   socket.on('JOIN_ROLE', ({ role, teamId }) => {
@@ -875,6 +1055,49 @@ io.on('connection', (socket) => {
     }
   });
 
+  // === DOORPRIZE SOCKET.IO REALTIME HANDLERS ===
+  socket.on('DOORPRIZE_JOIN', () => {
+    socket.emit('DOORPRIZE_STATE_UPDATE', doorprizeEngine.getState());
+  });
+
+  socket.on('DOORPRIZE_START_ROLL', (data = {}) => {
+    doorprizeEngine.isRolling = true;
+    const prizeId = data.prizeId || doorprizeEngine.activePrizeId;
+    const pool = doorprizeEngine.getEligiblePool(prizeId);
+    io.emit('DOORPRIZE_ROLL_STARTED', {
+      prizeId,
+      candidates: pool
+    });
+  });
+
+  socket.on('DOORPRIZE_STOP_ROLL', (data = {}) => {
+    doorprizeEngine.isRolling = false;
+    try {
+      const prizeId = data.prizeId || doorprizeEngine.activePrizeId;
+      const count = parseInt(data.count) || 1;
+      const result = doorprizeEngine.drawWinners(prizeId, count);
+      io.emit('DOORPRIZE_WINNERS_DRAWN', {
+        prize: result.prize,
+        winners: result.winners,
+        timestamp: new Date().toISOString()
+      });
+      io.emit('DOORPRIZE_STATE_UPDATE', doorprizeEngine.getState());
+    } catch (err) {
+      socket.emit('DOORPRIZE_ERROR', { message: err.message });
+    }
+  });
+
+  socket.on('DOORPRIZE_SELECT_PRIZE', (data = {}) => {
+    if (data.prizeId) {
+      doorprizeEngine.setActivePrize(data.prizeId);
+      io.emit('DOORPRIZE_STATE_UPDATE', doorprizeEngine.getState());
+      io.emit('DOORPRIZE_PRIZE_CHANGED', {
+        prizeId: data.prizeId,
+        prize: doorprizeEngine.prizes.find(p => p.id === data.prizeId)
+      });
+    }
+  });
+
   socket.on('disconnect', () => {
     console.log(`[Socket Disconnected] ID: ${socket.id}`);
   });
@@ -893,5 +1116,8 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`🪢 Tarik Tambang Arena : http://localhost:${PORT}/tug-arena.html`);
   console.log(`📱 Tarik Tambang Tablet: http://localhost:${PORT}/tug-controller.html`);
   console.log(`⚙️  Tarik Tambang Admin : http://localhost:${PORT}/tug-admin.html`);
+  console.log(`----------------------------------------------------`);
+  console.log(`🎁 Doorprize Arena      : http://localhost:${PORT}/doorprize-arena.html`);
+  console.log(`⚙️  Doorprize Admin      : http://localhost:${PORT}/doorprize-admin.html`);
   console.log(`====================================================`);
 });

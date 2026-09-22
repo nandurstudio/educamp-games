@@ -16,15 +16,20 @@
     });
   }
 
-  // Fetch Firebase config from local server or embed directly
-  const firebaseConfig = {
-    apiKey: "AIzaSyCOK49gEwbpMWLvmYJPQYi7hH_UHqX6F1U",
-    authDomain: "gen-lang-client-0569334671.firebaseapp.com",
-    projectId: "gen-lang-client-0569334671",
-    storageBucket: "gen-lang-client-0569334671.firebasestorage.app",
-    messagingSenderId: "30984307139",
-    appId: "1:30984307139:web:fcb6680aff9eb88b32bd76"
-  };
+  let cachedFirebaseConfig = null;
+  async function fetchFirebaseConfig() {
+    if (cachedFirebaseConfig) return cachedFirebaseConfig;
+    try {
+      const res = await fetch('/api/auth/firebase-config');
+      if (res.ok) {
+        cachedFirebaseConfig = await res.json();
+        return cachedFirebaseConfig;
+      }
+    } catch (e) {
+      console.warn('[AdminAuthGuard] Gagal mengambil konfigurasi Firebase dari server:', e.message);
+    }
+    return null;
+  }
 
   class AdminAuthGuard {
     constructor() {
@@ -50,7 +55,11 @@
         await loadScript(SCRIPT_CDN + 'auth-compat.js');
 
         if (!firebase.apps.length) {
-          this.app = firebase.initializeApp(firebaseConfig);
+          const config = await fetchFirebaseConfig();
+          if (!config) {
+            throw new Error('Konfigurasi Firebase tidak tersedia dari server');
+          }
+          this.app = firebase.initializeApp(config);
         } else {
           this.app = firebase.app();
         }

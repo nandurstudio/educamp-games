@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Game Master - Doorprize & Grandprize Control - Educamp 2026</title>
+  <link rel="icon" type="image/png" href="/images/Logo%20Educamp%202026.png">
+  <link rel="stylesheet" href="/css/fonts.css">
+  <link rel="stylesheet" href="/css/footer.css">
+  <link rel="stylesheet" href="/css/doorprize.css">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: var(--font-body); }
+    body {
+      background: var(--bg-primary);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .admin-container {
+      max-width: 1300px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 24px 20px 40px 20px;
+      flex: 1;
+    }
+    .nav-tabs {
+      display: flex;
+      gap: 10px;
+      border-bottom: 2px solid var(--border-color);
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 12px 20px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      border-radius: 10px 10px 0 0;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .tab-btn:hover { color: #ffffff; background: rgba(255,255,255,0.05); }
+    .tab-btn.active {
+      color: var(--gold-primary);
+      background: var(--bg-card);
+      border-bottom: 3px solid var(--gold-primary);
+    }
+    .btn {
+      padding: 10px 18px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      border: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s;
+      text-decoration: none;
+    }
+    .btn-primary { background: #2563eb; color: #ffffff; }
+    .btn-primary:hover { background: #1d4ed8; }
+    .btn-success { background: #16a34a; color: #ffffff; }
+    .btn-success:hover { background: #15803d; }
+    .btn-danger { background: #dc2626; color: #ffffff; }
+    .btn-danger:hover { background: #b91c1c; }
+    .btn-warning { background: #d97706; color: #000000; font-weight: 800; }
+    .btn-warning:hover { background: #b45309; color: #ffffff; }
+    .btn-secondary { background: #334155; color: #ffffff; }
+    .btn-secondary:hover { background: #475569; }
+
+    .control-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      color: #cbd5e1;
+      margin-bottom: 6px;
+    }
+    .form-control {
+      width: 100%;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      background: #0b1329;
+      color: #ffffff;
+      font-size: 14px;
+    }
+    .form-control:focus {
+      outline: none;
+      border-color: var(--gold-primary);
+      box-shadow: 0 0 10px rgba(241, 196, 15, 0.3);
+    }
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .data-table th {
+      background: #0f172a;
+      color: #94a3b8;
+      padding: 12px 14px;
+      text-align: left;
+      border-bottom: 2px solid var(--border-color);
+    }
+    .data-table td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .data-table tr:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .badge-gp { background: #ef444422; color: #ef4444; border: 1px solid #ef4444; }
+    .badge-reg { background: #3b82f622; color: #38bdf8; border: 1px solid #38bdf8; }
+    .badge-won { background: #22c55e22; color: #22c55e; border: 1px solid #22c55e; }
+  </style>
+</head>
+<body>
+
+<header class="arena-header">
+  <div style="display: flex; align-items: center; gap: 16px;">
+    <a href="/index.html" style="text-decoration: none;">
+      <img src="/images/Logo%20Educamp%202026_tagline_white.png" alt="Educamp 2026" style="height: 44px; object-fit: contain;">
+    </a>
+    <div>
+      <h2 style="font-family: var(--font-heading); font-size: 18px; font-weight: 800; color: #ffffff;">
+        GAME MASTER PANEL — DOORPRIZE & GRANDPRIZE
+      </h2>
+      <div style="font-size: 12px; color: var(--gold-primary);">
+        Kontrol Undian & Persistensi Cloud Firestore
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; gap: 10px;">
+    <a href="/doorprize-arena.html" target="_blank" class="btn btn-warning">
+      <span>🖥️ Buka Layar Arena Proyektor ↗</span>
+    </a>
+    <a href="/super-admin.html" class="btn btn-secondary">
+      <span>👑 Super Admin</span>
+    </a>
+  </div>
+</header>
+
+<main class="admin-container">
+  
+  <!-- Navigation Tabs -->
+  <div class="nav-tabs">
+    <button class="tab-btn active" onclick="switchTab('draw-stage')">
+      <span>🎯</span> Panggung Pengundian Live
+    </button>
+    <button class="tab-btn" onclick="switchTab('prize-mgmt')">
+      <span>🎁</span> Master Hadiah
+    </button>
+    <button class="tab-btn" onclick="switchTab('participants-mgmt')">
+      <span>👥</span> Master Peserta (<span id="tab-participants-count">0</span>)
+    </button>
+    <button class="tab-btn" onclick="switchTab('winners-mgmt')">
+      <span>🏆</span> Daftar Pemenang & Ekspor (<span id="tab-winners-count">0</span>)
+    </button>
+  </div>
+
+  <!-- TAB 1: Panggung Pengundian Live -->
+  <div id="tab-draw-stage">
+    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px;">
+      
+      <!-- Kolom Kiri: Live Control -->
+      <div>
+        <div class="control-card">
+          <h3 style="font-family: var(--font-heading); font-size: 18px; margin-bottom: 16px; color: var(--gold-primary);">
+            1. Pilih Hadiah yang Akan Diundi
+          </h3>
+          <div class="form-group">
+            <select class="form-control" id="select-active-prize" onchange="changeActivePrize(this.value)">
+              <!-- Diisi dinamis -->
+            </select>
+          </div>
+
+          <div style="background: #0b1329; border: 1px solid var(--border-color); border-radius: 12px; padding: 16px; display: flex; gap: 16px; align-items: center; margin-bottom: 20px;">
+            <img id="ctrl-prize-img" src="/images/doorprize/grandprize/TV.png" style="width: 80px; height: 80px; object-fit: contain; background: #0f172a; border-radius: 10px; border: 1px solid #334155;">
+            <div>
+              <div id="ctrl-prize-category" class="gold-badge" style="display: inline-block; margin-bottom: 4px;">GRAND PRIZE</div>
+              <h4 id="ctrl-prize-name" style="font-size: 18px; font-weight: 800; color: #fff;">Smart TV 55 Inch</h4>
+              <div style="font-size: 13px; color: #94a3b8; margin-top: 2px;">
+                Kuota Hadiah: <strong id="ctrl-prize-quota" style="color: #38bdf8;">1</strong> Pemenang | Sudah Menang: <strong id="ctrl-prize-won" style="color: #f1c40f;">0</strong>
+              </div>
+            </div>
+          </div>
+
+          <h3 style="font-family: var(--font-heading); font-size: 18px; margin-bottom: 14px; color: var(--gold-primary);">
+            2. Eksekusi Undian Real-Time
+          </h3>
+          <div style="display: flex; gap: 16px; align-items: center; margin-bottom: 20px;">
+            <div style="flex: 1;">
+              <label style="font-size: 13px; font-weight: 700; color: #94a3b8;">Jumlah Pemenang Sekali Kocok:</label>
+              <input type="number" class="form-control" id="draw-count-input" value="1" min="1" max="50">
+            </div>
+            <div style="flex: 1;">
+              <label style="font-size: 13px; font-weight: 700; color: #94a3b8;">Status Layar Arena:</label>
+              <div id="arena-live-indicator" style="padding: 10px 14px; background: #0b1329; border-radius: 8px; border: 1px solid #334155; font-weight: 700; font-size: 13px; color: #22c55e;">
+                ● Standby
+              </div>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <button class="btn btn-warning" id="btn-start-roll" onclick="startRolling()" style="padding: 16px; font-size: 16px;">
+              <span>🎰</span> MULAI KOCIKAN (START ROLL)
+            </button>
+            <button class="btn btn-danger" id="btn-stop-roll" onclick="stopRollingAndDraw()" style="padding: 16px; font-size: 16px;">
+              <span>🛑</span> STOP & PILIH PEMENANG
+            </button>
+          </div>
+        </div>
+
+        <!-- Pemenang Hadiah Ini -->
+        <div class="control-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+            <h4 style="font-size: 16px; color: #fff; font-weight: 800;">
+              Daftar Pemenang Hadiah Ini (<span id="current-prize-winners-count">0</span>)
+            </h4>
+            <button class="btn btn-danger" onclick="resetCurrentPrizeWinners()" style="padding: 6px 12px; font-size: 12px;">
+              <span>🔄</span> Reset Pemenang Hadiah Ini
+            </button>
+          </div>
+          <div id="current-prize-winners-list">
+            <!-- Diisi dinamis -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Kolom Kanan: Summary Stats & Global Control -->
+      <div>
+        <div class="control-card">
+          <h4 style="font-size: 16px; color: #fff; font-weight: 800; margin-bottom: 14px;">
+            Statistik Keseluruhan
+          </h4>
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <div style="background: #0b1329; padding: 12px; border-radius: 10px; border: 1px solid #334155;">
+              <div style="font-size: 12px; color: #94a3b8;">Total Peserta Terdaftar</div>
+              <div style="font-size: 24px; font-weight: 900; color: #fff;" id="stat-total-p">0</div>
+            </div>
+            <div style="background: #0b1329; padding: 12px; border-radius: 10px; border: 1px solid #334155;">
+              <div style="font-size: 12px; color: #94a3b8;">Peserta Belum Beruntung (Eligible)</div>
+              <div style="font-size: 24px; font-weight: 900; color: #22c55e;" id="stat-available-p">0</div>
+            </div>
+            <div style="background: #0b1329; padding: 12px; border-radius: 10px; border: 1px solid #334155;">
+              <div style="font-size: 12px; color: #94a3b8;">Partisipan Grand Prize</div>
+              <div style="font-size: 24px; font-weight: 900; color: #38bdf8;" id="stat-gp-p">0</div>
+            </div>
+            <div style="background: #0b1329; padding: 12px; border-radius: 10px; border: 1px solid #334155;">
+              <div style="font-size: 12px; color: #94a3b8;">Total Pemenang Semua Hadiah</div>
+              <div style="font-size: 24px; font-weight: 900; color: #f1c40f;" id="stat-won-p">0</div>
+            </div>
+          </div>
+
+          <div style="margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 16px;">
+            <button class="btn btn-danger" onclick="resetAllWinners()" style="width: 100%; margin-top: 12px;">
+              <span>⚠️</span> RESET SEMUA PEMENANG EVENT
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TAB 2: Master Hadiah -->
+  <div id="tab-prize-mgmt" style="display: none;">
+    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 24px;">
+      <div class="control-card">
+        <h3 style="font-size: 18px; margin-bottom: 16px; color: var(--gold-primary);">
+          Tambah / Simpan Hadiah
+        </h3>
+        <form onsubmit="savePrizeForm(event)">
+          <input type="hidden" id="form-prize-id">
+          <div class="form-group">
+            <label>Nama Hadiah</label>
+            <input type="text" class="form-control" id="form-prize-name" required placeholder="Contoh: Smart TV 55 Inch">
+          </div>
+          <div class="form-group">
+            <label>Kategori</label>
+            <select class="form-control" id="form-prize-category">
+              <option value="DOORPRIZE">DOORPRIZE REGULER</option>
+              <option value="GRAND PRIZE">GRAND PRIZE</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Jumlah Kuota Pemenang</label>
+            <input type="number" class="form-control" id="form-prize-quota" value="1" min="1" required>
+          </div>
+          <div class="form-group">
+            <label>URL Gambar / Foto Hadiah</label>
+            <input type="text" class="form-control" id="form-prize-photo" placeholder="/images/doorprize/grandprize/TV.png">
+          </div>
+          <button type="submit" class="btn btn-primary" style="width: 100%;">
+            <span>💾</span> Simpan Data Hadiah
+          </button>
+        </form>
+      </div>
+
+      <div class="control-card">
+        <h3 style="font-size: 18px; margin-bottom: 16px; color: #fff;">
+          Daftar Hadiah Tersedia
+        </h3>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Foto</th>
+              <th>Nama Hadiah</th>
+              <th>Kategori</th>
+              <th>Kuota</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="prizes-table-body">
+            <!-- Diisi dinamis -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 3: Master Peserta -->
+  <div id="tab-participants-mgmt" style="display: none;">
+    <div class="control-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 20px; flex-wrap: wrap;">
+        <div style="display: flex; gap: 12px; flex: 1;">
+          <input type="text" class="form-control" id="search-participant" placeholder="Cari NIK, Nama, atau Departemen..." oninput="fetchParticipants()" style="max-width: 320px;">
+          <select class="form-control" id="filter-gp" onchange="fetchParticipants()" style="max-width: 220px;">
+            <option value="ALL">Semua Peserta</option>
+            <option value="GP">Khusus Grand Prize</option>
+            <option value="NON_GP">Non Grand Prize</option>
+          </select>
+        </div>
+        <div>
+          <button class="btn btn-success" onclick="toggleImportBox()">
+            <span>📥</span> Import Data Peserta (CSV / Text)
+          </button>
+        </div>
+      </div>
+
+      <!-- Import Box Hidden by default -->
+      <div id="import-box" style="display: none; background: #0b1329; border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+        <h4 style="color: var(--gold-primary); font-size: 15px; margin-bottom: 8px;">Import Peserta (Format Baris: NIK, Nama, Departemen, IsGrandPrize(1/0))</h4>
+        <textarea class="form-control" id="import-textarea" rows="6" placeholder="K123456, Nandang Duryat, PLANT DIGITALIZATION, 1&#10;K123457, John Doe, Production, 0"></textarea>
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+          <button class="btn btn-primary" onclick="processImport()">Proses Import</button>
+          <button class="btn btn-secondary" onclick="toggleImportBox()">Batal</button>
+        </div>
+      </div>
+
+      <div style="overflow-x: auto;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>NIK</th>
+              <th>Nama Lengkap</th>
+              <th>Departemen</th>
+              <th>Grand Prize?</th>
+              <th>Status Undian</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="participants-table-body">
+            <!-- Diisi dinamis -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 4: Daftar Pemenang & Ekspor -->
+  <div id="tab-winners-mgmt" style="display: none;">
+    <div class="control-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <div>
+          <h3 style="font-size: 18px; color: #fff; font-weight: 800;">
+            Rekapitulasi Seluruh Pemenang Undian
+          </h3>
+          <p style="font-size: 13px; color: #94a3b8;">Tersimpan aman di Cloud Firestore & Disk Server</p>
+        </div>
+        <div>
+          <a href="/api/doorprize/export-csv" class="btn btn-success">
+            <span>📥</span> Unduh File CSV / Excel
+          </a>
+        </div>
+      </div>
+
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>NIK</th>
+            <th>Nama Pemenang</th>
+            <th>Departemen</th>
+            <th>Hadiah yang Didapat</th>
+            <th>Kategori</th>
+            <th>Waktu Menang</th>
+          </tr>
+        </thead>
+        <tbody id="all-winners-table-body">
+          <!-- Diisi dinamis -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<footer class="app-sticky-footer" id="app-sticky-footer">
+  <div class="footer-left">
+    <img src="/images/Logo%20Educamp%202026.png" alt="Nandur Studio" class="footer-logo">
+    <span class="footer-copyright">&copy; 2026 Nandur Studio. All rights reserved.</span>
+  </div>
+  <div class="footer-right">
+    <div class="footer-semver" title="Semantic Versioning">
+      <span class="semver-dot"></span>
+      <span class="semver-label">SemVer</span>
+      <span>v1.2.0</span>
+    </div>
+  </div>
+</footer>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/js/auth-guard.js"></script>
+<script>
+  // Aktifkan proteksi Game Master / Super Admin Auth Guard
+  if (window.EducampAuthGuard) {
+    new window.EducampAuthGuard({ requiredRole: 'GAME_MASTER' });
+  }
+
+  const socket = io();
+  let state = null;
+
+  socket.on('connect', () => {
+    socket.emit('DOORPRIZE_JOIN');
+  });
+
+  socket.on('DOORPRIZE_STATE_UPDATE', (newState) => {
+    state = newState;
+    renderAll();
+  });
+
+  socket.on('DOORPRIZE_ROLL_STARTED', () => {
+    document.getElementById('arena-live-indicator').innerHTML = '🎰 Layar Sedang Rolling...';
+    document.getElementById('arena-live-indicator').style.color = '#f1c40f';
+  });
+
+  socket.on('DOORPRIZE_WINNERS_DRAWN', (data) => {
+    document.getElementById('arena-live-indicator').innerHTML = '✅ Pemenang Diumumkan!';
+    document.getElementById('arena-live-indicator').style.color = '#22c55e';
+    fetchState();
+  });
+
+  async function fetchState() {
+    try {
+      const res = await fetch('/api/doorprize/state');
+      state = await res.json();
+      renderAll();
+    } catch(e) {
+      console.error('Error fetching doorprize state:', e);
+    }
+  }
+
+  function switchTab(tabId) {
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('[id^="tab-"]').forEach(panel => panel.style.display = 'none');
+
+    event.currentTarget.classList.add('active');
+    document.getElementById(tabId).style.display = 'block';
+
+    if (tabId === 'participants-mgmt') {
+      fetchParticipants();
+    }
+  }
+
+  function renderAll() {
+    if (!state) return;
+
+    document.getElementById('stat-total-p').textContent = state.totalParticipants || 0;
+    document.getElementById('stat-available-p').textContent = state.availableParticipantsCount || 0;
+    document.getElementById('stat-gp-p').textContent = state.grandPrizeParticipantsCount || 0;
+    document.getElementById('stat-won-p').textContent = state.totalWinnersCount || 0;
+
+    document.getElementById('tab-participants-count').textContent = state.totalParticipants || 0;
+    document.getElementById('tab-winners-count').textContent = state.totalWinnersCount || 0;
+
+    // Render dropdown hadiah
+    const prizeSelect = document.getElementById('select-active-prize');
+    prizeSelect.innerHTML = '';
+    (state.prizes || []).forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = `[${p.category}] ${p.name} (Kuota: ${p.totalWinners})`;
+      if (state.activePrize && state.activePrize.id === p.id) {
+        opt.selected = true;
+      }
+      prizeSelect.appendChild(opt);
+    });
+
+    // Render active prize showcase
+    if (state.activePrize) {
+      const p = state.activePrize;
+      document.getElementById('ctrl-prize-name').textContent = p.name;
+      document.getElementById('ctrl-prize-category').textContent = p.category;
+      document.getElementById('ctrl-prize-quota').textContent = p.totalWinners;
+      if (p.photo) document.getElementById('ctrl-prize-img').src = p.photo;
+
+      const wonThisPrize = (state.winners || []).filter(w => w.prizeId === p.id).length;
+      document.getElementById('ctrl-prize-won').textContent = wonThisPrize;
+      document.getElementById('current-prize-winners-count').textContent = wonThisPrize;
+
+      // Render winners list for this prize
+      const curList = document.getElementById('current-prize-winners-list');
+      curList.innerHTML = '';
+      const thisWinners = (state.winners || []).filter(w => w.prizeId === p.id);
+      if (thisWinners.length === 0) {
+        curList.innerHTML = '<div style="color: #64748b; font-size: 13px;">Belum ada pemenang untuk hadiah ini.</div>';
+      } else {
+        thisWinners.forEach((w, i) => {
+          const div = document.createElement('div');
+          div.style = 'background: #0b1329; border: 1px solid #334155; padding: 10px 14px; border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;';
+          div.innerHTML = `
+            <div>
+              <span style="color: #38bdf8; font-weight: 800;">#${i+1} [${w.nik}]</span>
+              <strong style="color: #fff; margin-left: 8px;">${w.name}</strong>
+              <span style="color: #94a3b8; font-size: 12px; margin-left: 8px;">(${w.department})</span>
+            </div>
+            <span style="font-size: 11px; color: #22c55e;">Terpilih</span>
+          `;
+          curList.appendChild(div);
+        });
+      }
+    }
+
+    // Render prizes table
+    const prizeTable = document.getElementById('prizes-table-body');
+    prizeTable.innerHTML = '';
+    (state.prizes || []).forEach(p => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><img src="${p.photo || '/images/doorprize/grandprize/TV.png'}" style="width: 40px; height: 40px; object-fit: contain; background: #000; border-radius: 6px;"></td>
+        <td><strong>${p.name}</strong></td>
+        <td><span class="badge ${p.category === 'GRAND PRIZE' ? 'badge-gp' : 'badge-reg'}">${p.category}</span></td>
+        <td>${p.totalWinners} orang</td>
+        <td>
+          <button class="btn btn-danger" style="padding: 4px 8px; font-size: 11px;" onclick="deletePrize('${p.id}')">Hapus</button>
+        </td>
+      `;
+      prizeTable.appendChild(tr);
+    });
+
+    // Render all winners table
+    const winTable = document.getElementById('all-winners-table-body');
+    winTable.innerHTML = '';
+    (state.winners || []).forEach((w, i) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${i + 1}</td>
+        <td><strong>${w.nik}</strong></td>
+        <td>${w.name}</td>
+        <td>${w.department}</td>
+        <td><span style="color: #f1c40f; font-weight: 700;">${w.prizeName}</span></td>
+        <td><span class="badge ${w.prizeCategory === 'GRAND PRIZE' ? 'badge-gp' : 'badge-reg'}">${w.prizeCategory}</span></td>
+        <td style="font-size: 12px; color: #94a3b8;">${new Date(w.timestamp).toLocaleTimeString('id-ID')}</td>
+      `;
+      winTable.appendChild(tr);
+    });
+  }
+
+  // --- ACTIONS ---
+
+  function changeActivePrize(prizeId) {
+    fetch('/api/doorprize/prize/select', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prizeId })
+    });
+  }
+
+  function startRolling() {
+    const prizeId = document.getElementById('select-active-prize').value;
+    socket.emit('DOORPRIZE_START_ROLL', { prizeId });
+  }
+
+  function stopRollingAndDraw() {
+    const prizeId = document.getElementById('select-active-prize').value;
+    const count = parseInt(document.getElementById('draw-count-input').value) || 1;
+    socket.emit('DOORPRIZE_STOP_ROLL', { prizeId, count });
+  }
+
+  async function resetCurrentPrizeWinners() {
+    if (!confirm('Apakah Anda yakin ingin mereset pemenang hadiah ini? Peserta akan diaktifkan kembali.')) return;
+    const prizeId = document.getElementById('select-active-prize').value;
+    await fetch('/api/doorprize/reset/prize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prizeId })
+    });
+  }
+
+  async function resetAllWinners() {
+    if (!confirm('PERINGATAN: Apakah Anda yakin ingin mereset SEMUA pemenang event ini? Seluruh peserta akan kembali diundi.')) return;
+    await fetch('/api/doorprize/reset/all', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+  }
+
+  async function savePrizeForm(e) {
+    e.preventDefault();
+    const payload = {
+      name: document.getElementById('form-prize-name').value,
+      category: document.getElementById('form-prize-category').value,
+      totalWinners: parseInt(document.getElementById('form-prize-quota').value) || 1,
+      photo: document.getElementById('form-prize-photo').value || '/images/doorprize/grandprize/TV.png'
+    };
+    await fetch('/api/doorprize/prize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    alert('Hadiah berhasil disimpan!');
+    document.getElementById('form-prize-name').value = '';
+    fetchState();
+  }
+
+  async function deletePrize(id) {
+    if (!confirm('Hapus hadiah ini?')) return;
+    await fetch(`/api/doorprize/prize/${id}`, { method: 'DELETE' });
+    fetchState();
+  }
+
+  // --- PARTICIPANTS MANAGEMENT ---
+
+  async function fetchParticipants() {
+    const filter = document.getElementById('filter-gp').value;
+    const search = document.getElementById('search-participant').value;
+    const res = await fetch(`/api/doorprize/participants?filter=${encodeURIComponent(filter)}&search=${encodeURIComponent(search)}`);
+    const data = await res.json();
+    renderParticipantsTable(data.participants || []);
+  }
+
+  function renderParticipantsTable(list) {
+    const tbody = document.getElementById('participants-table-body');
+    tbody.innerHTML = '';
+    if (list.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #64748b;">Tidak ada data peserta</td></tr>';
+      return;
+    }
+
+    list.forEach(p => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><strong>${p.nik}</strong></td>
+        <td>${p.name}</td>
+        <td>${p.department}</td>
+        <td>
+          <button class="btn ${p.isGrandPrize ? 'btn-danger' : 'btn-secondary'}" style="padding: 3px 8px; font-size: 11px;" onclick="toggleGP('${p.id}')">
+            ${p.isGrandPrize ? '★ GRAND PRIZE' : 'Bukan GP'}
+          </button>
+        </td>
+        <td>
+          ${p.wonPrize ? `<span class="badge badge-won">Menang: ${p.wonPrize}</span>` : '<span style="color: #64748b;">Belum Menang</span>'}
+        </td>
+        <td>
+          <span style="font-size: 12px; color: ${p.active ? '#22c55e' : '#ef4444'};">
+            ${p.active ? 'Aktif' : 'Non-Aktif'}
+          </span>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function toggleGP(participantId) {
+    await fetch('/api/doorprize/participants/toggle-gp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ participantId })
+    });
+    fetchParticipants();
+  }
+
+  function toggleImportBox() {
+    const box = document.getElementById('import-box');
+    box.style.display = box.style.display === 'none' ? 'block' : 'none';
+  }
+
+  async function processImport() {
+    const text = document.getElementById('import-textarea').value.trim();
+    if (!text) return alert('Masukkan teks data peserta');
+
+    const lines = text.split('\n');
+    const items = [];
+    lines.forEach(line => {
+      const parts = line.split(',').map(s => s.trim());
+      if (parts.length >= 2) {
+        items.push({
+          nik: parts[0],
+          name: parts[1],
+          department: parts[2] || 'Umum',
+          isGrandPrize: parts[3] === '1' || parts[3] === 'true'
+        });
+      }
+    });
+
+    if (items.length === 0) return alert('Tidak ada baris valid ditemukan');
+
+    const res = await fetch('/api/doorprize/participants/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items })
+    });
+    const result = await res.json();
+    alert(`Berhasil mengimpor! Ditambahkan: ${result.added}, Diperbarui: ${result.updated}`);
+    document.getElementById('import-textarea').value = '';
+    toggleImportBox();
+    fetchParticipants();
+    fetchState();
+  }
+
+  // Initial load
+  fetchState();
+</script>
+
+</body>
+</html>
