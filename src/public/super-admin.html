@@ -890,7 +890,7 @@
           </div>
 
           <div style="background: #09111e; border-left: 3px solid #38bdf8; padding: 10px 12px; border-radius: 0 6px 6px 0; margin-top: 14px; font-size: 11px; color: #94a3b8; line-height: 1.5;">
-            🔒 <strong>Keamanan:</strong> Hanya email yang tertera di tabel ini yang dapat membuka panel Game Master & Super Admin. Email <code>nandang.dhe@gmail.com</code> secara permanen memiliki peran Super Admin tertinggi.
+            🔒 <strong>Keamanan:</strong> Hanya email yang tertera di tabel ini yang dapat membuka panel Game Master & Super Admin. Email <code>nandang.dhe@gmail.com</code> dan <code>maulidreki@gmail.com</code> secara permanen memiliki peran Super Admin tertinggi.
           </div>
         </div>
 
@@ -2050,12 +2050,12 @@
             return;
           }
           tbody.innerHTML = data.users.map(u => {
-            const isOwner = u.email.toLowerCase() === 'nandang.dhe@gmail.com';
+            const isOwner = u.email.toLowerCase() === 'nandang.dhe@gmail.com' || u.email.toLowerCase() === 'maulidreki@gmail.com';
             const roleBadge = u.role === 'SUPER_ADMIN' 
               ? '<span style="background: #4338ca; color: #e0e7ff; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px;">👑 SUPER ADMIN</span>'
               : '<span style="background: #0369a1; color: #e0f2fe; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px;">🎮 GAME MASTER</span>';
             const deleteBtn = isOwner 
-              ? '<span style="color: #64748b; font-size: 11px;">(Owner Utama)</span>'
+              ? '<span style="color: #64748b; font-size: 11px;">(Admin Utama)</span>'
               : `<button class="btn-xs btn-red" onclick="deleteAuthorizedAdmin('${u.email}')">Hapus</button>`;
             return `
               <tr style="border-bottom: 1px solid #1e293b;">

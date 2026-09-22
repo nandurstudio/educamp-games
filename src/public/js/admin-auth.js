@@ -50,6 +50,17 @@
       this.injectStyles();
       this.createAuthOverlay();
 
+      const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      if (isLocalhost) {
+        try {
+          const savedLocal = JSON.parse(localStorage.getItem('educamp_local_admin_session') || '{}');
+          if (savedLocal && savedLocal.email) {
+            await this.handleUserSignedIn(savedLocal);
+            return;
+          }
+        } catch (e) {}
+      }
+
       try {
         await loadScript(SCRIPT_CDN + 'app-compat.js');
         await loadScript(SCRIPT_CDN + 'auth-compat.js');
@@ -75,7 +86,11 @@
         });
       } catch (err) {
         console.error('[AdminAuthGuard] Inisialisasi Firebase Auth gagal:', err);
-        this.showLoginCard({ error: 'Gagal memuat Firebase Authentication SDK. Periksa koneksi internet.' });
+        if (isLocalhost) {
+          this.handleUserSignedOut();
+        } else {
+          this.showLoginCard({ error: 'Gagal memuat Firebase Authentication SDK. Periksa koneksi internet.' });
+        }
       }
     }
 
@@ -231,6 +246,21 @@
         </div>
       ` : '';
 
+      const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      const localhostQuickHtml = isLocalhost ? `
+        <div style="margin-top: 18px; padding-top: 14px; border-top: 1px dashed rgba(56, 189, 248, 0.3);">
+          <div style="font-size: 11px; color: #38bdf8; font-weight: 700; margin-bottom: 8px;">💻 AKSES CEPAT LOCALHOST / DEV</div>
+          <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+            <button id="adminauth-quick-reki" type="button" style="background: #0284c7; color: #ffffff; border: none; padding: 8px 12px; font-size: 12px; font-weight: 700; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.3);">
+              👑 Maulid Reki (Super Admin)
+            </button>
+            <button id="adminauth-quick-nandang" type="button" style="background: #334155; color: #cbd5e1; border: none; padding: 8px 12px; font-size: 12px; font-weight: 700; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+              👑 Nandang D.
+            </button>
+          </div>
+        </div>
+      ` : '';
+
       overlay.innerHTML = `
         <div class="auth-card">
           <img class="auth-logo" src="/images/Logo%20Educamp%202026.png" alt="Educamp 2026">
@@ -248,6 +278,7 @@
             </svg>
             Masuk dengan Akun Google
           </button>
+          ${localhostQuickHtml}
           <div style="margin-top: 20px;">
             <a href="/index.html" style="color: #64748b; font-size: 12px; text-decoration: none;">← Kembali ke Beranda Hub</a>
           </div>
@@ -257,6 +288,32 @@
       const btn = document.getElementById('btn-firebase-google-login');
       if (btn) {
         btn.addEventListener('click', () => this.signInGoogle());
+      }
+
+      const quickReki = document.getElementById('adminauth-quick-reki');
+      if (quickReki) {
+        quickReki.addEventListener('click', async () => {
+          const localUser = {
+            email: 'maulidreki@gmail.com',
+            displayName: 'Maulid Reki (Super Admin)',
+            uid: 'local-reki'
+          };
+          localStorage.setItem('educamp_local_admin_session', JSON.stringify(localUser));
+          await this.handleUserSignedIn(localUser);
+        });
+      }
+
+      const quickNandang = document.getElementById('adminauth-quick-nandang');
+      if (quickNandang) {
+        quickNandang.addEventListener('click', async () => {
+          const localUser = {
+            email: 'nandang.dhe@gmail.com',
+            displayName: 'Nandang Duryat (Owner)',
+            uid: 'local-nandang'
+          };
+          localStorage.setItem('educamp_local_admin_session', JSON.stringify(localUser));
+          await this.handleUserSignedIn(localUser);
+        });
       }
     }
 
@@ -329,8 +386,13 @@
     }
 
     async logout() {
+      try {
+        localStorage.removeItem('educamp_local_admin_session');
+      } catch (e) {}
       if (this.auth) {
-        await this.auth.signOut();
+        try {
+          await this.auth.signOut();
+        } catch (e) {}
       }
     }
 

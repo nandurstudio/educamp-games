@@ -2,12 +2,14 @@ const superAdminEngine = require('./super-admin-engine');
 const firebaseService = require('./firebase-service');
 
 const OWNER_EMAIL = 'nandang.dhe@gmail.com';
+const PERMANENT_SUPER_ADMINS = [
+  { email: 'nandang.dhe@gmail.com', role: 'SUPER_ADMIN', name: 'Nandang Duryat (Owner)', isOwner: true },
+  { email: 'maulidreki@gmail.com', role: 'SUPER_ADMIN', name: 'Maulid Reki (Super Admin)', isOwner: true }
+];
 
 class AuthManager {
   constructor() {
-    this.adminUsers = [
-      { email: OWNER_EMAIL, role: 'SUPER_ADMIN', name: 'Nandang Duryat (Owner)' }
-    ];
+    this.adminUsers = PERMANENT_SUPER_ADMINS.map(u => ({ ...u }));
     this.loadAdminUsers();
   }
 
@@ -16,10 +18,16 @@ class AuthManager {
       firebaseService.loadDoc('authorized_admins').then(data => {
         if (data && Array.isArray(data.users)) {
           this.adminUsers = data.users;
-          // Pastikan owner selalu ada
-          if (!this.adminUsers.some(u => u.email.toLowerCase() === OWNER_EMAIL.toLowerCase())) {
-            this.adminUsers.unshift({ email: OWNER_EMAIL, role: 'SUPER_ADMIN', name: 'Nandang Duryat (Owner)' });
+          // Pastikan admin utama selalu ada
+          for (const perm of PERMANENT_SUPER_ADMINS) {
+            const foundIdx = this.adminUsers.findIndex(u => u.email.toLowerCase() === perm.email.toLowerCase());
+            if (foundIdx === -1) {
+              this.adminUsers.push({ email: perm.email, role: 'SUPER_ADMIN', name: perm.name });
+            } else {
+              this.adminUsers[foundIdx].role = 'SUPER_ADMIN'; // Pastikan role selalu SUPER_ADMIN
+            }
           }
+          this.saveAdminUsers();
         }
       }).catch(err => {
         console.error('[AuthManager] Gagal load admins dari Firestore:', err.message);
@@ -61,8 +69,8 @@ class AuthManager {
 
   removeAdminUser(email) {
     const cleanEmail = email.trim().toLowerCase();
-    if (cleanEmail === OWNER_EMAIL.toLowerCase()) {
-      throw new Error('Owner utama tidak dapat dihapus');
+    if (PERMANENT_SUPER_ADMINS.some(p => p.email.toLowerCase() === cleanEmail)) {
+      throw new Error('Admin utama tidak dapat dihapus');
     }
     const idx = this.adminUsers.findIndex(u => u.email.toLowerCase() === cleanEmail);
     if (idx === -1) {
@@ -79,9 +87,13 @@ class AuthManager {
   resolveRole(email) {
     if (!email) return null;
     const cleanEmail = email.trim().toLowerCase();
-    if (cleanEmail === OWNER_EMAIL.toLowerCase()) {
-      return { email: cleanEmail, role: 'SUPER_ADMIN', name: 'Nandang Duryat (Owner)', isOwner: true };
+    
+    // Cek permanent super admins
+    const perm = PERMANENT_SUPER_ADMINS.find(p => p.email.toLowerCase() === cleanEmail);
+    if (perm) {
+      return { email: cleanEmail, role: 'SUPER_ADMIN', name: perm.name, isOwner: true };
     }
+
     const found = this.adminUsers.find(u => u.email.toLowerCase() === cleanEmail);
     if (found) {
       return { email: found.email, role: found.role, name: found.name, isOwner: false };

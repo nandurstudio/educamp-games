@@ -195,6 +195,17 @@
       this.injectStyles();
       this.createBlockingCurtain();
 
+      const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      if (isLocalhost) {
+        try {
+          const savedLocal = JSON.parse(localStorage.getItem('educamp_local_admin_session') || '{}');
+          if (savedLocal && savedLocal.email) {
+            await this.validateSession(savedLocal);
+            return;
+          }
+        } catch (e) {}
+      }
+
       try {
         await loadScript(SCRIPT_CDN + 'app-compat.js');
         await loadScript(SCRIPT_CDN + 'auth-compat.js');
@@ -220,7 +231,11 @@
         });
       } catch (err) {
         console.error('[AuthGuard] Gagal inisialisasi Firebase SDK:', err);
-        this.showUnauthorizedAndRedirect('Gagal memuat Firebase Authentication SDK. Mengalihkan ke Beranda...');
+        if (isLocalhost) {
+          this.handleNoSession();
+        } else {
+          this.showUnauthorizedAndRedirect('Gagal memuat Firebase Authentication SDK. Mengalihkan ke Beranda...');
+        }
       }
     }
 
@@ -265,12 +280,27 @@
       const curtain = document.getElementById('educamp-auth-blocking-curtain');
       if (!curtain) return;
 
+      const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      const localhostQuickHtml = isLocalhost ? `
+        <div style="margin-top: 18px; padding-top: 14px; border-top: 1px dashed rgba(56, 189, 248, 0.3);">
+          <div style="font-size: 11px; color: #38bdf8; font-weight: 700; margin-bottom: 8px;">💻 AKSES CEPAT LOCALHOST / DEV</div>
+          <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+            <button id="authguard-quick-reki" type="button" style="background: #0284c7; color: #ffffff; border: none; padding: 8px 12px; font-size: 12px; font-weight: 700; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.3);">
+              👑 Maulid Reki (Super Admin)
+            </button>
+            <button id="authguard-quick-nandang" type="button" style="background: #334155; color: #cbd5e1; border: none; padding: 8px 12px; font-size: 12px; font-weight: 700; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+              👑 Nandang D.
+            </button>
+          </div>
+        </div>
+      ` : '';
+
       curtain.innerHTML = `
-        <div style="background: #131d33; border: 1px solid #1e293b; border-radius: 14px; padding: 32px; max-width: 440px; width: 100%; box-shadow: 0 20px 40px rgba(0,0,0,0.6);">
+        <div style="background: #131d33; border: 1px solid #1e293b; border-radius: 14px; padding: 32px; max-width: 460px; width: 100%; box-shadow: 0 20px 40px rgba(0,0,0,0.6);">
           <img src="/images/Logo%20Educamp%202026.png" alt="Educamp 2026" style="height: 48px; object-fit: contain; margin-bottom: 14px;">
           <h2 class="authguard-title">${this.requiredRole === 'SUPER_ADMIN' ? '👑 Super Admin Access' : '🎮 Game Master Access'}</h2>
           <p class="authguard-desc">
-            Sesi Firebase aktif tidak terdeteksi. Silakan masuk menggunakan akun Google panitia resmi atau kembali ke beranda utama.
+            Sesi Firebase aktif tidak terdeteksi. Silakan masuk menggunakan akun Google panitia resmi atau gunakan akses langsung di lingkungan lokal.
           </p>
           <button id="authguard-btn-login" class="authguard-btn-google">
             <svg width="18" height="18" viewBox="0 0 18 18">
@@ -281,6 +311,7 @@
             </svg>
             Masuk dengan Google
           </button>
+          ${localhostQuickHtml}
           <div style="margin-top: 18px;">
             <a href="${this.redirectUrl}" class="authguard-btn-redirect">← Kembali ke Halaman Utama</a>
           </div>
@@ -295,8 +326,39 @@
             provider.setCustomParameters({ prompt: 'select_account' });
             await this.auth.signInWithPopup(provider);
           } catch (e) {
-            alert('Gagal login: ' + e.message);
+            console.warn('[AuthGuard] Login error:', e);
+            if (isLocalhost) {
+              alert('Google Sign-In (' + e.message + '). Silakan gunakan tombol [👑 Maulid Reki] di bawah untuk akses langsung di localhost!');
+            } else {
+              alert('Gagal login: ' + e.message);
+            }
           }
+        });
+      }
+
+      const quickReki = document.getElementById('authguard-quick-reki');
+      if (quickReki) {
+        quickReki.addEventListener('click', async () => {
+          const localUser = {
+            email: 'maulidreki@gmail.com',
+            displayName: 'Maulid Reki (Super Admin)',
+            uid: 'local-reki'
+          };
+          localStorage.setItem('educamp_local_admin_session', JSON.stringify(localUser));
+          await this.validateSession(localUser);
+        });
+      }
+
+      const quickNandang = document.getElementById('authguard-quick-nandang');
+      if (quickNandang) {
+        quickNandang.addEventListener('click', async () => {
+          const localUser = {
+            email: 'nandang.dhe@gmail.com',
+            displayName: 'Nandang Duryat (Owner)',
+            uid: 'local-nandang'
+          };
+          localStorage.setItem('educamp_local_admin_session', JSON.stringify(localUser));
+          await this.validateSession(localUser);
         });
       }
     }
@@ -363,10 +425,15 @@
     }
 
     async logout() {
+      try {
+        localStorage.removeItem('educamp_local_admin_session');
+      } catch (e) {}
       if (this.auth) {
-        await this.auth.signOut();
-        window.location.href = this.redirectUrl;
+        try {
+          await this.auth.signOut();
+        } catch (e) {}
       }
+      window.location.href = this.redirectUrl;
     }
 
     renderUserBadge(user, roleInfo) {

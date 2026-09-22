@@ -341,7 +341,7 @@ class DoorprizeEngine {
         id: 'pz-' + Date.now(),
         eventId: prizeData.eventId || this.activeEventId,
         name: prizeData.name,
-        photo: prizeData.photo || '/images/doorprize/tv.png',
+        photo: prizeData.photo || '/images/doorprize/grandprize/TV.png',
         category: prizeData.category || 'DOORPRIZE',
         totalWinners: parseInt(prizeData.totalWinners) || 1,
         orderIndex: this.prizes.length + 1,
