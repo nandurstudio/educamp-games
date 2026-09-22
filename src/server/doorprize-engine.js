@@ -334,7 +334,25 @@ class DoorprizeEngine {
     if (prizeData.id) {
       const idx = this.prizes.findIndex(p => p.id === prizeData.id);
       if (idx !== -1) {
-        this.prizes[idx] = { ...this.prizes[idx], ...prizeData };
+        this.prizes[idx] = { 
+          ...this.prizes[idx],
+          name: prizeData.name || this.prizes[idx].name,
+          category: prizeData.category || this.prizes[idx].category,
+          totalWinners: parseInt(prizeData.totalWinners) || this.prizes[idx].totalWinners || 1,
+          photo: prizeData.photo !== undefined && prizeData.photo !== null && prizeData.photo !== '' 
+            ? prizeData.photo 
+            : this.prizes[idx].photo
+        };
+
+        // Sinkronkan nama dan kategori hadiah di data pemenang jika sudah ada yang menang
+        if (Array.isArray(this.winners)) {
+          this.winners.forEach(w => {
+            if (w.prizeId === prizeData.id) {
+              w.prizeName = this.prizes[idx].name;
+              w.prizeCategory = this.prizes[idx].category;
+            }
+          });
+        }
       }
     } else {
       const newPrize = {

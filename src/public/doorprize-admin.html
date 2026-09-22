@@ -137,6 +137,47 @@
     .badge-gp { background: #ef444422; color: #ef4444; border: 1px solid #ef4444; }
     .badge-reg { background: #3b82f622; color: #38bdf8; border: 1px solid #38bdf8; }
     .badge-won { background: #22c55e22; color: #22c55e; border: 1px solid #22c55e; }
+
+    .upload-dropzone {
+      border: 2px dashed rgba(56, 189, 248, 0.4);
+      background: rgba(15, 23, 42, 0.6);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+    .upload-dropzone:hover, .upload-dropzone.dragover {
+      border-color: var(--gold-primary);
+      background: rgba(241, 196, 15, 0.08);
+    }
+    .prize-preview-container {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: #09111e;
+      border: 1px solid #1e293b;
+      padding: 12px;
+      border-radius: 10px;
+      margin-top: 10px;
+    }
+    .preset-pill {
+      background: #1e293b;
+      color: #94a3b8;
+      border: 1px solid #334155;
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .preset-pill:hover {
+      background: #38bdf822;
+      color: #38bdf8;
+      border-color: #38bdf8;
+    }
   </style>
 </head>
 <body>
@@ -170,22 +211,22 @@
   
   <!-- Navigation Tabs -->
   <div class="nav-tabs">
-    <button class="tab-btn active" onclick="switchTab('draw-stage')">
+    <button class="tab-btn active" onclick="switchTab('draw-stage', this)">
       <span>🎯</span> Panggung Pengundian Live
     </button>
-    <button class="tab-btn" onclick="switchTab('prize-mgmt')">
+    <button class="tab-btn" onclick="switchTab('prize-mgmt', this)">
       <span>🎁</span> Master Hadiah
     </button>
-    <button class="tab-btn" onclick="switchTab('participants-mgmt')">
+    <button class="tab-btn" onclick="switchTab('participants-mgmt', this)">
       <span>👥</span> Master Peserta (<span id="tab-participants-count">0</span>)
     </button>
-    <button class="tab-btn" onclick="switchTab('winners-mgmt')">
+    <button class="tab-btn" onclick="switchTab('winners-mgmt', this)">
       <span>🏆</span> Daftar Pemenang & Ekspor (<span id="tab-winners-count">0</span>)
     </button>
   </div>
 
   <!-- TAB 1: Panggung Pengundian Live -->
-  <div id="tab-draw-stage">
+  <div id="tab-draw-stage" class="tab-panel">
     <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px;">
       
       <!-- Kolom Kiri: Live Control -->
@@ -290,63 +331,127 @@
   </div>
 
   <!-- TAB 2: Master Hadiah -->
-  <div id="tab-prize-mgmt" style="display: none;">
-    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 24px;">
+  <div id="tab-prize-mgmt" class="tab-panel" style="display: none;">
+    <div style="display: grid; grid-template-columns: 1.15fr 1.85fr; gap: 24px;">
       <div class="control-card">
-        <h3 style="font-size: 18px; margin-bottom: 16px; color: var(--gold-primary);">
-          Tambah / Simpan Hadiah
-        </h3>
-        <form onsubmit="savePrizeForm(event)">
-          <input type="hidden" id="form-prize-id">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <h3 id="form-prize-title" style="font-size: 18px; color: var(--gold-primary); margin: 0;">
+            Tambah Hadiah Baru
+          </h3>
+          <span id="form-prize-badge" class="badge badge-reg">Baru</span>
+        </div>
+        
+        <form id="form-prize-element" onsubmit="savePrizeForm(event)">
+          <input type="hidden" id="form-prize-id" value="">
+          
           <div class="form-group">
-            <label>Nama Hadiah</label>
-            <input type="text" class="form-control" id="form-prize-name" required placeholder="Contoh: Smart TV 55 Inch">
+            <label>Nama Hadiah *</label>
+            <input type="text" class="form-control" id="form-prize-name" required placeholder="Contoh: Smart TV 55 Inch 4K UHD">
           </div>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label>Kategori Hadiah *</label>
+              <select class="form-control" id="form-prize-category" onchange="onCategorySelectChange(this.value)">
+                <option value="DOORPRIZE">DOORPRIZE REGULER</option>
+                <option value="GRAND PRIZE">GRAND PRIZE</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Kuota Pemenang *</label>
+              <input type="number" class="form-control" id="form-prize-quota" value="1" min="1" required>
+            </div>
+          </div>
+
+          <!-- Custom Image Upload & Drag-and-Drop -->
           <div class="form-group">
-            <label>Kategori</label>
-            <select class="form-control" id="form-prize-category">
-              <option value="DOORPRIZE">DOORPRIZE REGULER</option>
-              <option value="GRAND PRIZE">GRAND PRIZE</option>
-            </select>
+            <label style="display: flex; justify-content: space-between; align-items: center;">
+              <span>Foto / Gambar Hadiah</span>
+              <span style="font-size: 11px; color: #38bdf8;">Upload file atau pilih preset</span>
+            </label>
+            
+            <div id="prize-dropzone" class="upload-dropzone" onclick="triggerPrizeFileInput()">
+              <input type="file" id="form-prize-file-input" accept="image/*" style="display: none;" onchange="handlePrizeFileSelect(event)">
+              <div style="font-size: 24px; margin-bottom: 4px;">📸</div>
+              <div style="font-size: 13px; font-weight: 700; color: #f8fafc;">
+                Pilih Berkas atau Tarik Foto (Drag & Drop) ke sini
+              </div>
+              <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">
+                Format JPG, PNG, WebP (otomatis dioptimalkan untuk cloud)
+              </div>
+            </div>
+
+            <!-- Preview Card -->
+            <div id="prize-preview-wrapper" class="prize-preview-container">
+              <img id="form-prize-img-preview" src="/images/doorprize/batch2/Blender.png" style="width: 56px; height: 56px; object-fit: contain; background: #000; border-radius: 8px; border: 1px solid #334155;">
+              <div style="flex: 1; min-width: 0;">
+                <div id="preview-image-title" style="font-size: 12px; font-weight: 700; color: #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Blender (Default)</div>
+                <div id="preview-image-type" style="font-size: 11px; color: #94a3b8;">Asset default sistem</div>
+              </div>
+              <button type="button" class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="resetPrizeImage()">Reset</button>
+            </div>
+
+            <!-- Path/URL manual field (opsional) -->
+            <div style="margin-top: 8px;">
+              <input type="text" class="form-control" id="form-prize-photo" value="/images/doorprize/batch2/Blender.png" placeholder="Atau ketik URL / path gambar..." style="font-size: 11px; color: #94a3b8;" oninput="onManualPhotoInput(this.value)">
+            </div>
+
+            <!-- Preset Hadiah Cepat Educamp -->
+            <div style="margin-top: 12px;">
+              <div style="font-size: 11px; color: #64748b; margin-bottom: 6px; font-weight: 600;">PILIHAN PRESET CEPAT:</div>
+              <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                <button type="button" class="preset-pill" onclick="applyPrizePreset('Smart TV 55 Inch 4K UHD', 'GRAND PRIZE', '/images/doorprize/grandprize/TV.png')">📺 Smart TV 55"</button>
+                <button type="button" class="preset-pill" onclick="applyPrizePreset('Sepeda Lipat Premium', 'GRAND PRIZE', '/images/doorprize/grandprize/Sepeda Lipat.webp')">🚲 Sepeda Lipat</button>
+                <button type="button" class="preset-pill" onclick="applyPrizePreset('Blender Multifungsi', 'DOORPRIZE', '/images/doorprize/batch2/Blender.png')">🍹 Blender</button>
+                <button type="button" class="preset-pill" onclick="applyPrizePreset('Rice Cooker Digital', 'DOORPRIZE', '/images/doorprize/batch2/Rice_cooker.png')">🍚 Rice Cooker</button>
+                <button type="button" class="preset-pill" onclick="applyPrizePreset('Kipas Angin Berdiri', 'DOORPRIZE', '/images/doorprize/batch2/Kipas.png')">💨 Kipas Angin</button>
+                <button type="button" class="preset-pill" onclick="applyPrizePreset('Setrika Listrik', 'DOORPRIZE', '/images/doorprize/batch2/Setrika.png')">👕 Setrika</button>
+                <button type="button" class="preset-pill" onclick="applyPrizePreset('Toaster Pemanggang Roti', 'DOORPRIZE', '/images/doorprize/batch2/Toaster.png')">🍞 Toaster</button>
+                <button type="button" class="preset-pill" onclick="applyPrizePreset('Lemari Portable', 'DOORPRIZE', '/images/doorprize/batch2/Lemari.png')">🚪 Lemari</button>
+              </div>
+            </div>
           </div>
-          <div class="form-group">
-            <label>Jumlah Kuota Pemenang</label>
-            <input type="number" class="form-control" id="form-prize-quota" value="1" min="1" required>
+
+          <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button type="submit" id="btn-save-prize" class="btn btn-primary" style="flex: 1;">
+              <span>💾</span> <span id="btn-save-prize-label">Simpan Hadiah Baru</span>
+            </button>
+            <button type="button" id="btn-cancel-prize-edit" class="btn btn-secondary" style="display: none; padding: 10px 16px;" onclick="resetPrizeForm()">
+              <span>✖</span> Batal
+            </button>
           </div>
-          <div class="form-group">
-            <label>URL Gambar / Foto Hadiah</label>
-            <input type="text" class="form-control" id="form-prize-photo" placeholder="/images/doorprize/grandprize/TV.png">
-          </div>
-          <button type="submit" class="btn btn-primary" style="width: 100%;">
-            <span>💾</span> Simpan Data Hadiah
-          </button>
         </form>
       </div>
 
       <div class="control-card">
-        <h3 style="font-size: 18px; margin-bottom: 16px; color: #fff;">
-          Daftar Hadiah Tersedia
-        </h3>
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Foto</th>
-              <th>Nama Hadiah</th>
-              <th>Kategori</th>
-              <th>Kuota</th>
-              <th>Aksi</th>
-            </tr>
-          </thead>
-          <tbody id="prizes-table-body">
-            <!-- Diisi dinamis -->
-          </tbody>
-        </table>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <h3 style="font-size: 18px; color: #fff; margin: 0;">
+            Daftar Hadiah Tersedia (<span id="prizes-count-badge">0</span>)
+          </h3>
+          <span style="font-size: 12px; color: #94a3b8;">Klik <strong>Edit</strong> untuk update atau <strong>Hapus</strong></span>
+        </div>
+        <div style="overflow-x: auto;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 60px;">Foto</th>
+                <th>Nama Hadiah</th>
+                <th>Kategori</th>
+                <th>Kuota</th>
+                <th style="width: 140px; text-align: center;">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="prizes-table-body">
+              <!-- Diisi dinamis -->
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
 
   <!-- TAB 3: Master Peserta -->
-  <div id="tab-participants-mgmt" style="display: none;">
+  <div id="tab-participants-mgmt" class="tab-panel" style="display: none;">
     <div class="control-card">
       <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 20px; flex-wrap: wrap;">
         <div style="display: flex; gap: 12px; flex: 1;">
@@ -395,7 +500,7 @@
   </div>
 
   <!-- TAB 4: Daftar Pemenang & Ekspor -->
-  <div id="tab-winners-mgmt" style="display: none;">
+  <div id="tab-winners-mgmt" class="tab-panel" style="display: none;">
     <div class="control-card">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <div>
@@ -487,14 +592,37 @@
     }
   }
 
-  function switchTab(tabId) {
+  function switchTab(tabId, clickedBtn) {
+    const cleanId = (tabId || '').replace(/^tab-/, '');
+    const fullId = `tab-${cleanId}`;
+
+    // Deactivate all tab buttons
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('[id^="tab-"]').forEach(panel => panel.style.display = 'none');
 
-    event.currentTarget.classList.add('active');
-    document.getElementById(tabId).style.display = 'block';
+    // Activate the clicked button safely
+    if (clickedBtn && clickedBtn.classList) {
+      clickedBtn.classList.add('active');
+    } else if (window.event && window.event.currentTarget && window.event.currentTarget.classList) {
+      window.event.currentTarget.classList.add('active');
+    } else {
+      const matched = document.querySelector(`.tab-btn[onclick*="${cleanId}"]`);
+      if (matched) matched.classList.add('active');
+    }
 
-    if (tabId === 'participants-mgmt') {
+    // Hide all tab panels
+    document.querySelectorAll('.tab-panel').forEach(panel => {
+      panel.style.display = 'none';
+    });
+
+    // Show the target tab panel
+    const target = document.getElementById(fullId);
+    if (target) {
+      target.style.display = 'block';
+    } else {
+      console.warn('Tab panel not found:', fullId);
+    }
+
+    if (cleanId === 'participants-mgmt') {
       fetchParticipants();
     }
   }
@@ -558,22 +686,37 @@
       }
     }
 
+    // Simpan daftar hadiah ke variabel global untuk akses edit cepat
+    window.currentPrizesList = state.prizes || [];
+    const countBadge = document.getElementById('prizes-count-badge');
+    if (countBadge) countBadge.textContent = window.currentPrizesList.length;
+
     // Render prizes table
     const prizeTable = document.getElementById('prizes-table-body');
     prizeTable.innerHTML = '';
-    (state.prizes || []).forEach(p => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td><img src="${p.photo || '/images/doorprize/grandprize/TV.png'}" style="width: 40px; height: 40px; object-fit: contain; background: #000; border-radius: 6px;"></td>
-        <td><strong>${p.name}</strong></td>
-        <td><span class="badge ${p.category === 'GRAND PRIZE' ? 'badge-gp' : 'badge-reg'}">${p.category}</span></td>
-        <td>${p.totalWinners} orang</td>
-        <td>
-          <button class="btn btn-danger" style="padding: 4px 8px; font-size: 11px;" onclick="deletePrize('${p.id}')">Hapus</button>
-        </td>
-      `;
-      prizeTable.appendChild(tr);
-    });
+    
+    if (window.currentPrizesList.length === 0) {
+      prizeTable.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #64748b; padding: 24px;">Belum ada hadiah terdaftar. Tambahkan di form sebelah kiri!</td></tr>';
+    } else {
+      window.currentPrizesList.forEach(p => {
+        const tr = document.createElement('tr');
+        const isCurrentActive = state.activePrize && state.activePrize.id === p.id;
+        tr.innerHTML = `
+          <td><img src="${p.photo || '/images/doorprize/grandprize/TV.png'}" style="width: 44px; height: 44px; object-fit: contain; background: #000; border-radius: 8px; border: 1px solid #334155;"></td>
+          <td>
+            <div style="font-weight: 700; color: #fff; font-size: 13px;">${p.name}</div>
+            ${isCurrentActive ? '<span style="font-size: 10px; color: #f1c40f; font-weight: 800; display: inline-block; margin-top: 2px;">★ AKTIF DI ARENA</span>' : ''}
+          </td>
+          <td><span class="badge ${p.category === 'GRAND PRIZE' ? 'badge-gp' : 'badge-reg'}">${p.category}</span></td>
+          <td><strong style="color: #38bdf8;">${p.totalWinners}</strong> orang</td>
+          <td style="text-align: center; white-space: nowrap;">
+            <button class="btn btn-warning" style="padding: 4px 10px; font-size: 11px; margin-right: 6px; font-weight: 700;" onclick="editPrize('${p.id}')">✏️ Edit</button>
+            <button class="btn btn-danger" style="padding: 4px 10px; font-size: 11px; font-weight: 700;" onclick="deletePrize('${p.id}')">🗑️ Hapus</button>
+          </td>
+        `;
+        prizeTable.appendChild(tr);
+      });
+    }
 
     // Render all winners table
     const winTable = document.getElementById('all-winners-table-body');
@@ -633,28 +776,255 @@
     });
   }
 
+  // --- FORM HADIAH, EDIT, & UPLOAD IMAGE ---
+
+  function triggerPrizeFileInput() {
+    const input = document.getElementById('form-prize-file-input');
+    if (input) input.click();
+  }
+
+  function handlePrizeFileSelect(event) {
+    const file = event.target.files && event.target.files[0];
+    if (file) {
+      processPrizeImageFile(file);
+    }
+  }
+
+  function processPrizeImageFile(file) {
+    if (!file.type || !file.type.startsWith('image/')) {
+      alert('Berkas harus berupa gambar (JPG, PNG, WebP, GIF)');
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      alert('Ukuran berkas terlalu besar. Maksimal 8MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        // Skala ke dimensi maksimal 800px agar ringan dan cepat di Cloud Firestore
+        const maxDim = 800;
+        let w = img.width;
+        let h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) {
+            h = Math.round((h * maxDim) / w);
+            w = maxDim;
+          } else {
+            w = Math.round((w * maxDim) / h);
+            h = maxDim;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        
+        const compressedDataUrl = canvas.toDataURL('image/webp', 0.85);
+        document.getElementById('form-prize-photo').value = compressedDataUrl;
+        
+        const previewImg = document.getElementById('form-prize-img-preview');
+        previewImg.src = compressedDataUrl;
+        document.getElementById('preview-image-title').textContent = file.name;
+        document.getElementById('preview-image-type').textContent = `Upload Kustom (${Math.round(compressedDataUrl.length / 1024)} KB)`;
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function applyPrizePreset(name, category, photo) {
+    document.getElementById('form-prize-name').value = name;
+    document.getElementById('form-prize-category').value = category;
+    document.getElementById('form-prize-photo').value = photo;
+    
+    const previewImg = document.getElementById('form-prize-img-preview');
+    previewImg.src = photo;
+    document.getElementById('preview-image-title').textContent = name;
+    document.getElementById('preview-image-type').textContent = 'Preset EduCamp';
+  }
+
+  function resetPrizeImage() {
+    const cat = document.getElementById('form-prize-category').value;
+    const defaultPhoto = cat === 'GRAND PRIZE' ? '/images/doorprize/grandprize/TV.png' : '/images/doorprize/batch2/Blender.png';
+    document.getElementById('form-prize-photo').value = defaultPhoto;
+    document.getElementById('form-prize-img-preview').src = defaultPhoto;
+    document.getElementById('preview-image-title').textContent = 'Default';
+    document.getElementById('preview-image-type').textContent = 'Asset bawaan';
+    const fileInput = document.getElementById('form-prize-file-input');
+    if (fileInput) fileInput.value = '';
+  }
+
+  function onManualPhotoInput(val) {
+    if (val && val.trim().length > 0) {
+      document.getElementById('form-prize-img-preview').src = val.trim();
+      document.getElementById('preview-image-title').textContent = 'URL Kustom';
+      document.getElementById('preview-image-type').textContent = 'Input manual';
+    }
+  }
+
+  function onCategorySelectChange(val) {
+    const currentPhoto = document.getElementById('form-prize-photo').value;
+    if (!currentPhoto || currentPhoto.includes('grandprize') || currentPhoto.includes('batch2')) {
+      const newDefault = val === 'GRAND PRIZE' ? '/images/doorprize/grandprize/TV.png' : '/images/doorprize/batch2/Blender.png';
+      document.getElementById('form-prize-photo').value = newDefault;
+      document.getElementById('form-prize-img-preview').src = newDefault;
+      document.getElementById('preview-image-title').textContent = val === 'GRAND PRIZE' ? 'Smart TV (Default)' : 'Blender (Default)';
+    }
+  }
+
+  function editPrize(id) {
+    const p = (window.currentPrizesList || []).find(item => item.id === id);
+    if (!p) {
+      alert('Data hadiah tidak ditemukan');
+      return;
+    }
+
+    document.getElementById('form-prize-id').value = p.id;
+    document.getElementById('form-prize-name').value = p.name;
+    document.getElementById('form-prize-category').value = p.category;
+    document.getElementById('form-prize-quota').value = p.totalWinners || 1;
+    document.getElementById('form-prize-photo').value = p.photo || '';
+    
+    // Update preview
+    const imgPreview = document.getElementById('form-prize-img-preview');
+    imgPreview.src = p.photo || '/images/doorprize/grandprize/TV.png';
+    document.getElementById('preview-image-title').textContent = p.name;
+    document.getElementById('preview-image-type').textContent = p.photo && p.photo.startsWith('data:') ? 'Foto Kustom' : 'Preset / URL';
+
+    // Update UI headers & buttons
+    document.getElementById('form-prize-title').textContent = '✏️ Edit Data Hadiah';
+    document.getElementById('form-prize-badge').textContent = 'Mode Edit';
+    document.getElementById('form-prize-badge').className = 'badge badge-gp';
+    document.getElementById('btn-save-prize-label').textContent = 'Perbarui Hadiah';
+    document.getElementById('btn-cancel-prize-edit').style.display = 'inline-flex';
+
+    // Focus ke input nama
+    document.getElementById('form-prize-name').focus();
+    document.getElementById('form-prize-element').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function resetPrizeForm() {
+    document.getElementById('form-prize-id').value = '';
+    document.getElementById('form-prize-name').value = '';
+    document.getElementById('form-prize-category').value = 'DOORPRIZE';
+    document.getElementById('form-prize-quota').value = '1';
+    document.getElementById('form-prize-photo').value = '/images/doorprize/batch2/Blender.png';
+    
+    const imgPreview = document.getElementById('form-prize-img-preview');
+    imgPreview.src = '/images/doorprize/batch2/Blender.png';
+    document.getElementById('preview-image-title').textContent = 'Blender (Default)';
+    document.getElementById('preview-image-type').textContent = 'Asset default sistem';
+
+    const fileInput = document.getElementById('form-prize-file-input');
+    if (fileInput) fileInput.value = '';
+
+    document.getElementById('form-prize-title').textContent = 'Tambah Hadiah Baru';
+    document.getElementById('form-prize-badge').textContent = 'Baru';
+    document.getElementById('form-prize-badge').className = 'badge badge-reg';
+    document.getElementById('btn-save-prize-label').textContent = 'Simpan Hadiah Baru';
+    document.getElementById('btn-cancel-prize-edit').style.display = 'none';
+  }
+
   async function savePrizeForm(e) {
     e.preventDefault();
+    const id = document.getElementById('form-prize-id').value.trim();
+    const name = document.getElementById('form-prize-name').value.trim();
+    const category = document.getElementById('form-prize-category').value;
+    const totalWinners = parseInt(document.getElementById('form-prize-quota').value) || 1;
+    let photo = document.getElementById('form-prize-photo').value.trim();
+
+    if (!photo) {
+      photo = category === 'GRAND PRIZE' ? '/images/doorprize/grandprize/TV.png' : '/images/doorprize/batch2/Blender.png';
+    }
+
     const payload = {
-      name: document.getElementById('form-prize-name').value,
-      category: document.getElementById('form-prize-category').value,
-      totalWinners: parseInt(document.getElementById('form-prize-quota').value) || 1,
-      photo: document.getElementById('form-prize-photo').value || '/images/doorprize/grandprize/TV.png'
+      name,
+      category,
+      totalWinners,
+      photo
     };
-    await fetch('/api/doorprize/prize', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    alert('Hadiah berhasil disimpan!');
-    document.getElementById('form-prize-name').value = '';
-    fetchState();
+
+    if (id) {
+      payload.id = id;
+    }
+
+    try {
+      const res = await fetch('/api/doorprize/prize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(data.error || 'Gagal menyimpan hadiah');
+      }
+
+      alert(id ? '✅ Hadiah berhasil diperbarui!' : '✅ Hadiah baru berhasil ditambahkan!');
+      resetPrizeForm();
+      fetchState();
+    } catch (err) {
+      alert('Gagal: ' + err.message);
+    }
   }
 
   async function deletePrize(id) {
-    if (!confirm('Hapus hadiah ini?')) return;
-    await fetch(`/api/doorprize/prize/${id}`, { method: 'DELETE' });
-    fetchState();
+    if (!confirm('Apakah Anda yakin ingin menghapus hadiah ini?')) return;
+    try {
+      const res = await fetch(`/api/doorprize/prize/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || 'Gagal menghapus');
+      
+      // Jika yang dihapus sedang dalam mode edit, reset form
+      if (document.getElementById('form-prize-id').value === id) {
+        resetPrizeForm();
+      }
+      fetchState();
+    } catch (err) {
+      alert('Gagal: ' + err.message);
+    }
+  }
+
+  // Inisialisasi Drag & Drop listener untuk dropzone
+  function initDropzone() {
+    const dropzone = document.getElementById('prize-dropzone');
+    if (dropzone) {
+      ['dragenter', 'dragover'].forEach(eventName => {
+        dropzone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dropzone.classList.add('dragover');
+        }, false);
+      });
+
+      ['dragleave', 'drop'].forEach(eventName => {
+        dropzone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dropzone.classList.remove('dragover');
+        }, false);
+      });
+
+      dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropzone.classList.remove('dragover');
+        const dt = e.dataTransfer;
+        const file = dt && dt.files && dt.files[0];
+        if (file) {
+          processPrizeImageFile(file);
+        }
+      }, false);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initDropzone);
+  } else {
+    initDropzone();
   }
 
   // --- PARTICIPANTS MANAGEMENT ---

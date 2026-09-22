@@ -22,6 +22,135 @@ const io = new Server(server, {
   cors: { origin: '*' }
 });
 
+// === GLOBAL TIMER MANAGERS (SERVER-WIDE) ===
+let timerInterval = null;
+
+function stopTimer() {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+}
+
+function startTimer() {
+  stopTimer();
+  timerInterval = setInterval(() => {
+    if (gameEngine.status === 'PLAYING') {
+      gameEngine.remainingSeconds = Math.max(0, gameEngine.remainingSeconds - 1);
+      io.emit('TIMER_TICK', {
+        remainingSeconds: gameEngine.remainingSeconds,
+        durationSeconds: gameEngine.durationSeconds
+      });
+
+      // Anti-Stalling Rule: Batas Waktu Giliran Menjawab Per Tim (15s default, 0 = disabled)
+      const timeoutLimitSec = typeof gameEngine.turnTimeoutSeconds === 'number' ? gameEngine.turnTimeoutSeconds : 15;
+      if (timeoutLimitSec > 0) {
+        const timeoutLimitMs = timeoutLimitSec * 1000;
+        const now = Date.now();
+        Object.keys(gameEngine.teams || {}).forEach(tId => {
+          const team = gameEngine.teams[tId];
+          if (team && team.questionStartTime && (now - team.questionStartTime >= timeoutLimitMs)) {
+            const timeoutRes = gameEngine.handleTurnTimeout(tId);
+            if (timeoutRes) {
+              io.emit('ANSWER_RESULT', timeoutRes);
+              io.emit('STATE_UPDATE', gameEngine.getPublicState());
+
+              if (timeoutRes.isWinner) {
+                stopTimer();
+                io.emit('GAME_OVER', {
+                  winner: gameEngine.winner,
+                  reason: gameEngine.winnerReason,
+                  isDraw: gameEngine.isDraw,
+                  matchScores: gameEngine.matchScores
+                });
+                io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
+              }
+            }
+          }
+        });
+      }
+
+      if (gameEngine.remainingSeconds <= 0) {
+        gameEngine.handleTimeout();
+        stopTimer();
+        io.emit('STATE_UPDATE', gameEngine.getPublicState());
+        io.emit('GAME_OVER', {
+          winner: gameEngine.winner,
+          reason: gameEngine.winnerReason || 'TIME_OUT',
+          isDraw: gameEngine.isDraw,
+          matchScores: gameEngine.matchScores
+        });
+        io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
+      }
+    } else {
+      stopTimer();
+    }
+  }, 1000);
+}
+
+let tugTimerInterval = null;
+
+function stopTugTimer() {
+  if (tugTimerInterval) {
+    clearInterval(tugTimerInterval);
+    tugTimerInterval = null;
+  }
+}
+
+function startTugTimer() {
+  stopTugTimer();
+  tugTimerInterval = setInterval(() => {
+    if (tugEngine.status === 'PLAYING') {
+      tugEngine.remainingSeconds = Math.max(0, tugEngine.remainingSeconds - 1);
+      io.emit('TUG_TIMER_TICK', {
+        remainingSeconds: tugEngine.remainingSeconds,
+        durationSeconds: tugEngine.durationSeconds
+      });
+
+      // Anti-Stalling Rule: Cek batas waktu giliran per tim (0 = disabled)
+      const timeoutLimitSec = typeof tugEngine.turnTimeoutSeconds === 'number' ? tugEngine.turnTimeoutSeconds : 15;
+      if (timeoutLimitSec > 0) {
+        const timeoutLimitMs = timeoutLimitSec * 1000;
+        const now = Date.now();
+        ['left', 'right'].forEach(side => {
+          const team = (side === 'left') ? tugEngine.teamLeft : tugEngine.teamRight;
+          if (team && team.questionStartTime && (now - team.questionStartTime >= timeoutLimitMs)) {
+            const timeoutRes = tugEngine.handleTurnTimeout(side);
+            if (timeoutRes) {
+              io.emit('TUG_ANSWER_RESULT', timeoutRes);
+              io.emit('TUG_STATE_UPDATE', tugEngine.getPublicState());
+
+              if (timeoutRes.isWinner) {
+                stopTugTimer();
+                io.emit('TUG_GAME_OVER', {
+                  winner: tugEngine.winner,
+                  reason: tugEngine.winnerReason,
+                  ropeOffset: tugEngine.ropeOffset
+                });
+                io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
+              }
+            }
+          }
+        });
+      }
+
+      if (tugEngine.remainingSeconds <= 0) {
+        tugEngine.handleTimeout();
+        stopTugTimer();
+        io.emit('TUG_STATE_UPDATE', tugEngine.getPublicState());
+        io.emit('TUG_GAME_OVER', {
+          winner: tugEngine.winner,
+          reason: 'TIME_OUT',
+          ropeOffset: tugEngine.ropeOffset
+        });
+        io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
+      }
+    } else {
+      stopTugTimer();
+    }
+  }, 1000);
+}
+
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
@@ -728,72 +857,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Timer Interval Manager
-  let timerInterval = null;
-
-  function stopTimer() {
-    if (timerInterval) {
-      clearInterval(timerInterval);
-      timerInterval = null;
-    }
-  }
-
-  function startTimer() {
-    stopTimer();
-    timerInterval = setInterval(() => {
-      if (gameEngine.status === 'PLAYING') {
-        gameEngine.remainingSeconds = Math.max(0, gameEngine.remainingSeconds - 1);
-        io.emit('TIMER_TICK', {
-          remainingSeconds: gameEngine.remainingSeconds,
-          durationSeconds: gameEngine.durationSeconds
-        });
-
-        // Anti-Stalling Rule: Batas Waktu Giliran Menjawab Per Tim (15s default, 0 = disabled)
-        const timeoutLimitSec = typeof gameEngine.turnTimeoutSeconds === 'number' ? gameEngine.turnTimeoutSeconds : 15;
-        if (timeoutLimitSec > 0) {
-          const timeoutLimitMs = timeoutLimitSec * 1000;
-          const now = Date.now();
-          Object.keys(gameEngine.teams || {}).forEach(tId => {
-            const team = gameEngine.teams[tId];
-            if (team && team.questionStartTime && (now - team.questionStartTime >= timeoutLimitMs)) {
-              const timeoutRes = gameEngine.handleTurnTimeout(tId);
-              if (timeoutRes) {
-                io.emit('ANSWER_RESULT', timeoutRes);
-                io.emit('STATE_UPDATE', gameEngine.getPublicState());
-
-                if (timeoutRes.isWinner) {
-                  stopTimer();
-                  io.emit('GAME_OVER', {
-                    winner: gameEngine.winner,
-                    reason: gameEngine.winnerReason,
-                    isDraw: gameEngine.isDraw,
-                    matchScores: gameEngine.matchScores
-                  });
-                  io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
-                }
-              }
-            }
-          });
-        }
-
-        if (gameEngine.remainingSeconds <= 0) {
-          const timeoutResult = gameEngine.handleTimeout();
-          stopTimer();
-          io.emit('STATE_UPDATE', gameEngine.getPublicState());
-          io.emit('GAME_OVER', {
-            winner: gameEngine.winner,
-            reason: gameEngine.winnerReason || 'TIME_OUT',
-            isDraw: gameEngine.isDraw,
-            matchScores: gameEngine.matchScores
-          });
-          io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
-        }
-      } else {
-        stopTimer();
-      }
-    }, 1000);
-  }
-
   // Action: START GAME (dari Admin)
   socket.on('START_GAME', () => {
     gameEngine.startGame();
@@ -874,69 +937,6 @@ io.on('connection', (socket) => {
 
   // Kirim state awal Tarik Tambang
   socket.emit('TUG_STATE_UPDATE', tugEngine.getPublicState());
-
-  let tugTimerInterval = null;
-
-  function stopTugTimer() {
-    if (tugTimerInterval) {
-      clearInterval(tugTimerInterval);
-      tugTimerInterval = null;
-    }
-  }
-
-  function startTugTimer() {
-    stopTugTimer();
-    tugTimerInterval = setInterval(() => {
-      if (tugEngine.status === 'PLAYING') {
-        tugEngine.remainingSeconds = Math.max(0, tugEngine.remainingSeconds - 1);
-        io.emit('TUG_TIMER_TICK', {
-          remainingSeconds: tugEngine.remainingSeconds,
-          durationSeconds: tugEngine.durationSeconds
-        });
-
-        // Anti-Stalling Rule: Cek batas waktu giliran per tim (0 = disabled)
-        const timeoutLimitSec = typeof tugEngine.turnTimeoutSeconds === 'number' ? tugEngine.turnTimeoutSeconds : 15;
-        if (timeoutLimitSec > 0) {
-          const timeoutLimitMs = timeoutLimitSec * 1000;
-          const now = Date.now();
-          ['left', 'right'].forEach(side => {
-            const team = (side === 'left') ? tugEngine.teamLeft : tugEngine.teamRight;
-            if (team && team.questionStartTime && (now - team.questionStartTime >= timeoutLimitMs)) {
-              const timeoutRes = tugEngine.handleTurnTimeout(side); // Gunakan penalti proporsional seimbang
-              if (timeoutRes) {
-                io.emit('TUG_ANSWER_RESULT', timeoutRes);
-                io.emit('TUG_STATE_UPDATE', tugEngine.getPublicState());
-
-                if (timeoutRes.isWinner) {
-                  stopTugTimer();
-                  io.emit('TUG_GAME_OVER', {
-                    winner: tugEngine.winner,
-                    reason: tugEngine.winnerReason,
-                    ropeOffset: tugEngine.ropeOffset
-                  });
-                  io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
-                }
-              }
-            }
-          });
-        }
-
-        if (tugEngine.remainingSeconds <= 0) {
-          const timeoutResult = tugEngine.handleTimeout();
-          stopTugTimer();
-          io.emit('TUG_STATE_UPDATE', tugEngine.getPublicState());
-          io.emit('TUG_GAME_OVER', {
-            winner: tugEngine.winner,
-            reason: 'TIME_OUT',
-            ropeOffset: tugEngine.ropeOffset
-          });
-          io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
-        }
-      } else {
-        stopTugTimer();
-      }
-    }, 1000);
-  }
 
   // Mulai Tarik Tambang
   socket.on('TUG_START_GAME', () => {
