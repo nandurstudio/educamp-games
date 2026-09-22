@@ -1,0 +1,55 @@
+{
+  "entities": {
+    "EducampStorage": {
+      "title": "Educamp Storage Document",
+      "description": "Menyimpan data master tim, skor game outbound, konfigurasi digital, bank soal, dan riwayat pertandingan secara persisten di Cloud Firestore.",
+      "type": "object",
+      "properties": {
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp ISO pembaruan terakhir data"
+        },
+        "payload": {
+          "type": "string",
+          "description": "Serialisasi JSON data lengkap atau record data modular"
+        }
+      },
+      "required": ["updatedAt"]
+    },
+    "UserRole": {
+      "title": "User Role Profile",
+      "description": "Menyimpan peran pengguna untuk otorisasi Game Master dan Super Admin.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "Alamat email pengguna"
+        },
+        "role": {
+          "type": "string",
+          "enum": ["SUPER_ADMIN", "GAME_MASTER"],
+          "description": "Tingkat hak akses pengguna"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Nama tampilan pengguna"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp ISO pembaruan role"
+        }
+      },
+      "required": ["email", "role"]
+    }
+  },
+  "firestore": {
+    "/educamp_data/{docId}": {
+      "schema": "EducampStorage",
+      "description": "Koleksi data terpusat Educamp Games (superadmin, panjat_pinang, tarik_tambang, question_bank, getting_commitment)"
+    },
+    "/admins/{uid}": {
+      "schema": "UserRole",
+      "description": "Koleksi otorisasi pengguna untuk akses Super Admin dan Game Master"
+    }
+  }
+}

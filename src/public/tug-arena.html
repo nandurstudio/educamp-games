@@ -219,7 +219,7 @@
         <div class="footer-semver" title="Semantic Versioning">
           <span class="semver-dot"></span>
           <span class="semver-label">SemVer</span>
-          <span>v1.1.0</span>
+          <span>v1.2.0</span>
         </div>
       </div>
     </footer>
@@ -451,6 +451,19 @@
       const rList = document.getElementById('right-log-list');
       if (lList) lList.innerHTML = '<div style="color: #64748b; font-size: 11px; font-style: italic; text-align: center; padding: 10px;">Menunggu jawaban...</div>';
       if (rList) rList.innerHTML = '<div style="color: #64748b; font-size: 11px; font-style: italic; text-align: center; padding: 10px;">Menunggu jawaban...</div>';
+    });
+
+    socket.on('GLOBAL_RESET_TRIGGERED', () => {
+      if (window.soundFX) window.soundFX.stop8BitAgustusanBGM();
+      timerBadge.classList.remove('urgent');
+      fetch('/api/tug/history').then(r => r.json()).then(d => {
+        if (d && Array.isArray(d.history)) latestHistory = d.history;
+      }).catch(() => {});
+      const lList = document.getElementById('left-log-list');
+      const rList = document.getElementById('right-log-list');
+      if (lList) lList.innerHTML = '<div style="color: #64748b; font-size: 11px; font-style: italic; text-align: center; padding: 10px;">Menunggu jawaban...</div>';
+      if (rList) rList.innerHTML = '<div style="color: #64748b; font-size: 11px; font-style: italic; text-align: center; padding: 10px;">Menunggu jawaban...</div>';
+      showTicker("⚡ GLOBAL RESET: Skor dan riwayat Tarik Tambang berhasil dibersihkan!", true);
     });
 
     socket.on('TUG_GAME_PAUSED', () => {

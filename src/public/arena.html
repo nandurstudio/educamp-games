@@ -159,7 +159,7 @@
         <div class="footer-semver" title="Semantic Versioning">
           <span class="semver-dot"></span>
           <span class="semver-label">SemVer</span>
-          <span>v1.1.0</span>
+          <span>v1.2.0</span>
         </div>
       </div>
     </footer>
@@ -400,6 +400,17 @@
       timerBadge.classList.remove('urgent');
       resetTeamLogs();
       showTicker("🔄 Pertandingan di-reset oleh Admin.");
+    });
+
+    // Event Global Reset dari Super Admin
+    socket.on('GLOBAL_RESET_TRIGGERED', () => {
+      if (window.soundFX) window.soundFX.stop8BitAgustusanBGM();
+      timerBadge.classList.remove('urgent');
+      resetTeamLogs();
+      fetch('/api/history').then(r => r.json()).then(d => {
+        if (d && Array.isArray(d.history)) latestHistory = d.history;
+      }).catch(() => {});
+      showTicker("⚡ GLOBAL RESET: Seluruh skor sesi & progres dibersihkan oleh Super Admin!", true);
     });
 
     // Tick Timer Tiap Detik

@@ -4,6 +4,8 @@ const gameEngine = require('./game-engine');
 const tugEngine = require('./tug-engine');
 const superAdminEngine = require('./super-admin-engine');
 const questionBank = require('./question-bank');
+const commitmentEngine = require('./commitment-engine');
+const firebaseService = require('./firebase-service');
 
 class BackupManager {
   /**
@@ -15,16 +17,18 @@ class BackupManager {
     const panjatPinangData = gameEngine.getStorageData();
     const tarikTambangData = tugEngine.getStorageData();
     const questionsData = questionBank.getStorageData();
+    const commitmentData = commitmentEngine.getStorageData();
 
     const masterTeamsCount = Object.keys(superAdminData.masterTeams || {}).length;
     const customGamesCount = (superAdminData.customGames || []).length;
     const pinangHistoryCount = (panjatPinangData.history || []).length;
     const tugHistoryCount = (tarikTambangData.history || []).length;
     const totalQuestions = (questionsData.questions || []).length;
+    const totalCommitments = Object.keys(commitmentData.commitments || {}).length;
 
     return {
       format: 'EDUCAMP_GAME_BACKUP',
-      version: '1.0.0',
+      version: '1.2.0',
       exportedAt: now.toISOString(),
       exportedAtFormatted: now.toLocaleString('id-ID', {
         dateStyle: 'full',
@@ -38,13 +42,15 @@ class BackupManager {
         pinangHistoryCount,
         tugHistoryCount,
         totalQuestions,
+        totalCommitments,
         questionSource: questionsData.source || 'DEFAULT'
       },
       data: {
         superAdmin: superAdminData,
         panjatPinang: panjatPinangData,
         tarikTambang: tarikTambangData,
-        questions: questionsData
+        questions: questionsData,
+        commitment: commitmentData
       }
     };
   }
@@ -57,19 +63,27 @@ class BackupManager {
     const panjatPinangData = gameEngine.getStorageData();
     const tarikTambangData = tugEngine.getStorageData();
     const questionsData = questionBank.getStorageData();
+    const commitmentData = commitmentEngine.getStorageData();
 
     return {
       storageFiles: {
         superAdmin: fs.existsSync(path.join(__dirname, '../../data/superadmin-storage.json')),
         gameStorage: fs.existsSync(path.join(__dirname, '../../data/game-storage.json')),
-        tugStorage: fs.existsSync(path.join(__dirname, '../../data/tug-storage.json'))
+        tugStorage: fs.existsSync(path.join(__dirname, '../../data/tug-storage.json')),
+        commitmentStorage: fs.existsSync(path.join(__dirname, '../../data/commitment-storage.json'))
+      },
+      firebase: {
+        connected: firebaseService.isAvailable(),
+        projectId: firebaseService.config ? firebaseService.config.projectId : null,
+        databaseId: firebaseService.config ? firebaseService.config.firestoreDatabaseId : null
       },
       counts: {
         masterTeams: Object.keys(superAdminData.masterTeams || {}).length,
         customGames: (superAdminData.customGames || []).length,
         pinangHistory: (panjatPinangData.history || []).length,
         tugHistory: (tarikTambangData.history || []).length,
-        questions: (questionsData.questions || []).length
+        questions: (questionsData.questions || []).length,
+        commitments: Object.keys(commitmentData.commitments || {}).length
       },
       questionSource: questionsData.source || 'DEFAULT',
       lastExportSample: new Date().toISOString()
@@ -126,6 +140,13 @@ class BackupManager {
       questionBank.restoreData(backupData.questions);
       const qCount = (backupData.questions.questions || []).length;
       restoredItems.push(`Bank Soal (${qCount} soal)`);
+    }
+
+    // 5. Restore Getting Commitment
+    if (backupData.commitment) {
+      commitmentEngine.restoreData(backupData.commitment);
+      const cCount = Object.keys(backupData.commitment.commitments || {}).length;
+      restoredItems.push(`Getting Commitment (${cCount} komitmen)`);
     }
 
     if (restoredItems.length === 0) {

@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const questionBank = require('./question-bank');
+const firebaseService = require('./firebase-service');
 
 const STORAGE_FILE = path.join(__dirname, '../../data/game-storage.json');
 
@@ -16,41 +17,58 @@ class GameEngine {
       if (fs.existsSync(STORAGE_FILE)) {
         const raw = fs.readFileSync(STORAGE_FILE, 'utf-8');
         const data = JSON.parse(raw);
-        if (data.mode) this.mode = data.mode;
-        if (data.wipeoutMode) this.wipeoutMode = data.wipeoutMode;
-        if (typeof data.durationSeconds === 'number') {
-          this.durationSeconds = data.durationSeconds;
-          this.remainingSeconds = data.durationSeconds;
-        }
-        if (typeof data.pointsPerCorrect === 'number') {
-          this.pointsPerCorrect = data.pointsPerCorrect;
-        }
-        if (typeof data.turnTimeoutSeconds === 'number') {
-          this.turnTimeoutSeconds = data.turnTimeoutSeconds;
-        }
-        if (typeof data.winScore === 'number') {
-          this.winScore = data.winScore;
-        }
-        if (typeof data.loseScore === 'number') {
-          this.loseScore = data.loseScore;
-        }
-        if (typeof data.drawScore === 'number') {
-          this.drawScore = data.drawScore;
-        }
-        if (Array.isArray(data.history)) {
-          this.history = data.history;
-        }
-        if (data.teams && typeof data.teams === 'object') {
-          this.setTeamsConfig(data.teams, false);
-        }
+        this.applyStorageData(data);
         console.log(`[Storage Loaded] Berhasil me-load konfigurasi dari data/game-storage.json (${Object.keys(this.teams).length} tim terdaftar, ${this.history.length} sesi riwayat)`);
       }
     } catch (err) {
       console.error('[Storage Error] Gagal membaca storage lokal:', err.message);
     }
+
+    if (firebaseService.isAvailable()) {
+      firebaseService.loadDoc('panjat_pinang').then(cloudData => {
+        if (cloudData && typeof cloudData === 'object') {
+          this.applyStorageData(cloudData);
+          console.log(`[Panjat Pinang Firebase] Berhasil me-load konfigurasi dari Firestore (${this.history.length} riwayat pertandingan)!`);
+          this.saveLocalDisk();
+        }
+      }).catch(err => {
+        console.error('[Panjat Pinang Firebase] Gagal load dari Firestore:', err.message);
+      });
+    }
   }
 
-  saveStorage() {
+  applyStorageData(data) {
+    if (!data || typeof data !== 'object') return;
+    if (data.mode) this.mode = data.mode;
+    if (data.wipeoutMode) this.wipeoutMode = data.wipeoutMode;
+    if (typeof data.durationSeconds === 'number') {
+      this.durationSeconds = data.durationSeconds;
+      this.remainingSeconds = data.durationSeconds;
+    }
+    if (typeof data.pointsPerCorrect === 'number') {
+      this.pointsPerCorrect = data.pointsPerCorrect;
+    }
+    if (typeof data.turnTimeoutSeconds === 'number') {
+      this.turnTimeoutSeconds = data.turnTimeoutSeconds;
+    }
+    if (typeof data.winScore === 'number') {
+      this.winScore = data.winScore;
+    }
+    if (typeof data.loseScore === 'number') {
+      this.loseScore = data.loseScore;
+    }
+    if (typeof data.drawScore === 'number') {
+      this.drawScore = data.drawScore;
+    }
+    if (Array.isArray(data.history)) {
+      this.history = data.history;
+    }
+    if (data.teams && typeof data.teams === 'object') {
+      this.setTeamsConfig(data.teams, false);
+    }
+  }
+
+  saveLocalDisk() {
     try {
       const dir = path.dirname(STORAGE_FILE);
       if (!fs.existsSync(dir)) {
@@ -79,6 +97,35 @@ class GameEngine {
       fs.writeFileSync(STORAGE_FILE, JSON.stringify(data, null, 2), 'utf-8');
     } catch (err) {
       console.error('[Storage Error] Gagal menyimpan ke storage lokal:', err.message);
+    }
+  }
+
+  saveStorage() {
+    this.saveLocalDisk();
+    if (firebaseService.isAvailable()) {
+      const data = {
+        mode: this.mode,
+        wipeoutMode: this.wipeoutMode,
+        durationSeconds: this.durationSeconds,
+        pointsPerCorrect: this.pointsPerCorrect || 100,
+        turnTimeoutSeconds: typeof this.turnTimeoutSeconds === 'number' ? this.turnTimeoutSeconds : 15,
+        winScore: typeof this.winScore === 'number' ? this.winScore : 300,
+        loseScore: typeof this.loseScore === 'number' ? this.loseScore : 150,
+        drawScore: typeof this.drawScore === 'number' ? this.drawScore : 150,
+        history: this.history || [],
+        teams: {}
+      };
+      Object.entries(this.teams).forEach(([tId, team]) => {
+        data.teams[tId] = {
+          id: team.id,
+          name: team.name,
+          color: team.color,
+          members: team.members
+        };
+      });
+      firebaseService.saveDoc('panjat_pinang', data).catch(err => {
+        console.error('[Panjat Pinang Firebase] Gagal menyimpan ke Firestore:', err.message);
+      });
     }
   }
 

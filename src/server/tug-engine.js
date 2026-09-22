@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const questionBank = require('./question-bank');
+const firebaseService = require('./firebase-service');
 
 const STORAGE_FILE = path.join(__dirname, '../../data/tug-storage.json');
 
@@ -16,35 +17,52 @@ class TugEngine {
       if (fs.existsSync(STORAGE_FILE)) {
         const raw = fs.readFileSync(STORAGE_FILE, 'utf-8');
         const data = JSON.parse(raw);
-        if (typeof data.durationSeconds === 'number') {
-          this.durationSeconds = data.durationSeconds;
-          this.remainingSeconds = data.durationSeconds;
-        }
-        if (typeof data.turnTimeoutSeconds === 'number') {
-          this.turnTimeoutSeconds = data.turnTimeoutSeconds;
-        }
-        if (typeof data.pullStep === 'number') {
-          this.pullStep = data.pullStep;
-        }
-        if (typeof data.slipPenalty === 'number') {
-          this.slipPenalty = data.slipPenalty;
-        }
-        if (typeof data.pointsPerCorrect === 'number') {
-          this.pointsPerCorrect = data.pointsPerCorrect;
-        }
-        if (Array.isArray(data.history)) {
-          this.history = data.history;
-        }
-        if (data.teamLeft) this.teamLeft = { ...this.teamLeft, ...data.teamLeft };
-        if (data.teamRight) this.teamRight = { ...this.teamRight, ...data.teamRight };
+        this.applyStorageData(data);
         console.log(`[Tug Storage Loaded] Data Tarik Tambang berhasil dimuat (${this.history.length} sesi riwayat)`);
       }
     } catch (err) {
-      console.error('[Tug Storage Error] Gagal membaca storage:', err.message);
+      console.error('[Tug Storage Error] Gagal membaca storage lokal:', err.message);
+    }
+
+    if (firebaseService.isAvailable()) {
+      firebaseService.loadDoc('tarik_tambang').then(cloudData => {
+        if (cloudData && typeof cloudData === 'object') {
+          this.applyStorageData(cloudData);
+          console.log(`[Tug Firebase] Data Tarik Tambang berhasil dimuat dari Firestore (${this.history.length} sesi riwayat)!`);
+          this.saveLocalDisk();
+        }
+      }).catch(err => {
+        console.error('[Tug Firebase] Gagal load dari Firestore:', err.message);
+      });
     }
   }
 
-  saveStorage() {
+  applyStorageData(data) {
+    if (!data || typeof data !== 'object') return;
+    if (typeof data.durationSeconds === 'number') {
+      this.durationSeconds = data.durationSeconds;
+      this.remainingSeconds = data.durationSeconds;
+    }
+    if (typeof data.turnTimeoutSeconds === 'number') {
+      this.turnTimeoutSeconds = data.turnTimeoutSeconds;
+    }
+    if (typeof data.pullStep === 'number') {
+      this.pullStep = data.pullStep;
+    }
+    if (typeof data.slipPenalty === 'number') {
+      this.slipPenalty = data.slipPenalty;
+    }
+    if (typeof data.pointsPerCorrect === 'number') {
+      this.pointsPerCorrect = data.pointsPerCorrect;
+    }
+    if (Array.isArray(data.history)) {
+      this.history = data.history;
+    }
+    if (data.teamLeft) this.teamLeft = { ...this.teamLeft, ...data.teamLeft };
+    if (data.teamRight) this.teamRight = { ...this.teamRight, ...data.teamRight };
+  }
+
+  saveLocalDisk() {
     try {
       const dir = path.dirname(STORAGE_FILE);
       if (!fs.existsSync(dir)) {
@@ -72,7 +90,36 @@ class TugEngine {
       };
       fs.writeFileSync(STORAGE_FILE, JSON.stringify(data, null, 2), 'utf-8');
     } catch (err) {
-      console.error('[Tug Storage Error] Gagal menyimpan storage:', err.message);
+      console.error('[Tug Storage Error] Gagal menyimpan storage lokal:', err.message);
+    }
+  }
+
+  saveStorage() {
+    this.saveLocalDisk();
+    if (firebaseService.isAvailable()) {
+      const data = {
+        durationSeconds: this.durationSeconds,
+        turnTimeoutSeconds: this.turnTimeoutSeconds,
+        pullStep: this.pullStep,
+        slipPenalty: this.slipPenalty,
+        pointsPerCorrect: this.pointsPerCorrect || 100,
+        history: this.history || [],
+        teamLeft: {
+          id: this.teamLeft.id,
+          name: this.teamLeft.name,
+          color: this.teamLeft.color,
+          members: this.teamLeft.members
+        },
+        teamRight: {
+          id: this.teamRight.id,
+          name: this.teamRight.name,
+          color: this.teamRight.color,
+          members: this.teamRight.members
+        }
+      };
+      firebaseService.saveDoc('tarik_tambang', data).catch(err => {
+        console.error('[Tug Firebase] Gagal menyimpan ke Firestore:', err.message);
+      });
     }
   }
 

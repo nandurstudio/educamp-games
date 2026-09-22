@@ -2,6 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const gameEngine = require('./game-engine');
 const tugEngine = require('./tug-engine');
+const commitmentEngine = require('./commitment-engine');
+const firebaseService = require('./firebase-service');
 
 const STORAGE_FILE = path.join(__dirname, '../../data/superadmin-storage.json');
 
@@ -100,6 +102,7 @@ class SuperAdminEngine {
   constructor() {
     this.masterTeams = {};
     this.customGames = [];
+    this.auditLogs = [];
     this.digitalSettings = {
       pinangPointsPerWin: 300,
       pinangPointsPerLose: 150,
@@ -116,76 +119,79 @@ class SuperAdminEngine {
       if (fs.existsSync(STORAGE_FILE)) {
         const raw = fs.readFileSync(STORAGE_FILE, 'utf-8');
         const data = JSON.parse(raw);
-        if (data.masterTeams && typeof data.masterTeams === 'object' && Object.keys(data.masterTeams).length > 0) {
-          this.masterTeams = data.masterTeams;
-        } else {
-          this.masterTeams = JSON.parse(JSON.stringify(DEFAULT_PRELOADER_TEAMS));
-        }
-
-        if (Array.isArray(data.customGames)) {
-          this.customGames = data.customGames;
-        } else {
-          this.initDefaultGames();
-        }
-
-        if (data.digitalSettings && typeof data.digitalSettings === 'object') {
-          this.digitalSettings = { ...this.digitalSettings, ...data.digitalSettings };
-        }
-        console.log(`[SuperAdmin Storage] Loaded ${Object.keys(this.masterTeams).length} teams & ${this.customGames.length} custom games.`);
+        this.applyStorageData(data);
+        console.log(`[SuperAdmin Storage] Loaded ${Object.keys(this.masterTeams).length} teams & ${this.customGames.length} custom games from local disk.`);
       } else {
         this.masterTeams = JSON.parse(JSON.stringify(DEFAULT_PRELOADER_TEAMS));
         this.initDefaultGames();
         this.saveStorage();
       }
     } catch (err) {
-      console.error('[SuperAdmin Storage Error] Gagal membaca storage:', err.message);
+      console.error('[SuperAdmin Storage Error] Gagal membaca storage lokal:', err.message);
       this.masterTeams = JSON.parse(JSON.stringify(DEFAULT_PRELOADER_TEAMS));
       this.initDefaultGames();
     }
+
+    // Sinkronisasi otomatis dari Cloud Firestore saat startup
+    if (firebaseService.isAvailable()) {
+      firebaseService.loadDoc('superadmin').then(cloudData => {
+        if (cloudData && typeof cloudData === 'object') {
+          this.applyStorageData(cloudData);
+          console.log(`[SuperAdmin Firebase] Berhasil memulihkan ${Object.keys(this.masterTeams).length} tim & ${this.customGames.length} game dari Cloud Firestore!`);
+          // Simpan sinkronisasi ke disk lokal agar cache lokal selalu termutakhir
+          this.saveLocalDisk();
+        }
+      }).catch(err => {
+        console.error('[SuperAdmin Firebase] Gagal load dari Firestore:', err.message);
+      });
+    }
   }
 
-  initDefaultGames() {
-    this.customGames = [
-      {
-        id: 'game-pipa-bocor',
-        title: 'Pipa Bocor',
-        emoji: '🪣',
-        description: 'Tantangan kekompakan menutup lubang pipa bocor agar bola pingpong dapat mengapung ke atas.',
-        rules: 'Hanya boleh menggunakan telapak tangan dan jari untuk menutup pipa. Air dari ember tidak boleh tercecer keluar lapangan.',
-        scores: {
-          qatra: 220,
-          vbom: 250,
-          omega: 270,
-          ipc: 240,
-          interlock: 260,
-          avatar: 300
-        },
-        maxScore: 300,
-        status: 'COMPLETED',
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'game-yel-yel',
-        title: 'Yel-Yel & Formasi Kreatif',
-        emoji: '📣',
-        description: 'Penilaian kreativitas, kekompakan, dan semangat tempur saat meneriakkan yel-yel kebanggaan regu.',
-        rules: 'Waktu tampil maksimal 3 menit. Dinilai berdasarkan kekompakan, vokal, koreografi, dan kostum/atribut.',
-        scores: {
-          qatra: 260,
-          vbom: 280,
-          omega: 250,
-          ipc: 270,
-          interlock: 290,
-          avatar: 290
-        },
-        maxScore: 300,
-        status: 'COMPLETED',
-        createdAt: new Date().toISOString()
-      }
-    ];
+  applyStorageData(data) {
+    if (!data || typeof data !== 'object') return;
+    if (data.masterTeams && typeof data.masterTeams === 'object' && Object.keys(data.masterTeams).length > 0) {
+      this.masterTeams = data.masterTeams;
+    }
+    if (Array.isArray(data.customGames)) {
+      this.customGames = data.customGames;
+    }
+    if (data.digitalSettings && typeof data.digitalSettings === 'object') {
+      this.digitalSettings = { ...this.digitalSettings, ...data.digitalSettings };
+    }
+    if (Array.isArray(data.auditLogs)) {
+      this.auditLogs = data.auditLogs;
+    }
   }
 
-  saveStorage() {
+  logAudit({ action, target, targetId, details, performedBy }) {
+    const entry = {
+      id: `log-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+      action, // e.g., 'ADD_GAME', 'UPDATE_GAME', 'DELETE_GAME', 'SET_SCORE', 'GLOBAL_RESET', 'ADD_TEAM', 'UPDATE_TEAM', 'DELETE_TEAM'
+      target, // e.g., 'CUSTOM_GAME', 'MASTER_TEAM', 'GAME_SCORE', 'SYSTEM'
+      targetId: targetId || null,
+      details: details || {},
+      performedBy: performedBy || 'SYSTEM',
+      timestamp: new Date().toISOString()
+    };
+
+    if (!Array.isArray(this.auditLogs)) {
+      this.auditLogs = [];
+    }
+
+    // Simpan hingga 100 entri log terbaru (LIFO)
+    this.auditLogs.unshift(entry);
+    if (this.auditLogs.length > 100) {
+      this.auditLogs = this.auditLogs.slice(0, 100);
+    }
+
+    return entry;
+  }
+
+  getAuditLogs(limit = 50) {
+    return (this.auditLogs || []).slice(0, limit);
+  }
+
+  saveLocalDisk() {
     try {
       const dir = path.dirname(STORAGE_FILE);
       if (!fs.existsSync(dir)) {
@@ -195,11 +201,28 @@ class SuperAdminEngine {
         masterTeams: this.masterTeams,
         customGames: this.customGames,
         digitalSettings: this.digitalSettings,
+        auditLogs: this.auditLogs || [],
         updatedAt: new Date().toISOString()
       };
       fs.writeFileSync(STORAGE_FILE, JSON.stringify(data, null, 2), 'utf-8');
     } catch (err) {
-      console.error('[SuperAdmin Storage Error] Gagal menulis ke storage:', err.message);
+      console.error('[SuperAdmin Storage Error] Gagal menulis ke storage lokal:', err.message);
+    }
+  }
+
+  saveStorage() {
+    this.saveLocalDisk();
+    if (firebaseService.isAvailable()) {
+      const payload = {
+        masterTeams: this.masterTeams,
+        customGames: this.customGames,
+        digitalSettings: this.digitalSettings,
+        auditLogs: this.auditLogs || [],
+        updatedAt: new Date().toISOString()
+      };
+      firebaseService.saveDoc('superadmin', payload).catch(err => {
+        console.error('[SuperAdmin Firebase] Gagal menyimpan ke Firestore:', err.message);
+      });
     }
   }
 
@@ -208,6 +231,7 @@ class SuperAdminEngine {
       masterTeams: this.masterTeams,
       customGames: this.customGames,
       digitalSettings: this.digitalSettings,
+      auditLogs: this.auditLogs || [],
       updatedAt: new Date().toISOString()
     };
   }
@@ -223,8 +247,104 @@ class SuperAdminEngine {
     if (data.digitalSettings && typeof data.digitalSettings === 'object') {
       this.digitalSettings = { ...this.digitalSettings, ...data.digitalSettings };
     }
+    if (Array.isArray(data.auditLogs)) {
+      this.auditLogs = data.auditLogs;
+    }
     this.saveStorage();
     return true;
+  }
+
+  // === GLOBAL RESET FEATURE ===
+  // Clears all active game session scores, resets digital games (Panjat Pinang & Tarik Tambang),
+  // resets non-digital game scores, clears histories, and syncs reset state across Cloud Firestore & connected clients.
+  async globalResetScores(options = {}) {
+    const { resetDigital = true, resetNonDigital = true, clearHistory = true, resetCommitment = false } = options;
+
+    // 1. Reset Digital Game 1: Panjat Pinang
+    if (resetDigital) {
+      gameEngine.reset();
+      // Reset skor tim panjat pinang
+      Object.keys(gameEngine.teams || {}).forEach(tId => {
+        if (gameEngine.teams[tId]) {
+          gameEngine.teams[tId].score = 0;
+          gameEngine.teams[tId].currentLevel = 0;
+          gameEngine.teams[tId].streak = 0;
+          gameEngine.teams[tId].currentMemberIndex = 0;
+        }
+      });
+      if (clearHistory) {
+        gameEngine.history = [];
+      }
+      gameEngine.saveStorage();
+    }
+
+    // 2. Reset Digital Game 2: Tarik Tambang
+    if (resetDigital) {
+      tugEngine.reset(true);
+      if (tugEngine.teamLeft) tugEngine.teamLeft.score = 0;
+      if (tugEngine.teamRight) tugEngine.teamRight.score = 0;
+      if (clearHistory) {
+        tugEngine.history = [];
+      }
+      tugEngine.saveStorage();
+    }
+
+    // 3. Reset Getting Commitment (Jika dipilih)
+    if (resetCommitment) {
+      commitmentEngine.resetCommitment(options.resetBy || 'SUPER_ADMIN');
+    }
+
+    // 4. Reset Game Non-Digital Outbound Scores
+    if (resetNonDigital && Array.isArray(this.customGames)) {
+      this.customGames.forEach(game => {
+        game.scores = {};
+        game.status = 'ACTIVE';
+      });
+    }
+
+    // 5. Simpan ke local storage dan sinkronkan ke Firebase Firestore
+    this.saveStorage();
+
+    // 6. Broadcast reset signal and sync state to Firebase global_state document
+    const resetMeta = {
+      resetAt: new Date().toISOString(),
+      resetBy: options.resetBy || 'SUPER_ADMIN',
+      status: 'RESET_COMPLETED',
+      clearedDigital: resetDigital,
+      clearedNonDigital: resetNonDigital,
+      clearedHistory: clearHistory,
+      clearedCommitment: resetCommitment
+    };
+
+    if (firebaseService.isAvailable()) {
+      try {
+        await firebaseService.saveDoc('global_reset', resetMeta);
+        console.log('[SuperAdmin Global Reset] State berhasil disinkronkan ke Cloud Firestore doc "global_reset"');
+      } catch (err) {
+        console.error('[SuperAdmin Global Reset] Gagal sync ke Firestore:', err.message);
+      }
+    }
+
+    this.logAudit({
+      action: 'GLOBAL_RESET',
+      target: 'SYSTEM',
+      targetId: 'all-games',
+      details: {
+        resetDigital,
+        resetNonDigital,
+        clearHistory,
+        resetCommitment
+      },
+      performedBy: options.resetBy || 'SUPER_ADMIN'
+    });
+    this.saveStorage();
+
+    return {
+      success: true,
+      message: 'Seluruh skor sesi aktif dan riwayat game berhasil di-reset secara global!',
+      resetMeta,
+      leaderboard: this.getUnifiedLeaderboard()
+    };
   }
 
   // === MASTER TEAMS MANAGEMENT (CRUD DINAMIS) ===
@@ -232,7 +352,7 @@ class SuperAdminEngine {
     return this.masterTeams;
   }
 
-  addTeam({ name, color, members }) {
+  addTeam({ name, color, members, createdBy }) {
     if (!name || !name.trim()) throw new Error('Nama tim wajib diisi');
     const tId = name.trim().toLowerCase().replace(/[^a-z0-9]/g, '') || `team-${Date.now()}`;
     if (this.masterTeams[tId]) {
@@ -243,15 +363,24 @@ class SuperAdminEngine {
       id: tId,
       name: name.trim(),
       color: color || '#38bdf8',
-      members: Array.isArray(members) ? members : []
+      members: Array.isArray(members) ? members : [],
+      createdBy: createdBy || 'SUPER_ADMIN',
+      createdAt: new Date().toISOString()
     };
 
     this.masterTeams[tId] = newTeam;
+    this.logAudit({
+      action: 'ADD_TEAM',
+      target: 'MASTER_TEAM',
+      targetId: tId,
+      details: { name: newTeam.name, membersCount: newTeam.members.length },
+      performedBy: createdBy || 'SUPER_ADMIN'
+    });
     this.saveStorage();
     return newTeam;
   }
 
-  updateTeam(tId, { name, color, members }) {
+  updateTeam(tId, { name, color, members, updatedBy }) {
     if (!this.masterTeams[tId]) {
       throw new Error(`Tim dengan ID '${tId}' tidak ditemukan`);
     }
@@ -259,12 +388,21 @@ class SuperAdminEngine {
     if (name) team.name = name.trim();
     if (color) team.color = color.trim();
     if (Array.isArray(members)) team.members = members;
+    team.updatedBy = updatedBy || 'SUPER_ADMIN';
+    team.updatedAt = new Date().toISOString();
 
+    this.logAudit({
+      action: 'UPDATE_TEAM',
+      target: 'MASTER_TEAM',
+      targetId: tId,
+      details: { name: team.name, membersCount: team.members.length },
+      performedBy: updatedBy || 'SUPER_ADMIN'
+    });
     this.saveStorage();
     return team;
   }
 
-  deleteTeam(tId) {
+  deleteTeam(tId, deletedBy = 'SUPER_ADMIN') {
     if (!this.masterTeams[tId]) {
       throw new Error(`Tim dengan ID '${tId}' tidak ditemukan`);
     }
@@ -278,6 +416,13 @@ class SuperAdminEngine {
       }
     });
 
+    this.logAudit({
+      action: 'DELETE_TEAM',
+      target: 'MASTER_TEAM',
+      targetId: tId,
+      details: { name: deleted.name },
+      performedBy: deletedBy
+    });
     this.saveStorage();
     return deleted;
   }
@@ -438,7 +583,7 @@ class SuperAdminEngine {
     return this.customGames;
   }
 
-  addCustomGame({ title, emoji, description, rules, scores, maxScore }) {
+  addCustomGame({ title, emoji, description, rules, scores, maxScore, createdBy }) {
     if (!title || !title.trim()) {
       throw new Error('Judul game wajib diisi');
     }
@@ -453,10 +598,18 @@ class SuperAdminEngine {
       scores: scores && typeof scores === 'object' ? scores : {},
       maxScore: typeof maxScore === 'number' ? maxScore : 300,
       status: 'ACTIVE',
+      createdBy: createdBy || 'SUPER_ADMIN',
       createdAt: new Date().toISOString()
     };
 
     this.customGames.push(newGame);
+    this.logAudit({
+      action: 'ADD_GAME',
+      target: 'CUSTOM_GAME',
+      targetId: id,
+      details: { title: newGame.title, emoji: newGame.emoji },
+      performedBy: createdBy || 'SUPER_ADMIN'
+    });
     this.saveStorage();
     return newGame;
   }
@@ -478,34 +631,111 @@ class SuperAdminEngine {
     if (typeof updateData.maxScore === 'number') existing.maxScore = updateData.maxScore;
     if (updateData.status) existing.status = updateData.status;
 
+    existing.updatedBy = updateData.updatedBy || 'SUPER_ADMIN';
     existing.updatedAt = new Date().toISOString();
+
+    this.logAudit({
+      action: 'UPDATE_GAME',
+      target: 'CUSTOM_GAME',
+      targetId: id,
+      details: { title: existing.title, updatedFields: Object.keys(updateData) },
+      performedBy: updateData.updatedBy || 'SUPER_ADMIN'
+    });
     this.saveStorage();
     return existing;
   }
 
   // Update skor tim tunggal secara langsung (Insert / Update / Delete Score)
-  setGameScore(gameId, teamId, score) {
+  setGameScore(gameId, teamId, score, setBy = 'SUPER_ADMIN') {
     const game = this.customGames.find(g => g.id === gameId);
     if (!game) throw new Error(`Game dengan ID ${gameId} tidak ditemukan`);
     if (!this.masterTeams[teamId]) throw new Error(`Tim dengan ID ${teamId} tidak ditemukan`);
 
     if (!game.scores) game.scores = {};
+    const oldScore = game.scores[teamId] !== undefined ? game.scores[teamId] : null;
+
     if (score === null || score === undefined || score === '') {
       delete game.scores[teamId];
     } else {
       game.scores[teamId] = parseInt(score, 10) || 0;
     }
 
+    game.updatedBy = setBy;
+    game.updatedAt = new Date().toISOString();
+
+    this.logAudit({
+      action: 'SET_SCORE',
+      target: 'GAME_SCORE',
+      targetId: `${gameId}:${teamId}`,
+      details: {
+        gameTitle: game.title,
+        teamName: this.masterTeams[teamId].name,
+        oldScore,
+        newScore: game.scores[teamId] !== undefined ? game.scores[teamId] : 0
+      },
+      performedBy: setBy
+    });
+
     this.saveStorage();
     return { gameId, teamId, score: game.scores[teamId] || 0 };
   }
 
-  deleteCustomGame(id) {
+  initDefaultGames() {
+    this.customGames = [
+      {
+        id: 'game-pipa-bocor',
+        title: 'Pipa Bocor',
+        emoji: '🪣',
+        description: 'Tantangan kekompakan menutup lubang pipa bocor agar bola pingpong dapat mengapung ke atas.',
+        rules: 'Hanya boleh menggunakan telapak tangan dan jari untuk menutup pipa. Air dari ember tidak boleh tercecer keluar lapangan.',
+        scores: {
+          qatra: 220,
+          vbom: 250,
+          omega: 270,
+          ipc: 240,
+          interlock: 260,
+          avatar: 300
+        },
+        maxScore: 300,
+        status: 'COMPLETED',
+        createdBy: 'PANITIA_EDUCAMP',
+        createdAt: new Date().toISOString()
+      },
+      {
+        id: 'game-yel-yel',
+        title: 'Yel-Yel & Formasi Kreatif',
+        emoji: '📣',
+        description: 'Penilaian kreativitas, kekompakan, dan semangat tempur saat meneriakkan yel-yel kebanggaan regu.',
+        rules: 'Waktu tampil maksimal 3 menit. Dinilai berdasarkan kekompakan, vokal, koreografi, dan kostum/atribut.',
+        scores: {
+          qatra: 260,
+          vbom: 280,
+          omega: 250,
+          ipc: 270,
+          interlock: 290,
+          avatar: 290
+        },
+        maxScore: 300,
+        status: 'COMPLETED',
+        createdBy: 'PANITIA_EDUCAMP',
+        createdAt: new Date().toISOString()
+      }
+    ];
+  }
+
+  deleteCustomGame(id, deletedBy = 'SUPER_ADMIN') {
     const idx = this.customGames.findIndex(g => g.id === id);
     if (idx === -1) {
       throw new Error(`Game dengan ID ${id} tidak ditemukan`);
     }
     const removed = this.customGames.splice(idx, 1)[0];
+    this.logAudit({
+      action: 'DELETE_GAME',
+      target: 'CUSTOM_GAME',
+      targetId: id,
+      details: { title: removed.title },
+      performedBy: deletedBy
+    });
     this.saveStorage();
     return removed;
   }

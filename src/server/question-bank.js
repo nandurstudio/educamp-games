@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const firebaseService = require('./firebase-service');
 
 // Bank Soal Hasil Ekstraksi Dokumen TPM PT Sanghiang Perkasa (Kalbe Nutritionals)
 // Dialokasikan:
@@ -646,6 +647,20 @@ class QuestionBank {
   constructor() {
     this.questions = [...defaultQuestions];
     this.source = 'DEFAULT'; // DEFAULT, AI, CSV, CUSTOM
+    this.loadFromFirestore();
+  }
+
+  loadFromFirestore() {
+    if (firebaseService.isAvailable()) {
+      firebaseService.loadDoc('question_bank').then(cloudData => {
+        if (cloudData && typeof cloudData === 'object' && Array.isArray(cloudData.questions) && cloudData.questions.length > 0) {
+          this.setQuestions(cloudData.questions, cloudData.source || 'RESTORED', false);
+          console.log(`[QuestionBank Firebase] Berhasil memuat ${this.questions.length} soal kustom dari Firestore!`);
+        }
+      }).catch(err => {
+        console.error('[QuestionBank Firebase] Gagal load dari Firestore:', err.message);
+      });
+    }
   }
 
   getAll() {
@@ -659,10 +674,17 @@ class QuestionBank {
   resetToDefault() {
     this.questions = [...defaultQuestions];
     this.source = 'DEFAULT';
+    if (firebaseService.isAvailable()) {
+      firebaseService.saveDoc('question_bank', {
+        source: 'DEFAULT',
+        total: this.questions.length,
+        questions: this.questions
+      }).catch(err => console.error('[QuestionBank Firebase] Gagal reset di Firestore:', err.message));
+    }
     return this.questions;
   }
 
-  setQuestions(newList, source = 'CUSTOM') {
+  setQuestions(newList, source = 'CUSTOM', syncToCloud = true) {
     if (Array.isArray(newList) && newList.length > 0) {
       this.questions = newList.map((q, idx) => ({
         id: q.id || idx + 1,
@@ -673,6 +695,13 @@ class QuestionBank {
         game: q.game || 'ALL'
       }));
       this.source = source;
+      if (syncToCloud && firebaseService.isAvailable()) {
+        firebaseService.saveDoc('question_bank', {
+          source: this.source,
+          total: this.questions.length,
+          questions: this.questions
+        }).catch(err => console.error('[QuestionBank Firebase] Gagal menyimpan soal ke Firestore:', err.message));
+      }
     }
   }
 

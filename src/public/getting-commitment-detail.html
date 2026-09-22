@@ -235,30 +235,69 @@
     }
 
     // Fungsi Validasi & Submit
-    submitBtn.addEventListener('click', function() {
+    submitBtn.addEventListener('click', async function() {
       const userInput = inputArea.value.trim();
       const expectedKeyword = VALID_KEYWORDS[commitmentId];
 
-      // Pengecekan Kata Kunci (tidak sensitif huruf besar/kecil)
-      if (expectedKeyword && userInput.toLowerCase() === expectedKeyword.toLowerCase()) {
-        // Sembunyikan error jika sebelumnya muncul
-        errorMsg.style.display = 'none';
-
-        // Simpan ke localStorage
-        let savedData = {};
-        try {
-          const raw = localStorage.getItem(STORAGE_KEY);
-          if (raw) savedData = JSON.parse(raw);
-        } catch (e) {}
-
-        savedData[commitmentId] = expectedKeyword;
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(savedData));
-
-        // Redirect Kembali ke Halaman Utama
-        window.location.href = 'getting-commitment.html';
-      } else {
-        // Tampilkan Pesan Error Jika Salah
+      if (!userInput) {
+        errorMsg.textContent = 'Harap isi kata kunci terlebih dahulu!';
         errorMsg.style.display = 'block';
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'MEMPROSES...';
+
+      try {
+        const response = await fetch('/api/commitment/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            commitmentId,
+            keyword: userInput,
+            submitter: 'PESERTA'
+          })
+        });
+
+        const resData = await response.json();
+
+        if (response.ok && resData.success) {
+          errorMsg.style.display = 'none';
+
+          // Backup ke localStorage sebagai local cache
+          try {
+            let savedData = {};
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (raw) savedData = JSON.parse(raw);
+            savedData[commitmentId] = expectedKeyword;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(savedData));
+          } catch (e) {}
+
+          window.location.href = 'getting-commitment.html';
+        } else {
+          errorMsg.textContent = resData.error || 'Salah input : Kata kunci salah';
+          errorMsg.style.display = 'block';
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'SUBMIT';
+        }
+      } catch (err) {
+        // Fallback jika offline / server unreachable: gunakan validasi lokal
+        if (expectedKeyword && userInput.toLowerCase() === expectedKeyword.toLowerCase()) {
+          errorMsg.style.display = 'none';
+          try {
+            let savedData = {};
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (raw) savedData = JSON.parse(raw);
+            savedData[commitmentId] = expectedKeyword;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(savedData));
+          } catch (e) {}
+          window.location.href = 'getting-commitment.html';
+        } else {
+          errorMsg.textContent = 'Salah input : Kata kunci salah';
+          errorMsg.style.display = 'block';
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'SUBMIT';
+        }
       }
     });
 

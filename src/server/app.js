@@ -10,6 +10,8 @@ const tugEngine = require('./tug-engine');
 const superAdminEngine = require('./super-admin-engine');
 const questionBank = require('./question-bank');
 const backupManager = require('./backup-manager');
+const authManager = require('./auth-manager');
+const commitmentEngine = require('./commitment-engine');
 const { generateQuizQuestions } = require('./gemini-service');
 
 const app = express();
@@ -38,6 +40,61 @@ app.use(express.static(path.join(__dirname, '../public')));
 // Favicon route
 app.get('/favicon.ico', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/images/Logo Educamp 2026.png'));
+});
+
+// === FIREBASE AUTHENTICATION & ROLE VERIFICATION ENDPOINTS ===
+
+// Check user role by email / token info
+app.post('/api/auth/check-role', (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email wajib disertakan' });
+    }
+    const roleInfo = authManager.resolveRole(email);
+    if (!roleInfo) {
+      return res.json({
+        authorized: false,
+        message: 'Akun Anda tidak memiliki akses administratif. Hubungi Super Admin.'
+      });
+    }
+    res.json({
+      authorized: true,
+      user: roleInfo
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// List authorized admin users (Super Admin only)
+app.get('/api/auth/admins', (req, res) => {
+  try {
+    res.json({ users: authManager.getAdminUsers() });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Add authorized admin user (Super Admin only)
+app.post('/api/auth/admins', (req, res) => {
+  try {
+    const { email, role, name } = req.body;
+    const added = authManager.addAdminUser({ email, role, name });
+    res.json({ success: true, user: added, message: `Akses ${added.role} untuk ${added.email} berhasil diberikan!` });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Remove authorized admin user (Super Admin only)
+app.delete('/api/auth/admins/:email', (req, res) => {
+  try {
+    const removed = authManager.removeAdminUser(req.params.email);
+    res.json({ success: true, removed, message: `Akses untuk ${removed.email} berhasil dicabut!` });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
 // === REST API ENDPOINTS (PANJAT PINANG) ===
@@ -175,11 +232,18 @@ app.get('/api/super/custom-games', (req, res) => {
   res.json({ games: superAdminEngine.getCustomGames() });
 });
 
+// 3B. Ambil Riwayat Audit Trail Transaksional
+app.get('/api/super/audit-logs', (req, res) => {
+  const limit = parseInt(req.query.limit, 10) || 50;
+  res.json({ logs: superAdminEngine.getAuditLogs(limit) });
+});
+
 // 4. Tambah Game Non-Digital baru
 app.post('/api/super/custom-games', (req, res) => {
   try {
     const newGame = superAdminEngine.addCustomGame(req.body);
     io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
+    io.emit('CUSTOM_GAMES_UPDATE', superAdminEngine.getCustomGames());
     res.json({ success: true, game: newGame, message: 'Game non-digital berhasil ditambahkan' });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -191,6 +255,7 @@ app.put('/api/super/custom-games/:id', (req, res) => {
   try {
     const updated = superAdminEngine.updateCustomGame(req.params.id, req.body);
     io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
+    io.emit('CUSTOM_GAMES_UPDATE', superAdminEngine.getCustomGames());
     res.json({ success: true, game: updated, message: 'Game non-digital berhasil diperbarui' });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -200,8 +265,10 @@ app.put('/api/super/custom-games/:id', (req, res) => {
 // 6. Hapus Game Non-Digital
 app.delete('/api/super/custom-games/:id', (req, res) => {
   try {
-    const removed = superAdminEngine.deleteCustomGame(req.params.id);
+    const deletedBy = req.body?.deletedBy || req.query?.deletedBy || 'SUPER_ADMIN';
+    const removed = superAdminEngine.deleteCustomGame(req.params.id, deletedBy);
     io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
+    io.emit('CUSTOM_GAMES_UPDATE', superAdminEngine.getCustomGames());
     res.json({ success: true, game: removed, message: 'Game non-digital berhasil dihapus' });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -265,7 +332,8 @@ app.put('/api/super/teams/:id', (req, res) => {
 // 11. Hapus Tim
 app.delete('/api/super/teams/:id', (req, res) => {
   try {
-    const deleted = superAdminEngine.deleteTeam(req.params.id);
+    const deletedBy = req.body?.deletedBy || req.query?.deletedBy || 'SUPER_ADMIN';
+    const deleted = superAdminEngine.deleteTeam(req.params.id, deletedBy);
     io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
     res.json({ success: true, team: deleted, message: `Tim ${deleted.name} berhasil dihapus!` });
   } catch (err) {
@@ -287,12 +355,49 @@ app.post('/api/super/teams/reset-default', (req, res) => {
 // 13. Direct Set / Edit / Delete Skor Game Fisik
 app.post('/api/super/set-score', (req, res) => {
   try {
-    const { gameId, teamId, score } = req.body;
-    const result = superAdminEngine.setGameScore(gameId, teamId, score);
+    const { gameId, teamId, score, setBy } = req.body;
+    const result = superAdminEngine.setGameScore(gameId, teamId, score, setBy || 'SUPER_ADMIN');
     io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
+    io.emit('CUSTOM_GAMES_UPDATE', superAdminEngine.getCustomGames());
     res.json({ success: true, result, message: 'Skor berhasil diperbarui!' });
   } catch (err) {
     res.status(400).json({ error: err.message });
+  }
+});
+
+// 13B. GLOBAL RESET: Bersihkan seluruh skor aktif, sesi game digital & non-digital, dan broadcast ke seluruh client
+app.post('/api/super/global-reset', async (req, res) => {
+  try {
+    const options = req.body || {};
+    
+    // Hentikan timer aktif jika ada game yang sedang berjalan
+    stopTimer();
+    stopTugTimer();
+
+    const result = await superAdminEngine.globalResetScores(options);
+
+    // Broadcast reset state secara serempak ke seluruh client tersambung via Socket.IO
+    io.emit('STATE_UPDATE', gameEngine.getPublicState());
+    io.emit('TUG_STATE_UPDATE', tugEngine.getPublicState());
+    io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
+    io.emit('CUSTOM_GAMES_UPDATE', superAdminEngine.getCustomGames());
+    io.emit('MASTER_TEAMS_UPDATE', superAdminEngine.getMasterTeams());
+    if (options.resetCommitment) {
+      io.emit('COMMITMENT_STATE_UPDATE', commitmentEngine.getPublicState());
+      io.emit('COMMITMENT_RESET_TRIGGERED', {
+        timestamp: new Date().toISOString(),
+        resetBy: options.resetBy || 'SUPER_ADMIN'
+      });
+    }
+    io.emit('GLOBAL_RESET_TRIGGERED', {
+      timestamp: new Date().toISOString(),
+      resetMeta: result.resetMeta
+    });
+
+    res.json(result);
+  } catch (err) {
+    console.error('[Global Reset Error]', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -343,12 +448,80 @@ app.post('/api/backup/restore', (req, res) => {
       state: {
         pinang: gameEngine.getPublicState(),
         tug: tugEngine.getPublicState(),
-        leaderboard: superAdminEngine.getUnifiedLeaderboard()
+        leaderboard: superAdminEngine.getUnifiedLeaderboard(),
+        commitment: commitmentEngine.getPublicState()
       }
     });
   } catch (err) {
     console.error('[Backup Restore Error]', err);
     res.status(400).json({ error: err.message });
+  }
+});
+
+// === REST API GETTING COMMITMENT (CLOUD FIRESTORE & WEBSOCKET PERSISTENCE) ===
+
+// 17. Ambil state komitmen saat ini
+app.get('/api/commitment/state', (req, res) => {
+  try {
+    res.json(commitmentEngine.getPublicState());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 18. Submit kata kunci komitmen pilar TPM
+app.post('/api/commitment/submit', (req, res) => {
+  try {
+    const { commitmentId, keyword, submitter } = req.body;
+    const result = commitmentEngine.submitKeyword(commitmentId, keyword, submitter);
+    // Broadcast perubahan ke semua layar aktif secara real-time
+    io.emit('COMMITMENT_STATE_UPDATE', commitmentEngine.getPublicState());
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// 19. Tanda tangan / Klik nama pimpinan
+app.post('/api/commitment/sign', (req, res) => {
+  try {
+    const { personName, submitter } = req.body;
+    const result = commitmentEngine.togglePerson(personName, submitter);
+    io.emit('COMMITMENT_STATE_UPDATE', commitmentEngine.getPublicState());
+    if (result.state.celebrationTriggered) {
+      io.emit('COMMITMENT_CELEBRATION_TRIGGERED', {
+        timestamp: new Date().toISOString()
+      });
+    }
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// 20. Reset komitmen (khusus admin/panitia)
+app.post('/api/commitment/reset', (req, res) => {
+  try {
+    const resetBy = req.body.resetBy || 'SUPER_ADMIN';
+    const result = commitmentEngine.resetCommitment(resetBy);
+    superAdminEngine.logAudit({
+      action: 'COMMITMENT_RESET',
+      target: 'GETTING_COMMITMENT',
+      targetId: 'getting_commitment',
+      details: {
+        message: 'Getting Commitment direset ke kondisi awal'
+      },
+      performedBy: resetBy
+    });
+    superAdminEngine.saveStorage();
+    io.emit('COMMITMENT_STATE_UPDATE', commitmentEngine.getPublicState());
+    io.emit('COMMITMENT_RESET_TRIGGERED', {
+      timestamp: new Date().toISOString(),
+      resetBy
+    });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -359,6 +532,7 @@ io.on('connection', (socket) => {
   // Kirim state awal saat client tersambung
   socket.emit('STATE_UPDATE', gameEngine.getPublicState());
   socket.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
+  socket.emit('COMMITMENT_STATE_UPDATE', commitmentEngine.getPublicState());
 
   // Bergabung ke room role tertentu (arena, controller-team1, controller-team2, admin)
   socket.on('JOIN_ROLE', ({ role, teamId }) => {
@@ -677,6 +851,28 @@ io.on('connection', (socket) => {
   socket.on('TUG_CLEAR_HISTORY', () => {
     tugEngine.clearHistory();
     io.emit('TUG_STATE_UPDATE', tugEngine.getPublicState());
+  });
+
+  // Socket Trigger: SUPER_GLOBAL_RESET (dari Super Admin via WebSocket)
+  socket.on('SUPER_GLOBAL_RESET', async (payload = {}) => {
+    try {
+      stopTimer();
+      stopTugTimer();
+      const result = await superAdminEngine.globalResetScores(payload);
+      io.emit('STATE_UPDATE', gameEngine.getPublicState());
+      io.emit('TUG_STATE_UPDATE', tugEngine.getPublicState());
+      io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
+      io.emit('CUSTOM_GAMES_UPDATE', superAdminEngine.getCustomGames());
+      io.emit('MASTER_TEAMS_UPDATE', superAdminEngine.getMasterTeams());
+      io.emit('GLOBAL_RESET_TRIGGERED', {
+        timestamp: new Date().toISOString(),
+        resetMeta: result.resetMeta
+      });
+      socket.emit('GLOBAL_RESET_ACK', { success: true });
+    } catch (e) {
+      console.error('[Socket Global Reset Error]', e);
+      socket.emit('GLOBAL_RESET_ACK', { success: false, error: e.message });
+    }
   });
 
   socket.on('disconnect', () => {

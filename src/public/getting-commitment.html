@@ -319,6 +319,16 @@
   </div>
 
   <div class="page-wrap">
+    <div style="width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+      <a href="/index.html" style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; background: rgba(30, 41, 59, 0.8); color: var(--text); border: 1px solid var(--border); border-radius: 12px; font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: none; transition: all 0.2s ease;">
+        &#8592; Beranda Educamp
+      </a>
+      <div id="sync-status-badge" style="font-size: 12px; font-weight: 700; color: #4ade80; display: inline-flex; align-items: center; gap: 6px; background: rgba(34, 197, 94, 0.12); padding: 6px 14px; border-radius: 20px; border: 1px solid rgba(74, 222, 128, 0.3);">
+        <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 8px #4ade80;"></span>
+        <span>Firebase Cloud Sync</span>
+      </div>
+    </div>
+
     <header class="header">
       <img src="/images/Logo%20Educamp%202026_tagline_white.png" alt="Logo Educamp 2026" class="brand-logo" />
       <h1 class="title">GETTING COMMITMENT</h1>
@@ -396,6 +406,8 @@
     </main>
   </div>
 
+  <!-- Socket.io untuk sinkronisasi real-time multi-device -->
+  <script src="/socket.io/socket.io.js"></script>
   <script>
     const STORAGE_KEY = 'educamp_getting_commitment';
     const PERSONS_STORAGE_KEY = 'educamp_selected_persons_array';
@@ -409,6 +421,59 @@
     const bgMusic = document.getElementById('bg-music');
     const overlay = document.getElementById('celebration-overlay');
     const closeOverlayBtn = document.getElementById('close-overlay');
+    const syncStatusBadge = document.getElementById('sync-status-badge');
+
+    // Inisialisasi Socket.io
+    let socket = null;
+    try {
+      socket = io();
+      socket.on('connect', () => {
+        updateSyncStatus(true);
+        fetchStateFromServer();
+      });
+      socket.on('disconnect', () => {
+        updateSyncStatus(false);
+      });
+      socket.on('COMMITMENT_STATE_UPDATE', (state) => {
+        applyState(state);
+      });
+      socket.on('COMMITMENT_CELEBRATION_TRIGGERED', () => {
+        overlay.classList.add('active');
+        startBackgroundMusic();
+      });
+      socket.on('COMMITMENT_RESET_TRIGGERED', () => {
+        overlay.classList.remove('active');
+        if (bgMusic) {
+          bgMusic.pause();
+          bgMusic.currentTime = 0;
+          isMusicPlaying = false;
+        }
+        fetchStateFromServer();
+      });
+    } catch (e) {
+      console.warn('Socket connection warning:', e);
+    }
+
+    function updateSyncStatus(isLive) {
+      if (!syncStatusBadge) return;
+      if (isLive) {
+        syncStatusBadge.innerHTML = `
+          <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 8px #4ade80;"></span>
+          <span>Firebase Cloud Live</span>
+        `;
+        syncStatusBadge.style.color = '#4ade80';
+        syncStatusBadge.style.borderColor = 'rgba(74, 222, 128, 0.3)';
+        syncStatusBadge.style.background = 'rgba(34, 197, 94, 0.12)';
+      } else {
+        syncStatusBadge.innerHTML = `
+          <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #f59e0b; box-shadow: 0 0 8px #f59e0b;"></span>
+          <span>Offline Fallback</span>
+        `;
+        syncStatusBadge.style.color = '#f59e0b';
+        syncStatusBadge.style.borderColor = 'rgba(245, 158, 11, 0.3)';
+        syncStatusBadge.style.background = 'rgba(245, 158, 11, 0.12)';
+      }
+    }
 
     // KELOLA MUSIK BACKGROUND (Jalan otomatis di sentuhan pertama)
     let isMusicPlaying = false;
@@ -424,37 +489,49 @@
     document.addEventListener('click', startBackgroundMusic);
     document.addEventListener('touchstart', startBackgroundMusic);
 
-    function getSavedCommitments() {
+    // Ambil data dari server yang tersinkronisasi ke Firebase Firestore
+    async function fetchStateFromServer() {
       try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        return raw ? JSON.parse(raw) : {};
-      } catch (error) {
-        return {};
+        const res = await fetch('/api/commitment/state');
+        if (res.ok) {
+          const state = await res.json();
+          applyState(state);
+          return;
+        }
+      } catch (err) {
+        console.warn('Gagal memuat state dari server, membaca local storage:', err.message);
       }
+      // Fallback ke local storage jika server down
+      renderFromLocalStorage();
     }
 
-    function getSelectedPersons() {
+    function applyState(state) {
+      if (!state || typeof state !== 'object') return;
+      const savedCommitments = state.commitments || {};
+      const selectedPersons = state.selectedPersons || [];
+
+      // Simpan juga ke local storage sebagai offline cache
       try {
-        const raw = localStorage.getItem(PERSONS_STORAGE_KEY);
-        return raw ? JSON.parse(raw) : [];
-      } catch (error) {
-        return [];
-      }
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(savedCommitments));
+        localStorage.setItem(PERSONS_STORAGE_KEY, JSON.stringify(selectedPersons));
+      } catch (e) {}
+
+      renderUI(savedCommitments, selectedPersons, state.celebrationTriggered);
     }
 
-    // Fungsi Hanya Menampilkan Overlay Gambar
-    function checkAndTriggerOverlay() {
-      const selectedPersons = getSelectedPersons();
-      const isAllPersonsSelected = ALL_PERSONS.every(person => selectedPersons.includes(person));
-
-      if (isAllPersonsSelected) {
-        overlay.classList.add('active');
-      }
+    function renderFromLocalStorage() {
+      let savedCommitments = {};
+      let selectedPersons = [];
+      try {
+        const rawC = localStorage.getItem(STORAGE_KEY);
+        if (rawC) savedCommitments = JSON.parse(rawC);
+        const rawP = localStorage.getItem(PERSONS_STORAGE_KEY);
+        if (rawP) selectedPersons = JSON.parse(rawP);
+      } catch (e) {}
+      renderUI(savedCommitments, selectedPersons, false);
     }
 
-    function renderSavedValues() {
-      const savedCommitments = getSavedCommitments();
-
+    function renderUI(savedCommitments, selectedPersons, celebrationTriggered) {
       // Render status tombol komitmen
       document.querySelectorAll('.commitment-item').forEach((item) => {
         const id = item.dataset.id;
@@ -471,7 +548,6 @@
 
       // Cek apakah 6/6 komitmen terisi
       const isAllFilled = REQUIRED_KEYS.every(key => savedCommitments[key] && savedCommitments[key].trim() !== '');
-      const selectedPersons = getSelectedPersons();
 
       // Render status tombol nama
       document.querySelectorAll('.person-btn').forEach((pBtn) => {
@@ -484,11 +560,17 @@
           pBtn.classList.remove('selected');
         }
       });
+
+      // Cek apakah semua pimpinan sudah tanda tangan
+      const isAllPersonsSelected = ALL_PERSONS.every(person => selectedPersons.includes(person));
+      if (celebrationTriggered || (isAllFilled && isAllPersonsSelected)) {
+        overlay.classList.add('active');
+      }
     }
 
-    // Inisialisasi Tampilan
-    renderSavedValues();
-    checkAndTriggerOverlay();
+    // Inisialisasi awal tampilan (langsung baca lokal dulu agar instan, lalu sinkronkan cloud)
+    renderFromLocalStorage();
+    fetchStateFromServer();
 
     // Event Listener Tombol Komitmen
     document.querySelectorAll('.commitment-btn').forEach((button) => {
@@ -503,20 +585,39 @@
 
     // Event Listener Tombol Nama
     document.querySelectorAll('.person-btn').forEach((pBtn) => {
-      pBtn.addEventListener('click', function() {
+      pBtn.addEventListener('click', async function() {
         if (this.disabled) return;
 
         startBackgroundMusic();
-
         const personName = this.dataset.person;
-        let selectedPersons = getSelectedPersons();
+
+        // Kirim penandatanganan ke server (Cloud Firestore & broadcast Socket.io)
+        try {
+          const res = await fetch('/api/commitment/sign', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ personName, submitter: 'LEADER' })
+          });
+          const data = await res.json();
+          if (data && data.state) {
+            applyState(data.state);
+            return;
+          }
+        } catch (e) {
+          console.warn('Gagal sync ke server, fallback local:', e.message);
+        }
+
+        // Fallback local jika offline
+        let selectedPersons = [];
+        try {
+          const raw = localStorage.getItem(PERSONS_STORAGE_KEY);
+          if (raw) selectedPersons = JSON.parse(raw);
+        } catch (e) {}
 
         if (!selectedPersons.includes(personName)) {
           selectedPersons.push(personName);
-          this.classList.add('selected');
           localStorage.setItem(PERSONS_STORAGE_KEY, JSON.stringify(selectedPersons));
-
-          checkAndTriggerOverlay();
+          renderFromLocalStorage();
         }
       });
     });

@@ -327,7 +327,7 @@
     <div class="footer-semver" title="Semantic Versioning">
       <span class="semver-dot"></span>
       <span class="semver-label">SemVer</span>
-      <span>v1.1.0</span>
+      <span>v1.2.0</span>
     </div>
   </div>
 </footer>
@@ -517,6 +517,10 @@
     if (Array.isArray(state.history)) {
       renderHistory(state.history);
     }
+  });
+
+  socket.on('GLOBAL_RESET_TRIGGERED', () => {
+    fetchHistory();
   });
 
   function renderUI(state) {
@@ -862,6 +866,14 @@
   function downloadBackupDirect() {
     window.location.href = '/api/backup/export';
   }
+</script>
+<script src="/js/auth-guard.js"></script>
+<script>
+  window.addEventListener('DOMContentLoaded', () => {
+    if (window.AuthGuard) {
+      window.AuthGuard.init({ requiredRole: 'GAME_MASTER', pageTitle: 'Admin Tarik Tambang', redirectUrl: '/index.html' });
+    }
+  });
 </script>
 </body>
 </html>

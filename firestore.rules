@@ -1,0 +1,49 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwnerEmail(email) {
+      return email == 'nandang.dhe@gmail.com';
+    }
+
+    // Role check helper
+    function getAdminDoc() {
+      return get(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    function hasAdminRole() {
+      return isSignedIn() && (
+        isOwnerEmail(request.auth.token.email) ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isSuperAdmin() {
+      return isSignedIn() && (
+        isOwnerEmail(request.auth.token.email) ||
+        (exists(/databases/$(database)/documents/admins/$(request.auth.uid)) &&
+         getAdminDoc().data.role == 'SUPER_ADMIN')
+      );
+    }
+
+    // Admins collection for role management
+    match /admins/{uid} {
+      allow read: if isSignedIn() && (request.auth.uid == uid || isSuperAdmin());
+      allow write: if isSuperAdmin();
+    }
+
+    // Core Educamp storage documents
+    match /educamp_data/{docId} {
+      allow read: if true;
+      allow write: if true;
+    }
+  }
+}

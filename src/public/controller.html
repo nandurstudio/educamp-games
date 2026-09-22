@@ -330,7 +330,7 @@
         <div class="footer-semver" title="Semantic Versioning">
           <span class="semver-dot"></span>
           <span class="semver-label">SemVer</span>
-          <span>v1.1.0</span>
+          <span>v1.2.0</span>
         </div>
       </div>
     </footer>
@@ -495,6 +495,18 @@
     socket.on('GAME_RESET', () => {
       resetControllerLog();
       startTurnTimer();
+    });
+
+    socket.on('GLOBAL_RESET_TRIGGERED', () => {
+      resetControllerLog();
+      if (turnTimerInterval) {
+        clearInterval(turnTimerInterval);
+        turnTimerInterval = null;
+      }
+      fetch('/api/state').then(r => r.json()).then(state => {
+        gameState = state;
+        updateUI();
+      }).catch(() => {});
     });
 
     socket.on('TIMER_TICK', (data) => {
