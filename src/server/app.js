@@ -191,26 +191,164 @@ app.get('/api/auth/firebase-config', (req, res) => {
   res.status(404).json({ error: 'Firebase config not found or inactive' });
 });
 
-// Check user role by email / token info
+// Check user role by email / token info - Non-authorized users are placed in Pending Admission queue instead of rejected!
 app.post('/api/auth/check-role', (req, res) => {
   try {
-    const { email } = req.body;
+    const { email, name, photoURL } = req.body;
     if (!email) {
       return res.status(400).json({ error: 'Email wajib disertakan' });
     }
-    const roleInfo = authManager.resolveRole(email);
-    if (!roleInfo) {
+    const cleanEmail = email.trim().toLowerCase();
+    const roleInfo = authManager.resolveRole(cleanEmail);
+    if (roleInfo) {
       return res.json({
-        authorized: false,
-        message: 'Akun Anda tidak memiliki akses administratif. Hubungi Super Admin.'
+        authorized: true,
+        status: 'APPROVED',
+        user: roleInfo
       });
     }
+
+    // Tempatkan ke antrean Pending Admission
+    const pendingResult = authManager.registerOrUpdatePending({ email: cleanEmail, name, photoURL });
+    
+    // Broadcast pembaruan antrean secara real-time ke Super Admin
+    if (io) {
+      io.emit('AUTH_PENDING_UPDATED', {
+        pendingCount: authManager.getPendingRequests().length,
+        requests: authManager.getPendingRequests()
+      });
+    }
+
     res.json({
-      authorized: true,
-      user: roleInfo
+      authorized: false,
+      status: 'PENDING',
+      message: 'Akun Anda sedang ditahan di ruang tunggu. Menunggu konfirmasi persetujuan (Admit) dari Super Admin.',
+      email: cleanEmail,
+      name: name || cleanEmail.split('@')[0],
+      photoURL: photoURL || ''
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Polling status persetujuan user
+app.get('/api/auth/check-status', (req, res) => {
+  try {
+    const email = req.query.email;
+    if (!email) return res.status(400).json({ error: 'Email wajib disertakan' });
+    const statusInfo = authManager.checkStatus(email);
+    res.json(statusInfo);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// List antrean permintaan masuk tertahan (Super Admin only)
+app.get('/api/auth/pending', (req, res) => {
+  try {
+    const list = authManager.getPendingRequests();
+    res.json({
+      success: true,
+      count: list.length,
+      requests: list,
+      pending: list
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admit satu user dari antrean (Super Admin)
+app.post('/api/auth/admit', (req, res) => {
+  try {
+    const { email, role = 'GAME_MASTER', admittedBy } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email wajib disertakan' });
+
+    const admitted = authManager.admitUser({ email, role, admittedBy });
+
+    // Notifikasi socket ke client user yang sedang menunggu
+    if (io) {
+      io.emit('AUTH_USER_ADMITTED', {
+        email: admitted.email,
+        role: admitted.role,
+        name: admitted.name
+      });
+      io.emit('AUTH_PENDING_UPDATED', {
+        pendingCount: authManager.getPendingRequests().length,
+        requests: authManager.getPendingRequests()
+      });
+    }
+
+    superAdminEngine.logAudit({
+      action: 'ADMIN_ADMITTED',
+      target: 'AUTH_USER',
+      targetId: admitted.email,
+      details: { role: admitted.role, name: admitted.name },
+      performedBy: admittedBy || 'Super Admin'
+    });
+
+    res.json({
+      success: true,
+      user: admitted,
+      message: `Akses ${admitted.role} untuk ${admitted.email} berhasil disetujui (Admit)!`
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Admit massal semua user yang tertahan (Super Admin)
+app.post('/api/auth/admit-all', (req, res) => {
+  try {
+    const { role = 'GAME_MASTER', admittedBy } = req.body;
+    const admittedList = authManager.admitAll({ role, admittedBy });
+
+    if (io) {
+      admittedList.forEach(u => {
+        io.emit('AUTH_USER_ADMITTED', { email: u.email, role: u.role, name: u.name });
+      });
+      io.emit('AUTH_PENDING_UPDATED', {
+        pendingCount: authManager.getPendingRequests().length,
+        requests: authManager.getPendingRequests()
+      });
+    }
+
+    superAdminEngine.logAudit({
+      action: 'ADMIN_ADMIT_ALL',
+      target: 'AUTH_USER',
+      details: { count: admittedList.length, role },
+      performedBy: admittedBy || 'Super Admin'
+    });
+
+    res.json({
+      success: true,
+      count: admittedList.length,
+      users: admittedList,
+      message: `Berhasil menyetujui ${admittedList.length} pengguna sebagai ${role}!`
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Tolak / Hapus permintaan masuk tertahan
+app.delete('/api/auth/pending/:email', (req, res) => {
+  try {
+    const email = req.params.email;
+    const removed = authManager.rejectPending(email);
+
+    if (io) {
+      io.emit('AUTH_USER_REJECTED', { email });
+      io.emit('AUTH_PENDING_UPDATED', {
+        pendingCount: authManager.getPendingRequests().length,
+        requests: authManager.getPendingRequests()
+      });
+    }
+
+    res.json({ success: true, removed, message: `Permintaan masuk untuk ${email} ditolak/dihapus.` });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 
@@ -226,8 +364,17 @@ app.get('/api/auth/admins', (req, res) => {
 // Add authorized admin user (Super Admin only)
 app.post('/api/auth/admins', (req, res) => {
   try {
-    const { email, role, name } = req.body;
-    const added = authManager.addAdminUser({ email, role, name });
+    const { email, role, name, admittedBy } = req.body;
+    const added = authManager.addAdminUser({ email, role, name, admittedBy });
+
+    if (io) {
+      io.emit('AUTH_USER_ADMITTED', { email: added.email, role: added.role, name: added.name });
+      io.emit('AUTH_PENDING_UPDATED', {
+        pendingCount: authManager.getPendingRequests().length,
+        requests: authManager.getPendingRequests()
+      });
+    }
+
     res.json({ success: true, user: added, message: `Akses ${added.role} untuk ${added.email} berhasil diberikan!` });
   } catch (err) {
     res.status(400).json({ error: err.message });

@@ -157,6 +157,19 @@
           height: 22px;
           border-radius: 50%;
         }
+        .authguard-pulsing-dot {
+          width: 10px;
+          height: 10px;
+          background-color: #f59e0b;
+          border-radius: 50%;
+          display: inline-block;
+          animation: ag-pulse 1.4s infinite ease-in-out;
+        }
+        @keyframes ag-pulse {
+          0% { transform: scale(0.9); opacity: 0.6; box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
+          50% { transform: scale(1.15); opacity: 1; box-shadow: 0 0 10px 4px rgba(245, 158, 11, 0.4); }
+          100% { transform: scale(0.9); opacity: 0.6; box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+        }
         .authguard-btn-logout {
           background: #334155;
           color: #e2e8f0;
@@ -240,23 +253,39 @@
     }
 
     async validateSession(user) {
+      if (this.pendingPollTimer) {
+        clearInterval(this.pendingPollTimer);
+        this.pendingPollTimer = null;
+      }
+
       try {
         const res = await fetch('/api/auth/check-role', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: user.email, uid: user.uid })
+          body: JSON.stringify({
+            email: user.email,
+            name: user.displayName || user.name || '',
+            photoURL: user.photoURL || '',
+            uid: user.uid
+          })
         });
         const data = await res.json();
 
-        // 1. Jika email tidak terdaftar sebagai admin/game master
+        // 1. Jika statusnya PENDING: User ditahan di ruang tunggu (TIDAK DITOLAK!)
+        if (data && data.status === 'PENDING') {
+          this.showPendingWaitingRoom(user, data);
+          return;
+        }
+
+        // 2. Jika email tidak terdaftar sebagai admin/game master dan bukan pending
         if (!data || !data.authorized) {
           this.showUnauthorizedAndRedirect(
-            `Akses Ditolak: Akun (${user.email}) tidak memiliki hak akses Game Master atau Super Admin.`
+            data?.message || `Akses Ditolak: Akun (${user.email}) tidak memiliki hak akses Game Master atau Super Admin.`
           );
           return;
         }
 
-        // 2. Jika halaman mewajibkan Super Admin namun role hanya Game Master
+        // 3. Jika halaman mewajibkan Super Admin namun role hanya Game Master
         const userRole = data.user.role;
         if (this.requiredRole === 'SUPER_ADMIN' && userRole !== 'SUPER_ADMIN') {
           this.showUnauthorizedAndRedirect(
@@ -265,7 +294,7 @@
           return;
         }
 
-        // 3. Berhasil lolos otorisasi
+        // 4. Berhasil lolos otorisasi
         this.currentUser = user;
         this.userRole = userRole;
         this.grantAccess(user, data.user);
@@ -273,6 +302,146 @@
         console.error('[AuthGuard] Kesalahan verifikasi role:', err);
         this.showUnauthorizedAndRedirect('Gagal memverifikasi hak akses dengan server.');
       }
+    }
+
+    showPendingWaitingRoom(user, data) {
+      const curtain = document.getElementById('educamp-auth-blocking-curtain');
+      if (!curtain) return;
+
+      const userName = user.displayName || data.name || user.email.split('@')[0];
+      const photoURL = user.photoURL || data.photoURL || 'https://www.gravatar.com/avatar/?d=mp';
+
+      curtain.innerHTML = `
+        <div style="background: #131d33; border: 1px solid #0284c7; border-radius: 16px; padding: 32px 24px; max-width: 480px; width: 100%; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.7); text-align: center;">
+          <div style="position: relative; display: inline-block; margin-bottom: 14px;">
+            <img src="${photoURL}" alt="Profile" style="width: 72px; height: 72px; border-radius: 50%; border: 3px solid #38bdf8; object-fit: cover; box-shadow: 0 0 20px rgba(56, 189, 248, 0.4);">
+            <span style="position: absolute; bottom: 0; right: 0; background: #f59e0b; width: 22px; height: 22px; border-radius: 50%; border: 2px solid #131d33; display: flex; align-items: center; justify-content: center; font-size: 11px;">⏳</span>
+          </div>
+          
+          <h2 style="font-size: 18px; font-weight: 800; color: #f8fafc; margin: 0 0 4px 0;">${userName}</h2>
+          <div style="font-size: 12px; color: #94a3b8; margin-bottom: 16px; word-break: break-all;">${user.email}</div>
+          
+          <div style="background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.5); border-radius: 10px; padding: 14px 16px; margin-bottom: 18px; text-align: left;">
+            <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; color: #fbbf24; margin-bottom: 6px;">
+              <span class="authguard-pulsing-dot"></span>
+              <span>Akses Tertahan di Ruang Tunggu</span>
+            </div>
+            <div style="font-size: 12px; color: #cbd5e1; line-height: 1.5;">
+              Akun Google Anda berhasil masuk ke sistem. Anda <strong>tidak ditolak</strong>. Permintaan Anda saat ini tertahan agar Super Admin dapat langsung mengizinkan (<strong>Admit</strong>) tanpa perlu mengetik email Anda secara manual.
+            </div>
+          </div>
+
+          <div id="authguard-waiting-status-box" style="background: #0b1326; border: 1px solid #1e293b; border-radius: 8px; padding: 12px; font-size: 12px; color: #38bdf8; display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 20px;">
+            <div class="authguard-spinner" style="width: 16px; height: 16px; margin: 0; border-width: 2px;"></div>
+            <span id="authguard-waiting-msg">Menunggu konfirmasi persetujuan (Admit) dari admin...</span>
+          </div>
+
+          <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+            <button id="authguard-btn-check-now" class="authguard-btn-redirect" style="background: #0284c7; color: #ffffff; border: none; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+              <span>🔄</span> Cek Status Persetujuan
+            </button>
+            <button id="authguard-btn-switch-account" class="authguard-btn-redirect">
+              Ganti Akun Google
+            </button>
+            <a href="${this.redirectUrl}" class="authguard-btn-redirect" style="background: transparent; border-color: #334155; color: #94a3b8;">
+              ← Ke Beranda
+            </a>
+          </div>
+        </div>
+      `;
+
+      // Event button Cek Sekarang
+      const btnCheck = document.getElementById('authguard-btn-check-now');
+      if (btnCheck) {
+        btnCheck.addEventListener('click', async () => {
+          btnCheck.disabled = true;
+          btnCheck.innerHTML = '<span>⏳</span> Memeriksa...';
+          try {
+            const res = await fetch(`/api/auth/check-status?email=${encodeURIComponent(user.email)}`);
+            const statusData = await res.json();
+            if (statusData && statusData.status === 'APPROVED') {
+              this.onUserAdmitted(user, statusData.user);
+              return;
+            }
+          } catch (e) {}
+          setTimeout(() => {
+            if (btnCheck) {
+              btnCheck.disabled = false;
+              btnCheck.innerHTML = '<span>🔄</span> Cek Status Persetujuan';
+            }
+          }, 800);
+        });
+      }
+
+      // Event switch account
+      const btnSwitch = document.getElementById('authguard-btn-switch-account');
+      if (btnSwitch) {
+        btnSwitch.addEventListener('click', async () => {
+          if (this.pendingPollTimer) clearInterval(this.pendingPollTimer);
+          try {
+            if (this.auth) await this.auth.signOut();
+            localStorage.removeItem('educamp_local_admin_session');
+          } catch (e) {}
+          this.handleNoSession();
+        });
+      }
+
+      // Inisialisasi Socket Real-time listener untuk persetujuan instan
+      if (window.io) {
+        try {
+          if (!this.socketInstance) {
+            this.socketInstance = window.io();
+          }
+          this.socketInstance.on('AUTH_USER_ADMITTED', (payload) => {
+            if (payload && payload.email && payload.email.toLowerCase() === user.email.toLowerCase()) {
+              this.onUserAdmitted(user, payload);
+            }
+          });
+          this.socketInstance.on('AUTH_USER_REJECTED', (payload) => {
+            if (payload && payload.email && payload.email.toLowerCase() === user.email.toLowerCase()) {
+              this.showUnauthorizedAndRedirect('Permintaan masuk Anda tidak disetujui oleh Super Admin.');
+            }
+          });
+        } catch (e) {
+          console.warn('[AuthGuard] Socket error:', e.message);
+        }
+      }
+
+      // Polling periodik setiap 2.5 detik sebagai fallback handal
+      this.pendingPollTimer = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/auth/check-status?email=${encodeURIComponent(user.email)}`);
+          const statusData = await res.json();
+          if (statusData && statusData.status === 'APPROVED') {
+            this.onUserAdmitted(user, statusData.user);
+          } else if (statusData && statusData.status === 'REJECTED') {
+            if (this.pendingPollTimer) clearInterval(this.pendingPollTimer);
+            this.showUnauthorizedAndRedirect('Permintaan masuk Anda tidak disetujui oleh Super Admin.');
+          }
+        } catch (e) {}
+      }, 2500);
+    }
+
+    onUserAdmitted(user, roleInfo) {
+      if (this.pendingPollTimer) {
+        clearInterval(this.pendingPollTimer);
+        this.pendingPollTimer = null;
+      }
+
+      const statusBox = document.getElementById('authguard-waiting-status-box');
+      if (statusBox) {
+        statusBox.style.background = '#064e3b';
+        statusBox.style.borderColor = '#10b981';
+        statusBox.style.color = '#34d399';
+        statusBox.innerHTML = `
+          <span style="font-size: 16px;">🎉</span>
+          <span style="font-weight: 800;">AKSES TELAH DISETUJUI ADMIN! Membuka panel...</span>
+        `;
+      }
+
+      setTimeout(() => {
+        this.validateSession(user);
+      }, 700);
     }
 
     handleNoSession() {

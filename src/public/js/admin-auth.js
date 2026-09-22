@@ -329,19 +329,34 @@
     }
 
     async handleUserSignedIn(user) {
+      if (this.pendingPollTimer) {
+        clearInterval(this.pendingPollTimer);
+        this.pendingPollTimer = null;
+      }
       this.currentUser = user;
       try {
         // Verifikasi ke server REST API mengenai role email
         const res = await fetch('/api/auth/check-role', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: user.email, uid: user.uid })
+          body: JSON.stringify({
+            email: user.email,
+            name: user.displayName || user.name || '',
+            photoURL: user.photoURL || '',
+            uid: user.uid
+          })
         });
         const data = await res.json();
 
+        // Jika PENDING: Tampilkan Waiting Room
+        if (data && data.status === 'PENDING') {
+          this.showPendingWaitingRoom(user, data);
+          return;
+        }
+
         if (!data.authorized) {
           this.showLoginCard({
-            error: `Akun Google (${user.email}) belum terdaftar sebagai Game Master atau Super Admin. Hubungi penanggung jawab teknis.`
+            error: data?.message || `Akun Google (${user.email}) belum terdaftar sebagai Game Master atau Super Admin.`
           });
           return;
         }
@@ -352,7 +367,7 @@
 
         if (this.requiredRole === 'SUPER_ADMIN' && role !== 'SUPER_ADMIN') {
           this.showLoginCard({
-            error: `Akun (${user.email}) memiliki hak akses Game Master, namun halaman Super Admin memerlukan hak akses Super Admin.`
+            error: `Akun (${user.email}) memiliki hak akses Game Master, namun halaman ini memerlukan hak akses Super Admin.`
           });
           return;
         }
@@ -363,6 +378,97 @@
         console.error('[AdminAuthGuard] Gagal memverifikasi role:', err);
         this.showLoginCard({ error: 'Gagal memverifikasi status hak akses server.' });
       }
+    }
+
+    showPendingWaitingRoom(user, data) {
+      const card = document.getElementById('educamp-auth-card');
+      if (!card) return;
+
+      const userName = user.displayName || data.name || user.email.split('@')[0];
+      const photoURL = user.photoURL || data.photoURL || 'https://www.gravatar.com/avatar/?d=mp';
+
+      card.innerHTML = `
+        <div style="position: relative; display: inline-block; margin-bottom: 12px;">
+          <img src="${photoURL}" alt="Profile" style="width: 64px; height: 64px; border-radius: 50%; border: 3px solid #38bdf8; object-fit: cover; margin: 0 auto; display: block;">
+          <span style="position: absolute; bottom: 0; right: 0; background: #f59e0b; width: 20px; height: 20px; border-radius: 50%; border: 2px solid #131d33; display: flex; align-items: center; justify-content: center; font-size: 10px;">⏳</span>
+        </div>
+        <h2 style="font-size: 17px; font-weight: 800; color: #f8fafc; margin: 0 0 2px 0;">${userName}</h2>
+        <div style="font-size: 12px; color: #94a3b8; margin-bottom: 14px;">${user.email}</div>
+        
+        <div style="background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.5); border-radius: 8px; padding: 12px; margin-bottom: 16px; text-align: left;">
+          <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #fbbf24; margin-bottom: 4px;">
+            <span>⏳</span>
+            <span>Akses Tertahan di Ruang Tunggu</span>
+          </div>
+          <div style="font-size: 11px; color: #cbd5e1; line-height: 1.4;">
+            Akun Google Anda terhubung. Akses Anda saat ini tertahan agar Super Admin dapat langsung menyetujui (<strong>Admit</strong>) dari dashboard tanpa mengetik email Anda secara manual.
+          </div>
+        </div>
+
+        <div id="adminauth-status-box" style="background: #0b1326; border: 1px solid #1e293b; border-radius: 6px; padding: 10px; font-size: 12px; color: #38bdf8; margin-bottom: 16px;">
+          <span>⏳ Menunggu konfirmasi Admit dari admin...</span>
+        </div>
+
+        <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+          <button id="adminauth-btn-check-now" class="admin-auth-btn-switch" style="background: #0284c7; color: #ffffff; border: none; font-weight: 700;">
+            🔄 Cek Status
+          </button>
+          <button id="adminauth-btn-switch" class="admin-auth-btn-switch">
+            Ganti Akun
+          </button>
+          <a href="${this.redirectUrl}" class="admin-auth-btn-switch" style="border: none; background: transparent; color: #64748b;">
+            ← Beranda
+          </a>
+        </div>
+      `;
+
+      const btnCheck = document.getElementById('adminauth-btn-check-now');
+      if (btnCheck) {
+        btnCheck.addEventListener('click', async () => {
+          btnCheck.disabled = true;
+          try {
+            const res = await fetch(`/api/auth/check-status?email=${encodeURIComponent(user.email)}`);
+            const sData = await res.json();
+            if (sData && sData.status === 'APPROVED') {
+              this.handleUserSignedIn(user);
+              return;
+            }
+          } catch (e) {}
+          setTimeout(() => { if (btnCheck) btnCheck.disabled = false; }, 800);
+        });
+      }
+
+      const btnSwitch = document.getElementById('adminauth-btn-switch');
+      if (btnSwitch) {
+        btnSwitch.addEventListener('click', async () => {
+          if (this.pendingPollTimer) clearInterval(this.pendingPollTimer);
+          if (this.auth) await this.auth.signOut();
+          this.showLoginCard({});
+        });
+      }
+
+      // Socket & Polling fallback
+      if (window.io) {
+        try {
+          if (!this.socketInstance) this.socketInstance = window.io();
+          this.socketInstance.on('AUTH_USER_ADMITTED', (p) => {
+            if (p && p.email && p.email.toLowerCase() === user.email.toLowerCase()) {
+              this.handleUserSignedIn(user);
+            }
+          });
+        } catch (e) {}
+      }
+
+      this.pendingPollTimer = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/auth/check-status?email=${encodeURIComponent(user.email)}`);
+          const sData = await res.json();
+          if (sData && sData.status === 'APPROVED') {
+            clearInterval(this.pendingPollTimer);
+            this.handleUserSignedIn(user);
+          }
+        } catch (e) {}
+      }, 2500);
     }
 
     grantAccess(user, roleInfo) {
