@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Getting Commitment</title>
+  <link rel="icon" type="image/png" href="/images/Logo%20Educamp%202026.png" />
+
+  <style>
+    :root {
+      --bg: #0b1329;
+      --border: rgba(148, 163, 184, 0.25);
+      --text: #e2e8f0;
+      --accent-2: #38bdf8;
+      --white: #ffffff;
+      
+      /* Warna Tombol Orang */
+      --btn-red: #ef4444;        /* Warna awal (Merah) */
+      --btn-red-hover: #dc2626;  
+      --btn-blue: #2563eb;       /* Warna setelah diklik (Biru) */
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      background: linear-gradient(180deg, #0b1329 0%, #111827 100%);
+      color: var(--text);
+      padding: 32px 20px 60px;
+    }
+
+    .page-wrap {
+      width: 100%;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .brand-logo {
+      width: min(520px, 72vw);
+      max-height: 110px;
+      object-fit: contain;
+      filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.35));
+    }
+
+    .title {
+      margin-top: 20px;
+      font-size: clamp(28px, 4vw, 44px);
+      letter-spacing: 0.04em;
+      color: var(--white);
+      font-weight: 800;
+    }
+
+    .card {
+      background: linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(30, 41, 59, 0.9));
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.22);
+      padding: 28px 24px;
+    }
+
+    .commitment-list {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .commitment-item {
+      display: grid;
+      grid-template-columns: minmax(280px, 1fr) minmax(340px, 1.2fr);
+      gap: 20px;
+      align-items: stretch;
+    }
+
+    .commitment-btn {
+      width: 100%;
+      min-height: 60px;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      border-radius: 14px;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      background: rgba(15, 23, 42, 0.9);
+      color: var(--white);
+      font-size: 16px;
+      font-weight: 600;
+      padding: 14px 18px;
+      cursor: pointer;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .commitment-btn:hover {
+      background: rgba(30, 41, 59, 1);
+      border-color: var(--accent-2);
+      box-shadow: 0 0 14px rgba(56, 189, 248, 0.25);
+    }
+
+    .commitment-btn:active {
+      transform: scale(0.98);
+    }
+
+    .commitment-btn.completed {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: var(--accent-2);
+      color: var(--accent-2);
+      font-weight: 700;
+    }
+
+    .commitment-value {
+      width: 100%;
+      min-height: 60px;
+      height: auto;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 14px 18px;
+      border-radius: 14px;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      border-left: 4px solid var(--accent-2);
+      background: rgba(30, 41, 59, 0.85);
+      color: var(--text);
+      font-size: 15px;
+      font-weight: 600;
+      line-height: 1.5;
+    }
+
+    .value-label {
+      display: none;
+      font-size: 11px;
+      text-transform: uppercase;
+      color: var(--accent-2);
+      margin-bottom: 4px;
+      font-weight: 700;
+    }
+
+    /* =========================================
+       TOMBOL DAFTAR NAMA
+    ========================================= */
+    .person-list {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-top: 28px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(148, 163, 184, 0.2);
+    }
+
+    .person-btn {
+      width: 100%;
+      padding: 14px 16px;
+      font-size: 16px;
+      font-weight: 700;
+      border: 2px solid transparent;
+      border-radius: 12px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s ease;
+    }
+
+    /* Status 1: Belum Dipilih (Merah) */
+    .person-btn:not(:disabled):not(.selected) {
+      background: var(--btn-red);
+      color: var(--white);
+      box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+    }
+
+    .person-btn:not(:disabled):not(.selected):hover {
+      background: var(--btn-red-hover);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(239, 68, 68, 0.45);
+    }
+
+    /* Status 2: Terpilih / Permanen Biru */
+    .person-btn.selected {
+      background: var(--btn-blue) !important;
+      color: var(--white);
+      border-color: var(--accent-2);
+      box-shadow: 0 0 20px rgba(37, 99, 235, 0.6);
+      cursor: default;
+    }
+
+    .person-btn:active:not(:disabled):not(.selected) {
+      transform: translateY(0);
+    }
+
+    /* Status 3: Disabled jika komitmen belum 6/6 */
+    .person-btn:disabled {
+      background: #334155;
+      color: #64748b;
+      cursor: not-allowed;
+      box-shadow: none;
+      opacity: 0.6;
+      transform: none !important;
+    }
+
+    @media (max-width: 850px) {
+      .person-list {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    /* TAMPILAN HP (1 KOLOM FULL) */
+    @media (max-width: 650px) {
+      .commitment-item {
+        grid-template-columns: 1fr;
+        gap: 10px;
+        padding: 14px;
+        background: rgba(15, 23, 42, 0.5);
+        border: 1px solid rgba(148, 163, 184, 0.15);
+        border-radius: 16px;
+      }
+      .value-label { display: block; }
+
+      .person-list {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+
+      .person-btn {
+        font-size: 15px;
+        padding: 14px 12px;
+      }
+    }
+
+    /* =========================================
+       FULLSCREEN OVERLAY CELEBRATION
+    ========================================= */
+    .celebration-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100dvh;
+        z-index: 999999;
+        background: #0b1329; /* Disamakan dengan background tema agar latar menyatu */
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+        animation: fadeIn 0.4s ease forwards;
+    }
+
+    .celebration-overlay.active {
+      display: flex;
+    }
+
+    .overlay-content {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 16px; /* Memberikan sedikit ruang bernapas di pinggir layar HP */
+    }
+
+    .full-screen-img {
+      width: 100%;
+        height: 100%;
+        object-fit: contain; /* Memastikan seluruh gambar, logo, dan teks tampil 100% utuh */
+        object-position: center;
+    }
+
+    .close-overlay-btn {
+      position: absolute;
+        top: 16px;
+        right: 20px;
+        z-index: 1000000;
+        background: rgba(15, 23, 42, 0.85);
+        color: #ffffff;
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        font-size: 28px;
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.97); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    @media (max-width: 650px) {
+    .full-screen-img {
+        object-fit: contain;
+        object-position: center;
+    }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- AUDIO BACKGROUND (DENGAN ATRIBUT LOOP) -->
+  <audio id="bg-music" src="/audio/celebration_short.mp3" preload="auto" loop></audio>
+
+  <!-- FULLSCREEN OVERLAY GAMBAR -->
+  <div id="celebration-overlay" class="celebration-overlay">
+    <div class="overlay-content">
+      <button type="button" class="close-overlay-btn" id="close-overlay">&times;</button>
+      <img src="/images/Getting copy.jpg" alt="TPM World Class Award 2028" class="full-screen-img" />
+    </div>
+  </div>
+
+  <div class="page-wrap">
+    <header class="header">
+      <img src="/images/Logo%20Educamp%202026_tagline_white.png" alt="Logo Educamp 2026" class="brand-logo" />
+      <h1 class="title">GETTING COMMITMENT</h1>
+    </header>
+
+    <main class="card">
+      <div class="commitment-list">
+
+        <div class="commitment-item" data-id="commitment-1">
+          <button type="button" class="commitment-btn">Click Here!</button>
+          <div class="commitment-value">
+            <span class="value-label">Makna menuju TPM World Class</span>
+            <span class="text-content">Fleksibilitas dan agility proses produksi</span>
+          </div>
+        </div>
+
+        <div class="commitment-item" data-id="commitment-2">
+          <button type="button" class="commitment-btn">Click Here!</button>
+          <div class="commitment-value">
+            <span class="value-label">Makna menuju TPM World Class</span>
+            <span class="text-content">Sustainability menjadi bagian dari operational excellence</span>
+          </div>
+        </div>
+
+        <div class="commitment-item" data-id="commitment-3">
+          <button type="button" class="commitment-btn">Click Here!</button>
+          <div class="commitment-value">
+            <span class="value-label">Makna menuju TPM World Class</span>
+            <span class="text-content">Knowledge sharing dan capability development yang berkelanjutan</span>
+          </div>
+        </div>
+
+        <div class="commitment-item" data-id="commitment-4">
+          <button type="button" class="commitment-btn">Click Here!</button>
+          <div class="commitment-value">
+            <span class="value-label">Makna menuju TPM World Class</span>
+            <span class="text-content">Menghilangkan waste dan meningkatkan efisiensi</span>
+          </div>
+        </div>
+
+        <div class="commitment-item" data-id="commitment-5">
+          <button type="button" class="commitment-btn">Click Here!</button>
+          <div class="commitment-value">
+            <span class="value-label">Makna menuju TPM World Class</span>
+            <span class="text-content">Proses semakin cepat, efektif, dan customer-oriented</span>
+          </div>
+        </div>
+
+        <div class="commitment-item" data-id="commitment-6">
+          <button type="button" class="commitment-btn">Click Here!</button>
+          <div class="commitment-value">
+            <span class="value-label">Makna menuju TPM World Class</span>
+            <span class="text-content">Quality + digitalization untuk keputusan yang lebih cepat dan akurat</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- TOMBOL NAMA -->
+      <div class="person-list">
+        <button type="button" class="person-btn" data-person="Andy Chendra" disabled>
+          Andy Chendra
+        </button>
+        <button type="button" class="person-btn" data-person="Fajar Fauzan" disabled>
+          Fajar Fauzan
+        </button>
+        <button type="button" class="person-btn" data-person="Yuswa Slamet" disabled>
+          Yuswa Slamet
+        </button>
+        <button type="button" class="person-btn" data-person="Verdiana" disabled>
+          Verdiana
+        </button>
+      </div>
+
+    </main>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'educamp_getting_commitment';
+    const PERSONS_STORAGE_KEY = 'educamp_selected_persons_array';
+
+    const REQUIRED_KEYS = [
+      'commitment-1', 'commitment-2', 'commitment-3',
+      'commitment-4', 'commitment-5', 'commitment-6'
+    ];
+    const ALL_PERSONS = ['Andy Chendra', 'Fajar Fauzan', 'Yuswa Slamet', 'Verdiana'];
+
+    const bgMusic = document.getElementById('bg-music');
+    const overlay = document.getElementById('celebration-overlay');
+    const closeOverlayBtn = document.getElementById('close-overlay');
+
+    // KELOLA MUSIK BACKGROUND (Jalan otomatis di sentuhan pertama)
+    let isMusicPlaying = false;
+    function startBackgroundMusic() {
+      if (!isMusicPlaying && bgMusic) {
+        bgMusic.play().then(() => {
+          isMusicPlaying = true;
+        }).catch(() => {});
+      }
+    }
+
+    // Pasang listener di seluruh layar untuk memulai musik background
+    document.addEventListener('click', startBackgroundMusic);
+    document.addEventListener('touchstart', startBackgroundMusic);
+
+    function getSavedCommitments() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        return raw ? JSON.parse(raw) : {};
+      } catch (error) {
+        return {};
+      }
+    }
+
+    function getSelectedPersons() {
+      try {
+        const raw = localStorage.getItem(PERSONS_STORAGE_KEY);
+        return raw ? JSON.parse(raw) : [];
+      } catch (error) {
+        return [];
+      }
+    }
+
+    // Fungsi Hanya Menampilkan Overlay Gambar
+    function checkAndTriggerOverlay() {
+      const selectedPersons = getSelectedPersons();
+      const isAllPersonsSelected = ALL_PERSONS.every(person => selectedPersons.includes(person));
+
+      if (isAllPersonsSelected) {
+        overlay.classList.add('active');
+      }
+    }
+
+    function renderSavedValues() {
+      const savedCommitments = getSavedCommitments();
+
+      // Render status tombol komitmen
+      document.querySelectorAll('.commitment-item').forEach((item) => {
+        const id = item.dataset.id;
+        const btn = item.querySelector('.commitment-btn');
+        
+        if (savedCommitments[id]) {
+          btn.textContent = savedCommitments[id];
+          btn.classList.add('completed');
+        } else {
+          btn.textContent = 'Click Here!';
+          btn.classList.remove('completed');
+        }
+      });
+
+      // Cek apakah 6/6 komitmen terisi
+      const isAllFilled = REQUIRED_KEYS.every(key => savedCommitments[key] && savedCommitments[key].trim() !== '');
+      const selectedPersons = getSelectedPersons();
+
+      // Render status tombol nama
+      document.querySelectorAll('.person-btn').forEach((pBtn) => {
+        pBtn.disabled = !isAllFilled;
+
+        const personName = pBtn.dataset.person;
+        if (isAllFilled && selectedPersons.includes(personName)) {
+          pBtn.classList.add('selected');
+        } else {
+          pBtn.classList.remove('selected');
+        }
+      });
+    }
+
+    // Inisialisasi Tampilan
+    renderSavedValues();
+    checkAndTriggerOverlay();
+
+    // Event Listener Tombol Komitmen
+    document.querySelectorAll('.commitment-btn').forEach((button) => {
+      button.addEventListener('click', function() {
+        const item = this.closest('.commitment-item');
+        const id = item.dataset.id;
+        const valueText = item.querySelector('.text-content').textContent.trim();
+        
+        window.location.href = `getting-commitment-detail.html?id=${encodeURIComponent(id)}&title=${encodeURIComponent(valueText)}`;
+      });
+    });
+
+    // Event Listener Tombol Nama
+    document.querySelectorAll('.person-btn').forEach((pBtn) => {
+      pBtn.addEventListener('click', function() {
+        if (this.disabled) return;
+
+        startBackgroundMusic();
+
+        const personName = this.dataset.person;
+        let selectedPersons = getSelectedPersons();
+
+        if (!selectedPersons.includes(personName)) {
+          selectedPersons.push(personName);
+          this.classList.add('selected');
+          localStorage.setItem(PERSONS_STORAGE_KEY, JSON.stringify(selectedPersons));
+
+          checkAndTriggerOverlay();
+        }
+      });
+    });
+
+    // Event Listener Tombol Silang (Hanya Tutup Overlay, Musik Tetap Jalan)
+    closeOverlayBtn.addEventListener('click', function() {
+      overlay.classList.remove('active');
+    });
+  </script>
+</body>
+</html>
