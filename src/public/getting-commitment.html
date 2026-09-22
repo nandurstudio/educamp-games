@@ -238,18 +238,18 @@
        FULLSCREEN OVERLAY CELEBRATION
     ========================================= */
     .celebration-overlay {
-        display: none;
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100vw;
-        height: 100dvh;
-        z-index: 999999;
-        background: #0b1329; /* Disamakan dengan background tema agar latar menyatu */
-        justify-content: center;
-        align-items: center;
-        overflow: hidden;
-        animation: fadeIn 0.4s ease forwards;
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100dvh;
+      z-index: 999999;
+      background: #0b1329;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      animation: fadeIn 0.4s ease forwards;
     }
 
     .celebration-overlay.active {
@@ -257,39 +257,39 @@
     }
 
     .overlay-content {
-        position: relative;
-        width: 100%;
-        height: 100%;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        padding: 16px; /* Memberikan sedikit ruang bernapas di pinggir layar HP */
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 16px;
     }
 
     .full-screen-img {
       width: 100%;
-        height: 100%;
-        object-fit: contain; /* Memastikan seluruh gambar, logo, dan teks tampil 100% utuh */
-        object-position: center;
+      height: 100%;
+      object-fit: contain;
+      object-position: center;
     }
 
     .close-overlay-btn {
       position: absolute;
-        top: 16px;
-        right: 20px;
-        z-index: 1000000;
-        background: rgba(15, 23, 42, 0.85);
-        color: #ffffff;
-        border: 1px solid rgba(255, 255, 255, 0.4);
-        font-size: 28px;
-        width: 44px;
-        height: 44px;
-        border-radius: 50%;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
+      top: 16px;
+      right: 20px;
+      z-index: 1000000;
+      background: rgba(15, 23, 42, 0.85);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      font-size: 28px;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
     }
 
     @keyframes fadeIn {
@@ -298,16 +298,16 @@
     }
 
     @media (max-width: 650px) {
-    .full-screen-img {
+      .full-screen-img {
         object-fit: contain;
         object-position: center;
-    }
+      }
     }
   </style>
 </head>
 <body>
 
-  <!-- AUDIO BACKGROUND (DENGAN ATRIBUT LOOP) -->
+  <!-- AUDIO BACKGROUND -->
   <audio id="bg-music" src="/audio/celebration_short.mp3" preload="auto" loop></audio>
 
   <!-- FULLSCREEN OVERLAY GAMBAR -->
@@ -406,6 +406,8 @@
     </main>
   </div>
 
+  <!-- Library Confetti CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
   <!-- Socket.io untuk sinkronisasi real-time multi-device -->
   <script src="/socket.io/socket.io.js"></script>
   <script>
@@ -422,6 +424,46 @@
     const overlay = document.getElementById('celebration-overlay');
     const closeOverlayBtn = document.getElementById('close-overlay');
     const syncStatusBadge = document.getElementById('sync-status-badge');
+
+    // FUNGSI CONFETTI BERULANG / KONTINU
+    let confettiTimer = null;
+
+    function startContinuousConfetti() {
+      if (typeof confetti !== 'function') return;
+      stopContinuousConfetti(); // Reset timer jika sebelumnya ada
+
+      const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 1000001 };
+
+      function randomInRange(min, max) {
+        return Math.random() * (max - min) + min;
+      }
+
+      // Tembakkan confetti secara berulang setiap 400ms selama overlay aktif
+      confettiTimer = setInterval(() => {
+        if (!overlay.classList.contains('active')) {
+          stopContinuousConfetti();
+          return;
+        }
+
+        confetti({
+          ...defaults,
+          particleCount: 25,
+          origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 }
+        });
+        confetti({
+          ...defaults,
+          particleCount: 25,
+          origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 }
+        });
+      }, 400);
+    }
+
+    function stopContinuousConfetti() {
+      if (confettiTimer) {
+        clearInterval(confettiTimer);
+        confettiTimer = null;
+      }
+    }
 
     // Inisialisasi Socket.io
     let socket = null;
@@ -440,9 +482,11 @@
       socket.on('COMMITMENT_CELEBRATION_TRIGGERED', () => {
         overlay.classList.add('active');
         startBackgroundMusic();
+        startContinuousConfetti();
       });
       socket.on('COMMITMENT_RESET_TRIGGERED', () => {
         overlay.classList.remove('active');
+        stopContinuousConfetti();
         if (bgMusic) {
           bgMusic.pause();
           bgMusic.currentTime = 0;
@@ -475,21 +519,29 @@
       }
     }
 
-    // KELOLA MUSIK BACKGROUND (Jalan otomatis di sentuhan pertama)
+    // KELOLA MUSIK BACKGROUND
     let isMusicPlaying = false;
     function startBackgroundMusic() {
+      if (!overlay.classList.contains('active')) return;
+
       if (!isMusicPlaying && bgMusic) {
         bgMusic.play().then(() => {
           isMusicPlaying = true;
-        }).catch(() => {});
+        }).catch((err) => {
+          console.log("Autoplay diblokir browser, menunggu sentuhan pengguna di overlay:", err);
+          const unlockAudio = () => {
+            if (overlay.classList.contains('active') && !isMusicPlaying) {
+              bgMusic.play().then(() => { isMusicPlaying = true; }).catch(() => {});
+            }
+            document.removeEventListener('click', unlockAudio);
+            document.removeEventListener('touchstart', unlockAudio);
+          };
+          document.addEventListener('click', unlockAudio);
+          document.addEventListener('touchstart', unlockAudio);
+        });
       }
     }
 
-    // Pasang listener di seluruh layar untuk memulai musik background
-    document.addEventListener('click', startBackgroundMusic);
-    document.addEventListener('touchstart', startBackgroundMusic);
-
-    // Ambil data dari server yang tersinkronisasi ke Firebase Firestore
     async function fetchStateFromServer() {
       try {
         const res = await fetch('/api/commitment/state');
@@ -501,7 +553,6 @@
       } catch (err) {
         console.warn('Gagal memuat state dari server, membaca local storage:', err.message);
       }
-      // Fallback ke local storage jika server down
       renderFromLocalStorage();
     }
 
@@ -510,7 +561,6 @@
       const savedCommitments = state.commitments || {};
       const selectedPersons = state.selectedPersons || [];
 
-      // Simpan juga ke local storage sebagai offline cache
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(savedCommitments));
         localStorage.setItem(PERSONS_STORAGE_KEY, JSON.stringify(selectedPersons));
@@ -532,7 +582,6 @@
     }
 
     function renderUI(savedCommitments, selectedPersons, celebrationTriggered) {
-      // Render status tombol komitmen
       document.querySelectorAll('.commitment-item').forEach((item) => {
         const id = item.dataset.id;
         const btn = item.querySelector('.commitment-btn');
@@ -546,10 +595,8 @@
         }
       });
 
-      // Cek apakah 6/6 komitmen terisi
       const isAllFilled = REQUIRED_KEYS.every(key => savedCommitments[key] && savedCommitments[key].trim() !== '');
 
-      // Render status tombol nama
       document.querySelectorAll('.person-btn').forEach((pBtn) => {
         pBtn.disabled = !isAllFilled;
 
@@ -561,18 +608,25 @@
         }
       });
 
-      // Cek apakah semua pimpinan sudah tanda tangan
       const isAllPersonsSelected = ALL_PERSONS.every(person => selectedPersons.includes(person));
       if (celebrationTriggered || (isAllFilled && isAllPersonsSelected)) {
         overlay.classList.add('active');
+        startBackgroundMusic();
+        startContinuousConfetti();
+      } else {
+        overlay.classList.remove('active');
+        stopContinuousConfetti();
+        if (bgMusic) {
+          bgMusic.pause();
+          bgMusic.currentTime = 0;
+          isMusicPlaying = false;
+        }
       }
     }
 
-    // Inisialisasi awal tampilan (langsung baca lokal dulu agar instan, lalu sinkronkan cloud)
     renderFromLocalStorage();
     fetchStateFromServer();
 
-    // Event Listener Tombol Komitmen
     document.querySelectorAll('.commitment-btn').forEach((button) => {
       button.addEventListener('click', function() {
         const item = this.closest('.commitment-item');
@@ -583,15 +637,12 @@
       });
     });
 
-    // Event Listener Tombol Nama
     document.querySelectorAll('.person-btn').forEach((pBtn) => {
       pBtn.addEventListener('click', async function() {
         if (this.disabled) return;
 
-        startBackgroundMusic();
         const personName = this.dataset.person;
 
-        // Kirim penandatanganan ke server (Cloud Firestore & broadcast Socket.io)
         try {
           const res = await fetch('/api/commitment/sign', {
             method: 'POST',
@@ -607,7 +658,6 @@
           console.warn('Gagal sync ke server, fallback local:', e.message);
         }
 
-        // Fallback local jika offline
         let selectedPersons = [];
         try {
           const raw = localStorage.getItem(PERSONS_STORAGE_KEY);
@@ -622,13 +672,16 @@
       });
     });
 
-    // Event Listener Tombol Silang (Hanya Tutup Overlay, Musik Tetap Jalan)
     closeOverlayBtn.addEventListener('click', function() {
       overlay.classList.remove('active');
+      stopContinuousConfetti();
+      if (bgMusic) {
+        bgMusic.pause();
+        isMusicPlaying = false;
+      }
     });
 
     // === ROLE CHECK UNTUK TOMBOL BERANDA ===
-    // Hapus tombol Beranda jika pengunjung adalah Tamu (guest) dan bukan Admin yang di-assign
     (async function initAdminAuthCheck() {
       const berandaBtn = document.getElementById('btn-back-beranda');
       if (!berandaBtn) return;
@@ -675,7 +728,6 @@
         }
       }
 
-      // 1. Cek sesi lokal (localhost / bypass session jika tersimpan)
       try {
         const savedLocal = JSON.parse(localStorage.getItem('educamp_local_admin_session') || '{}');
         if (savedLocal && savedLocal.email) {
@@ -687,7 +739,6 @@
         }
       } catch (e) {}
 
-      // 2. Cek Firebase Authentication Session
       try {
         const cfgRes = await fetch('/api/auth/firebase-config');
         if (!cfgRes.ok) {
@@ -712,7 +763,6 @@
 
         const auth = window.firebase.auth();
 
-        // Fallback timeout: Jika dalam 2.5 detik belum terverifikasi sebagai admin, hapus tombol beranda
         const fallbackTimer = setTimeout(() => {
           if (!auth.currentUser) {
             removeBerandaButton();
@@ -726,11 +776,9 @@
             if (isAssignedAdmin) {
               showBerandaButton();
             } else {
-              // Terautentikasi tetapi akun bukan admin yang di-assign -> Hapus tombol Beranda
               removeBerandaButton();
             }
           } else {
-            // Tamu (Guest) / Tidak login -> Hapus tombol Beranda
             removeBerandaButton();
           }
         });

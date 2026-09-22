@@ -85,13 +85,104 @@
       color: #f8fafc;
       font-family: var(--font-number);
     }
+
+    /* =========================================
+       LAYOUT ROLLER STAGE & MULTI-SLOT GRID
+    ========================================= */
+    .roller-container {
+      width: 100%;
+      display: grid;
+      gap: 16px;
+      margin-top: 16px;
+      justify-content: center;
+    }
+
+    /* Standby Mode: Single Centered Card (Original) */
+    .roller-container.standby-mode {
+      grid-template-columns: 1fr;
+      max-width: 700px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    /* Multi-Slot Grid Modes (Saat Pengocokan Aktif) */
+    .roller-container.grid-1 { grid-template-columns: 1fr; max-width: 650px; margin: 16px auto 0 auto; }
+    .roller-container.grid-2 { grid-template-columns: repeat(2, 1fr); max-width: 900px; margin: 16px auto 0 auto; }
+    .roller-container.grid-3 { grid-template-columns: repeat(3, 1fr); max-width: 1100px; margin: 16px auto 0 auto; }
+    .roller-container.grid-4 { grid-template-columns: repeat(4, 1fr); }
+    .roller-container.grid-many { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+
+    .roller-box-card {
+      background: #0b1329;
+      border: 2px solid var(--border-color);
+      border-radius: 16px;
+      padding: 20px 16px;
+      text-align: center;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+      transition: all 0.25s ease;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .roller-box-card.rolling {
+      border-color: #f1c40f;
+      box-shadow: 0 0 20px rgba(241, 196, 15, 0.35);
+      animation: slotGlow 1s infinite alternate;
+    }
+
+    .roller-box-card.winner {
+      border-color: #22c55e;
+      background: rgba(34, 197, 94, 0.08);
+      box-shadow: 0 0 25px rgba(34, 197, 94, 0.4);
+    }
+
+    @keyframes slotGlow {
+      from { border-color: rgba(241, 196, 15, 0.5); }
+      to { border-color: rgba(241, 196, 15, 1); }
+    }
+
+    .roller-card-num {
+      font-size: 11px;
+      font-weight: 800;
+      color: #f1c40f;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+    }
+    .roller-card-nik {
+      font-family: var(--font-number);
+      font-size: 18px;
+      font-weight: 800;
+      color: #38bdf8;
+    }
+    .roller-card-name {
+      font-family: var(--font-heading);
+      font-size: 22px;
+      font-weight: 900;
+      color: #ffffff;
+      margin: 6px 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+    .roller-card-dept {
+      font-size: 13px;
+      color: #94a3b8;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
   </style>
 </head>
 <body>
 
 <canvas id="confetti-canvas"></canvas>
 
-<!-- Top Header Navigation -->
+<!-- Header Navigation -->
 <header class="arena-header">
   <div style="display: flex; align-items: center; gap: 16px;">
     <a href="/index.html" style="text-decoration: none;">
@@ -142,7 +233,7 @@
     </div>
   </section>
 
-  <!-- Rolling Slot Machine Screen -->
+  <!-- Rolling Slot Stage -->
   <section class="rolling-stage" id="stage-box">
     <div style="position: absolute; top: 16px; left: 24px;">
       <span class="gold-badge" id="rolling-status-badge">STANDBY</span>
@@ -151,10 +242,13 @@
       Educamp Live Randomizer
     </div>
 
-    <div class="roller-box">
-      <div class="roller-nik" id="roller-nik">-------</div>
-      <div class="roller-name" id="roller-name">SIAP UNTUK DIUNDI</div>
-      <div class="roller-dept" id="roller-dept">Menunggu Game Master memulai undian</div>
+    <!-- TAMPILAN AWAL / STANDBY: 1 BOX ORIGINAL -->
+    <div id="roller-container" class="roller-container standby-mode">
+      <div class="roller-box-card">
+        <div class="roller-card-nik">-------</div>
+        <div class="roller-card-name">SIAP UNTUK DIUNDI</div>
+        <div class="roller-card-dept">Menunggu Game Master memulai undian</div>
+      </div>
     </div>
   </section>
 
@@ -168,7 +262,6 @@
     </div>
 
     <div class="winners-grid" id="winners-grid">
-      <!-- Winner cards diinjeksi via JavaScript -->
       <div style="grid-column: 1 / -1; text-align: center; color: #64748b; padding: 32px 0;" id="empty-winners-msg">
         Belum ada pemenang untuk sesi hadiah ini. Siap diputar!
       </div>
@@ -177,7 +270,6 @@
 
 </main>
 
-<!-- Sticky Footer Konsisten -->
 <footer class="app-sticky-footer" id="app-sticky-footer">
   <div class="footer-left">
     <img src="/images/Logo%20Educamp%202026.png" alt="Nandur Studio" class="footer-logo">
@@ -192,7 +284,6 @@
   </div>
 </footer>
 
-<!-- Script Socket.io & Live Logic -->
 <script src="/socket.io/socket.io.js"></script>
 <script>
   const socket = io();
@@ -200,8 +291,8 @@
   let state = null;
   let rollingInterval = null;
   let audioContext = null;
+  let currentPrizeId = null; // Melacak ID hadiah aktif saat ini
 
-  // Sound Synth Synthesizer untuk drumroll / slot rolling
   function playTickSound() {
     try {
       if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -216,11 +307,6 @@
       osc.start();
       osc.stop(audioContext.currentTime + 0.06);
     } catch(e) {}
-  }
-
-  // Sesuai permintaan: DILARANG ada musik ketika pemenang sudah didapat
-  function playWinChime() {
-    // No-op: musik dinonaktifkan
   }
 
   // Socket Connection Status
@@ -241,36 +327,93 @@
     renderState();
   });
 
+  // Saat Admin Mengubah Hadiah: Update state & paksa reset panggung roller ke Standby Box
   socket.on('DOORPRIZE_PRIZE_CHANGED', (data) => {
-    if (state) {
+    if (state && data.prize) {
       state.activePrize = data.prize;
-      renderState();
     }
+    resetRollerToStandby();
+    renderState();
   });
 
-  // Rolling Started
+  function getGridClass(count) {
+    if (count === 1) return 'grid-1';
+    if (count === 2) return 'grid-2';
+    if (count === 3) return 'grid-3';
+    if (count === 4) return 'grid-4';
+    return 'grid-many';
+  }
+
+  function renderBlankRollingGrid(count) {
+    const container = document.getElementById('roller-container');
+    container.className = `roller-container ${getGridClass(count)}`;
+    container.innerHTML = '';
+
+    for (let i = 0; i < count; i++) {
+      const card = document.createElement('div');
+      card.className = 'roller-box-card rolling';
+      card.innerHTML = `
+        <div class="roller-card-num">SLOT #${i + 1}</div>
+        <div class="roller-card-nik" id="roller-nik-${i}">-------</div>
+        <div class="roller-card-name" id="roller-name-${i}">MENGOCOK...</div>
+        <div class="roller-card-dept" id="roller-dept-${i}">Mohon Tunggu</div>
+      `;
+      container.appendChild(card);
+    }
+  }
+
+  function renderResultGrid(list, status) {
+    const container = document.getElementById('roller-container');
+    if (!list || list.length === 0) return;
+
+    container.className = `roller-container ${getGridClass(list.length)}`;
+    container.innerHTML = '';
+
+    list.forEach((item, i) => {
+      const card = document.createElement('div');
+      card.className = `roller-box-card ${status === 'winner' ? 'winner' : 'rolling'}`;
+      card.innerHTML = `
+        <div class="roller-card-num">${status === 'winner' ? '🏆 PEMENANG SAH' : '🎯 KANDIDAT'} #${i + 1}</div>
+        <div class="roller-card-nik">${item.nik || '-------'}</div>
+        <div class="roller-card-name">${item.name || 'Terpilih'}</div>
+        <div class="roller-card-dept">${item.department || 'Umum'}</div>
+      `;
+      container.appendChild(card);
+    });
+  }
+
+  // EVENT: PENGOCOKAN DIMULAI (BERUBAH MENJADI MULTI-SLOT SESUAI COUNT ADMIN)
   socket.on('DOORPRIZE_ROLL_STARTED', (data) => {
     const candidates = data.candidates || [];
     if (candidates.length === 0) return;
 
+    const count = data.count || (state && state.activePrize ? state.activePrize.totalWinners : 1);
+
     document.getElementById('connection-dot').className = 'status-dot rolling';
     document.getElementById('connection-text').textContent = 'SEDANG DIUNDI';
-    document.getElementById('rolling-status-badge').textContent = 'ROLLING...';
+    document.getElementById('rolling-status-badge').textContent = `ROLLING (${count} SLOT)...`;
     document.getElementById('rolling-status-badge').className = 'gold-badge grand-prize-badge';
 
+    renderBlankRollingGrid(count);
+
     clearInterval(rollingInterval);
-    let index = 0;
     rollingInterval = setInterval(() => {
-      const candidate = candidates[index % candidates.length];
-      document.getElementById('roller-nik').textContent = candidate.nik;
-      document.getElementById('roller-name').textContent = candidate.name;
-      document.getElementById('roller-dept').textContent = candidate.department || 'Umum';
+      for (let i = 0; i < count; i++) {
+        const randomCand = candidates[Math.floor(Math.random() * candidates.length)];
+        const nikEl = document.getElementById(`roller-nik-${i}`);
+        const nameEl = document.getElementById(`roller-name-${i}`);
+        const deptEl = document.getElementById(`roller-dept-${i}`);
+        
+        if (nikEl) nikEl.textContent = randomCand.nik;
+        if (nameEl) nameEl.textContent = randomCand.name;
+        if (deptEl) deptEl.textContent = randomCand.department || 'Umum';
+      }
       playTickSound();
-      index++;
     }, 60);
   });
 
-  // Candidates / Winners Announced (Saat baru dapat hasil kocokan)
+  // EVENT: HASIL UNDIAN TERPILIH
+  // EVENT: HASIL UNDIAN TERPILIH (STOP ROLL)
   socket.on('DOORPRIZE_WINNERS_DRAWN', (data) => {
     clearInterval(rollingInterval);
     rollingInterval = null;
@@ -280,61 +423,74 @@
     document.getElementById('rolling-status-badge').textContent = data.isReplacement ? 'KOCOK ULANG' : 'KANDIDAT TERPILIH';
     document.getElementById('rolling-status-badge').className = 'gold-badge';
 
-    const winners = data.winners || data.candidates || [];
-    if (winners.length > 0) {
-      const primaryWinner = winners[0];
-      document.getElementById('roller-nik').textContent = primaryWinner.nik;
-      document.getElementById('roller-name').textContent = primaryWinner.name;
-      document.getElementById('roller-dept').textContent = `${primaryWinner.department} • MENUNGGU VERIFIKASI GAME MASTER`;
+    // Ambil array kandidat (baik dikirim candidates, winners, atau objek single)
+    let candidates = [];
+    if (Array.isArray(data.candidates) && data.candidates.length > 0) {
+      candidates = data.candidates;
+    } else if (Array.isArray(data.winners) && data.winners.length > 0) {
+      candidates = data.winners;
+    } else if (data.winner) {
+      candidates = [data.winner];
+    } else if (data.candidate) {
+      candidates = [data.candidate];
     }
 
-    // Tanpa musik apapun saat dapat pemenang
+    renderResultGrid(candidates, 'candidate');
   });
 
-  // Saat pemenang resmi dikonfirmasi & disimpan
+  // EVENT: PEMENANG SAH DIKONFIRMASI
   socket.on('DOORPRIZE_WINNER_CONFIRMED', (data) => {
     document.getElementById('connection-dot').className = 'status-dot active';
     document.getElementById('connection-text').textContent = 'PEMENANG SAH!';
     document.getElementById('rolling-status-badge').textContent = 'SELAMAT!';
     document.getElementById('rolling-status-badge').className = 'gold-badge grand-prize-badge';
 
-    const winners = data.winners || [];
-    if (winners.length > 0) {
-      const primaryWinner = winners[0];
-      document.getElementById('roller-nik').textContent = primaryWinner.nik;
-      document.getElementById('roller-name').textContent = primaryWinner.name;
-      document.getElementById('roller-dept').textContent = `${primaryWinner.department} • RESMI TERPILIH`;
+    let winners = [];
+    if (Array.isArray(data.winners) && data.winners.length > 0) {
+      winners = data.winners;
+    } else if (data.winner) {
+      winners = [data.winner];
     }
 
-    // Luncurkan confetti visual tanda selamat, tetap tanpa musik
+    renderResultGrid(winners, 'winner');
     launchConfetti();
   });
 
-  // Saat undian dibatalkan / tidak disimpan
-  socket.on('DOORPRIZE_DRAW_CANCELLED', () => {
+  // EVENT: BATAL UNDI / RESET (KEMBALI KE 1 BOX STANDBY ORIGINAL)
+  socket.on('DOORPRIZE_DRAW_CANCELLED', resetRollerToStandby);
+  socket.on('DOORPRIZE_RESET_TRIGGERED', resetRollerToStandby);
+
+  function resetRollerToStandby() {
     clearInterval(rollingInterval);
     rollingInterval = null;
+
     document.getElementById('connection-dot').className = 'status-dot active';
     document.getElementById('connection-text').textContent = 'Terhubung Live';
     document.getElementById('rolling-status-badge').textContent = 'STANDBY';
     document.getElementById('rolling-status-badge').className = 'gold-badge';
-    document.getElementById('roller-nik').textContent = '-------';
-    document.getElementById('roller-name').textContent = 'SIAP UNTUK DIUNDI';
-    document.getElementById('roller-dept').textContent = 'Undian dibatalkan / Siap diundi kembali';
-  });
 
-  socket.on('DOORPRIZE_RESET_TRIGGERED', () => {
-    clearInterval(rollingInterval);
-    rollingInterval = null;
-    document.getElementById('rolling-status-badge').textContent = 'STANDBY';
-    document.getElementById('rolling-status-badge').className = 'gold-badge';
-    document.getElementById('roller-nik').textContent = '-------';
-    document.getElementById('roller-name').textContent = 'SIAP UNTUK DIUNDI';
-    document.getElementById('roller-dept').textContent = 'Menunggu Game Master memulai undian';
-  });
+    // Kembalikan ke Tampilan Single Box Original
+    const container = document.getElementById('roller-container');
+    if (container) {
+      container.className = 'roller-container standby-mode';
+      container.innerHTML = `
+        <div class="roller-box-card">
+          <div class="roller-card-nik">-------</div>
+          <div class="roller-card-name">SIAP UNTUK DIUNDI</div>
+          <div class="roller-card-dept">Menunggu Game Master memulai undian</div>
+        </div>
+      `;
+    }
+  }
 
   function renderState() {
     if (!state) return;
+
+    // OTOMATIS RESET ROLLER KE STANDBY BILA ID HADIAH BERGANTI
+    if (state.activePrize && state.activePrize.id !== currentPrizeId) {
+      currentPrizeId = state.activePrize.id;
+      resetRollerToStandby();
+    }
 
     if (state.activeEvent) {
       document.getElementById('event-name-display').textContent = state.activeEvent.name;
@@ -355,7 +511,7 @@
     document.getElementById('available-participants-stat').textContent = state.availableParticipantsCount || 0;
     document.getElementById('winners-count-stat').textContent = state.totalWinnersCount || 0;
 
-    // Render podium pemenang
+    // Render Grid Pemenang Resmi di Bawah Stage
     const grid = document.getElementById('winners-grid');
     grid.innerHTML = '';
     const activePrizeWinners = (state.winners || []).filter(w => !state.activePrize || w.prizeId === state.activePrize.id);
@@ -396,7 +552,6 @@
     }
   }
 
-  // Fullscreen Helper
   function toggleFullScreen() {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(err => {});
@@ -405,7 +560,6 @@
     }
   }
 
-  // Confetti Particle Engine
   function launchConfetti() {
     const canvas = document.getElementById('confetti-canvas');
     const ctx = canvas.getContext('2d');
