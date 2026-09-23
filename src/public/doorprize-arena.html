@@ -176,6 +176,12 @@
       text-overflow: ellipsis;
       max-width: 100%;
     }
+    .winner-card.replacing {
+      border: 2px dashed #f59e0b !important;
+      background: rgba(245, 158, 11, 0.15) !important;
+      box-shadow: 0 0 25px rgba(245, 158, 11, 0.5) !important;
+      animation: pulse 1s infinite alternate;
+    }
   </style>
 </head>
 <body>
@@ -309,6 +315,30 @@
     } catch(e) {}
   }
 
+  function playWinChime() {
+    try {
+      const audio = new Audio('/audio/celebration_short.mp3');
+      audio.volume = 0.85;
+      audio.play().catch(() => {
+        // Fallback Web Audio API sintetis jika autoplay audio dicegah
+        if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+        notes.forEach((freq, i) => {
+          const osc = audioContext.createOscillator();
+          const gain = audioContext.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, audioContext.currentTime + i * 0.12);
+          gain.gain.setValueAtTime(0.2, audioContext.currentTime + i * 0.12);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + i * 0.12 + 0.4);
+          osc.connect(gain);
+          gain.connect(audioContext.destination);
+          osc.start(audioContext.currentTime + i * 0.12);
+          osc.stop(audioContext.currentTime + i * 0.12 + 0.4);
+        });
+      });
+    } catch(e) {}
+  }
+
   // Socket Connection Status
   socket.on('connect', () => {
     document.getElementById('connection-dot').className = 'status-dot active';
@@ -382,19 +412,51 @@
     });
   }
 
-  // EVENT: PENGOCOKAN DIMULAI (BERUBAH MENJADI MULTI-SLOT SESUAI COUNT ADMIN)
+  // EVENT: PENGOCOKAN DIMULAI (DUKUNGAN SINGLE-SLOT KOCOK ULANG INDIVIDU & MULTI-SLOT MASSAL)
   socket.on('DOORPRIZE_ROLL_STARTED', (data) => {
     const candidates = data.candidates || [];
     if (candidates.length === 0) return;
 
-    const count = data.count || (state && state.activePrize ? state.activePrize.totalWinners : 1);
+    const isReplace = !!data.replaceWinnerId;
+    const count = isReplace ? 1 : (data.count || 1);
 
     document.getElementById('connection-dot').className = 'status-dot rolling';
-    document.getElementById('connection-text').textContent = 'SEDANG DIUNDI';
-    document.getElementById('rolling-status-badge').textContent = `ROLLING (${count} SLOT)...`;
+    document.getElementById('connection-text').textContent = isReplace ? 'KOCOK ULANG INDIVIDU' : 'SEDANG DIUNDI';
+    document.getElementById('rolling-status-badge').textContent = isReplace ? '🔄 KOCOK ULANG PENGGANTI...' : `ROLLING (${count} SLOT)...`;
     document.getElementById('rolling-status-badge').className = 'gold-badge grand-prize-badge';
 
-    renderBlankRollingGrid(count);
+    const container = document.getElementById('roller-container');
+
+    if (isReplace) {
+      // HANYA RENDER 1 SLOT KHUSUS PENGGANTI INDIVIDU
+      container.className = 'roller-container grid-1';
+      const targetName = data.targetWinner ? data.targetWinner.name : 'Pemenang';
+      const targetNik = data.targetWinner ? `(${data.targetWinner.nik})` : '';
+      container.innerHTML = `
+        <div class="roller-box-card rolling" style="border-color: #f59e0b; box-shadow: 0 0 30px rgba(245, 158, 11, 0.45); max-width: 600px; width: 100%;">
+          <div class="roller-card-num" style="color: #f59e0b; font-size: 13px; letter-spacing: 1px;">
+            🔄 KOCOK ULANG KHUSUS INDIVIDU
+          </div>
+          <div style="font-size: 13px; color: #fca5a5; margin: 4px 0 10px 0; font-weight: 700; background: rgba(239, 68, 68, 0.15); padding: 4px 12px; border-radius: 20px; border: 1px solid rgba(239, 68, 68, 0.3);">
+            Menggantikan: <strong style="color: #ffffff;">${targetName} ${targetNik}</strong>
+          </div>
+          <div class="roller-card-nik" id="roller-nik-0">-------</div>
+          <div class="roller-card-name" id="roller-name-0">MENGOCOK...</div>
+          <div class="roller-card-dept" id="roller-dept-0">Mohon Tunggu</div>
+        </div>
+      `;
+
+      // Beri tanda visual pada kartu pemenang di daftar bawah yang sedang diganti
+      document.querySelectorAll('.winner-card').forEach(c => c.classList.remove('replacing'));
+      const targetCard = document.getElementById(`winner-card-${data.replaceWinnerId}`);
+      if (targetCard) {
+        targetCard.classList.add('replacing');
+      }
+    } else {
+      // KOCOKAN MASSAL NORMAL: RENDER MULTI-SLOT GRID
+      document.querySelectorAll('.winner-card').forEach(c => c.classList.remove('replacing'));
+      renderBlankRollingGrid(count);
+    }
 
     clearInterval(rollingInterval);
     rollingInterval = setInterval(() => {
@@ -412,18 +474,17 @@
     }, 60);
   });
 
-  // EVENT: HASIL UNDIAN TERPILIH
   // EVENT: HASIL UNDIAN TERPILIH (STOP ROLL)
   socket.on('DOORPRIZE_WINNERS_DRAWN', (data) => {
     clearInterval(rollingInterval);
     rollingInterval = null;
 
     document.getElementById('connection-dot').className = 'status-dot active';
-    document.getElementById('connection-text').textContent = 'KANDIDAT TERPILIH!';
-    document.getElementById('rolling-status-badge').textContent = data.isReplacement ? 'KOCOK ULANG' : 'KANDIDAT TERPILIH';
+    document.getElementById('connection-text').textContent = data.isReplacement ? 'KANDIDAT PENGGANTI!' : 'KANDIDAT TERPILIH!';
+    document.getElementById('rolling-status-badge').textContent = data.isReplacement ? '🔄 KANDIDAT PENGGANTI' : 'KANDIDAT TERPILIH';
     document.getElementById('rolling-status-badge').className = 'gold-badge';
 
-    // Ambil array kandidat (baik dikirim candidates, winners, atau objek single)
+    // Ambil array kandidat
     let candidates = [];
     if (Array.isArray(data.candidates) && data.candidates.length > 0) {
       candidates = data.candidates;
@@ -435,7 +496,30 @@
       candidates = [data.candidate];
     }
 
-    renderResultGrid(candidates, 'candidate');
+    const container = document.getElementById('roller-container');
+
+    if (data.isReplacement && candidates.length > 0) {
+      // TAMPILKAN 1 KOTAK KANDIDAT PENGGANTI INDIVIDU
+      const c = candidates[0];
+      const targetName = data.targetReplaceWinner ? data.targetReplaceWinner.name : (data.targetWinner ? data.targetWinner.name : 'Pemenang Lama');
+      container.className = 'roller-container grid-1';
+      container.innerHTML = `
+        <div class="roller-box-card winner" style="border-color: #f59e0b; box-shadow: 0 0 30px rgba(245, 158, 11, 0.45); max-width: 600px; width: 100%;">
+          <div class="roller-card-num" style="color: #f59e0b; font-size: 13px; letter-spacing: 1px;">
+            🎯 KANDIDAT PENGGANTI (MENUNGGU SAH)
+          </div>
+          <div style="font-size: 13px; color: #fca5a5; margin: 4px 0 10px 0; font-weight: 700; background: rgba(239, 68, 68, 0.15); padding: 4px 12px; border-radius: 20px; border: 1px solid rgba(239, 68, 68, 0.3);">
+            Menggantikan: <strong style="color: #ffffff;">${targetName}</strong>
+          </div>
+          <div class="roller-card-nik">${c.nik || '-------'}</div>
+          <div class="roller-card-name" style="color: #fef08a;">${c.name || 'Terpilih'}</div>
+          <div class="roller-card-dept">${c.department || 'Umum'}</div>
+          <div style="font-size: 11px; color: #94a3b8; margin-top: 10px;">Menunggu verifikasi kehadiran dari Game Master</div>
+        </div>
+      `;
+    } else {
+      renderResultGrid(candidates, 'candidate');
+    }
   });
 
   // EVENT: PEMENANG SAH DIKONFIRMASI
@@ -445,6 +529,9 @@
     document.getElementById('rolling-status-badge').textContent = 'SELAMAT!';
     document.getElementById('rolling-status-badge').className = 'gold-badge grand-prize-badge';
 
+    // Bersihkan highlight replacing di kartu bawah
+    document.querySelectorAll('.winner-card').forEach(c => c.classList.remove('replacing'));
+
     let winners = [];
     if (Array.isArray(data.winners) && data.winners.length > 0) {
       winners = data.winners;
@@ -453,7 +540,14 @@
     }
 
     renderResultGrid(winners, 'winner');
+    playWinChime();
     launchConfetti();
+
+    // Perbarui podium daftar pemenang bawah jika ada state baru
+    if (data.state) {
+      state = data.state;
+      renderState();
+    }
   });
 
   // EVENT: BATAL UNDI / RESET (KEMBALI KE 1 BOX STANDBY ORIGINAL)
@@ -468,6 +562,9 @@
     document.getElementById('connection-text').textContent = 'Terhubung Live';
     document.getElementById('rolling-status-badge').textContent = 'STANDBY';
     document.getElementById('rolling-status-badge').className = 'gold-badge';
+
+    // Bersihkan highlight replacing di kartu bawah
+    document.querySelectorAll('.winner-card').forEach(c => c.classList.remove('replacing'));
 
     // Kembalikan ke Tampilan Single Box Original
     const container = document.getElementById('roller-container');
@@ -528,6 +625,7 @@
       activePrizeWinners.forEach((w, i) => {
         const isGP = w.prizeCategory === 'GRAND PRIZE';
         const card = document.createElement('div');
+        card.id = `winner-card-${w.id}`;
         card.className = `winner-card ${isGP ? 'grandprize-card' : ''}`;
         card.innerHTML = `
           <div style="font-size: 28px; margin-bottom: 6px;">${isGP ? '👑' : '🎁'}</div>

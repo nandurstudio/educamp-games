@@ -726,11 +726,79 @@
       document.getElementById('ctrl-prize-won').textContent = wonThisPrize;
       document.getElementById('current-prize-winners-count').textContent = wonThisPrize;
 
-      // Set input kocokan ke sisa kuota (jika 0/penuh, default ke total kuota hadiah)
+      // Set input kocokan ke sisa kuota & kunci jika kuota sudah terpenuhi
       const remainingQuota = Math.max(0, p.totalWinners - wonThisPrize);
       const drawInput = document.getElementById('draw-count-input');
-      if (drawInput) {
-        drawInput.value = remainingQuota > 0 ? remainingQuota : (p.totalWinners || 1);
+      const startBtn = document.getElementById('btn-start-roll');
+      const stopBtn = document.getElementById('btn-stop-roll');
+      const liveIndicator = document.getElementById('arena-live-indicator');
+
+      if (!targetReplaceWinnerId) {
+        if (remainingQuota === 0) {
+          // Kuota sudah penuh
+          if (drawInput) {
+            drawInput.value = 0;
+            drawInput.disabled = true;
+          }
+          if (startBtn) {
+            startBtn.disabled = true;
+            startBtn.innerHTML = `<span>🔒</span> KUOTA SUDAH PENUH (${wonThisPrize}/${p.totalWinners})`;
+            startBtn.style.opacity = '0.6';
+            startBtn.style.cursor = 'not-allowed';
+            startBtn.style.background = '#475569';
+          }
+          if (stopBtn) {
+            stopBtn.disabled = true;
+            stopBtn.style.opacity = '0.6';
+            stopBtn.style.cursor = 'not-allowed';
+          }
+          if (liveIndicator) {
+            liveIndicator.innerHTML = `🔒 Kuota Terpenuhi (${wonThisPrize}/${p.totalWinners})`;
+            liveIndicator.style.color = '#f59e0b';
+          }
+        } else {
+          // Masih ada kuota
+          if (drawInput) {
+            drawInput.disabled = false;
+            drawInput.max = remainingQuota;
+            const curVal = parseInt(drawInput.value) || remainingQuota;
+            drawInput.value = Math.min(curVal > 0 ? curVal : remainingQuota, remainingQuota);
+          }
+          if (startBtn) {
+            startBtn.disabled = false;
+            startBtn.innerHTML = `<span>🎰</span> MULAI KOCIKAN (START ROLL)`;
+            startBtn.style.opacity = '1';
+            startBtn.style.cursor = 'pointer';
+            startBtn.style.background = '#d97706';
+          }
+          if (stopBtn) {
+            stopBtn.disabled = false;
+            stopBtn.style.opacity = '1';
+            stopBtn.style.cursor = 'pointer';
+          }
+          if (liveIndicator) {
+            liveIndicator.innerHTML = `● Sisa Kuota: ${remainingQuota} orang`;
+            liveIndicator.style.color = '#22c55e';
+          }
+        }
+      } else {
+        // Mode replace individu aktif (diperbolehkan kocok 1 orang pengganti)
+        if (drawInput) {
+          drawInput.value = 1;
+          drawInput.disabled = true;
+        }
+        if (startBtn) {
+          startBtn.disabled = false;
+          startBtn.innerHTML = `<span>🔄</span> MULAI KOCOK PENGGANTI (1 SLOT)`;
+          startBtn.style.opacity = '1';
+          startBtn.style.cursor = 'pointer';
+          startBtn.style.background = '#d97706';
+        }
+        if (stopBtn) {
+          stopBtn.disabled = false;
+          stopBtn.style.opacity = '1';
+          stopBtn.style.cursor = 'pointer';
+        }
       }
 
       // Render winners list for this prize
@@ -942,22 +1010,38 @@
     document.getElementById('reroll-indicator-banner').style.display = 'block';
     document.getElementById('arena-live-indicator').innerHTML = `🔄 Target Kocok Ulang: Menggantikan ${winnerName}`;
     document.getElementById('arena-live-indicator').style.color = '#f59e0b';
-    const rollBtn = document.getElementById('btn-start-roll');
-    if (rollBtn) rollBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    
+    // Aktifkan tombol roll khusus 1 orang pengganti
+    const drawInput = document.getElementById('draw-count-input');
+    if (drawInput) {
+      drawInput.value = 1;
+      drawInput.disabled = true;
+    }
+    const startBtn = document.getElementById('btn-start-roll');
+    if (startBtn) {
+      startBtn.disabled = false;
+      startBtn.innerHTML = `<span>🔄</span> MULAI KOCOK PENGGANTI (1 SLOT)`;
+      startBtn.style.opacity = '1';
+      startBtn.style.cursor = 'pointer';
+      startBtn.style.background = '#d97706';
+      startBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    const stopBtn = document.getElementById('btn-stop-roll');
+    if (stopBtn) {
+      stopBtn.disabled = false;
+      stopBtn.style.opacity = '1';
+      stopBtn.style.cursor = 'pointer';
+    }
   }
 
   function cancelRerollTarget() {
     targetReplaceWinnerId = null;
     const banner = document.getElementById('reroll-indicator-banner');
     if (banner) banner.style.display = 'none';
-    const ind = document.getElementById('arena-live-indicator');
-    if (ind && ind.textContent.includes('Kocok Ulang')) {
-      ind.innerHTML = '● Standby';
-      ind.style.color = '#22c55e';
-    }
+    if (state) renderState();
   }
 
-  // --- VALIDASI PENGOCOKAN (DILARANG JIKA KUOTA MELEBIHI PESERTA ELIGIBLE) ---
+  // --- VALIDASI PENGOCOKAN (DILARANG JIKA KUOTA MELEBIHI PESERTA ELIGIBLE / KUOTA PENUH) ---
 
   function getEligibleParticipantsCount() {
     if (!state || !state.activePrize) return 0;
@@ -973,29 +1057,61 @@
       return;
     }
 
-    const countInput = document.getElementById('draw-count-input');
-    const count = parseInt(countInput.value) || 1;
-    const available = getEligibleParticipantsCount();
+    const p = state.activePrize;
+    const wonThisPrize = (state.winners || []).filter(w => w.prizeId === p.id).length;
+    const remainingQuota = Math.max(0, p.totalWinners - wonThisPrize);
 
+    // Guard Kuota Hadiah jika bukan mode replace
+    if (!targetReplaceWinnerId) {
+      if (remainingQuota <= 0) {
+        alert(`⚠️ Kuota Hadiah Sudah Penuh!\n\nHadiah '${p.name}' sudah mencapai kuota maksimal (${wonThisPrize}/${p.totalWinners} pemenang).\n\nUntuk mengundi ulang peserta yang tidak hadir, silakan klik tombol [🔄 Kocok Ulang (Replace)] pada nama pemenang terkait di daftar bawah.`);
+        return;
+      }
+    }
+
+    const countInput = document.getElementById('draw-count-input');
+    let count = parseInt(countInput.value) || 1;
+
+    // Batasi jika jumlah kocokan melebihi sisa kuota
+    if (!targetReplaceWinnerId && count > remainingQuota) {
+      alert(`⚠️ Jumlah Kocokan Melebihi Sisa Kuota!\n\nSisa kuota untuk hadiah '${p.name}' hanya tersisa ${remainingQuota} orang.\nJumlah kocokan disesuaikan menjadi ${remainingQuota}.`);
+      count = remainingQuota;
+      countInput.value = remainingQuota;
+    }
+
+    const available = getEligibleParticipantsCount();
     if (available <= 0) {
       alert('⚠️ Pengocokan Tidak Dapat Dilanjutkan!\n\nTidak ada peserta eligible (belum menang) yang tersedia untuk diundi.');
       return;
     }
 
-    // Jika targetReplaceWinnerId aktif (tombol Kocok Ulang per 1 nama), paksa 1 slot.
-    // Jika TIDAK, gunakan jumlah `count` yang diisi oleh admin (misal 12 orang).
     const requiredCount = targetReplaceWinnerId ? 1 : count;
-
     if (requiredCount > available) {
       alert(`⚠️ Pengocokan Tidak Dapat Dilanjutkan!\n\nJumlah yang ingin dikocok (${requiredCount} peserta) MELEBIHI jumlah peserta eligible yang belum menang (${available} peserta).`);
       return;
     }
 
     const prizeId = document.getElementById('select-active-prize').value;
+
+    // Ambil info target winner jika mode replace
+    let targetWinner = null;
+    if (targetReplaceWinnerId) {
+      const found = (state.winners || []).find(w => w.id === targetReplaceWinnerId);
+      if (found) {
+        targetWinner = {
+          id: found.id,
+          name: found.name,
+          nik: found.nik,
+          department: found.department
+        };
+      }
+    }
+
     socket.emit('DOORPRIZE_START_ROLL', { 
       prizeId,
       count: requiredCount,
-      replaceWinnerId: targetReplaceWinnerId 
+      replaceWinnerId: targetReplaceWinnerId,
+      targetWinner
     });
   }
 
@@ -1005,17 +1121,30 @@
       return;
     }
 
-    const countInput = document.getElementById('draw-count-input');
-    const count = parseInt(countInput.value) || 1;
-    const available = getEligibleParticipantsCount();
+    const p = state.activePrize;
+    const wonThisPrize = (state.winners || []).filter(w => w.prizeId === p.id).length;
+    const remainingQuota = Math.max(0, p.totalWinners - wonThisPrize);
 
+    if (!targetReplaceWinnerId && remainingQuota <= 0) {
+      alert(`⚠️ Kuota Hadiah Sudah Penuh!\n\nHadiah '${p.name}' sudah mencapai kuota maksimal (${wonThisPrize}/${p.totalWinners} pemenang).`);
+      return;
+    }
+
+    const countInput = document.getElementById('draw-count-input');
+    let count = parseInt(countInput.value) || 1;
+
+    if (!targetReplaceWinnerId && count > remainingQuota) {
+      count = remainingQuota;
+      countInput.value = remainingQuota;
+    }
+
+    const available = getEligibleParticipantsCount();
     if (available <= 0) {
       alert('⚠️ Pengocokan Tidak Dapat Dilanjutkan!\n\nTidak ada peserta eligible (belum menang) yang tersedia untuk diundi.');
       return;
     }
 
     const requiredCount = targetReplaceWinnerId ? 1 : count;
-
     if (requiredCount > available) {
       alert(`⚠️ Pengocokan Tidak Dapat Dilanjutkan!\n\nJumlah yang ingin dikocok (${requiredCount} peserta) MELEBIHI jumlah peserta eligible yang belum menang (${available} peserta).`);
       return;

@@ -1245,10 +1245,31 @@ io.on('connection', (socket) => {
   socket.on('DOORPRIZE_START_ROLL', (data = {}) => {
     doorprizeEngine.isRolling = true;
     const prizeId = data.prizeId || doorprizeEngine.activePrizeId;
-    const pool = doorprizeEngine.getEligiblePool(prizeId);
+    const replaceWinnerId = data.replaceWinnerId || null;
+    const pool = doorprizeEngine.getEligiblePool(prizeId, replaceWinnerId);
+
+    // Ambil info target winner jika mode replace aktif
+    let targetWinner = null;
+    if (replaceWinnerId) {
+      const found = (doorprizeEngine.winners || []).find(w => w.id === replaceWinnerId);
+      if (found) {
+        targetWinner = {
+          id: found.id,
+          name: found.name,
+          nik: found.nik,
+          department: found.department
+        };
+      }
+    }
+
+    const count = replaceWinnerId ? 1 : (parseInt(data.count) || 1);
+
     io.emit('DOORPRIZE_ROLL_STARTED', {
       prizeId,
-      candidates: pool
+      count,
+      candidates: pool,
+      replaceWinnerId,
+      targetWinner
     });
   });
 

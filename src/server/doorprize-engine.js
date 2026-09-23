@@ -467,19 +467,26 @@ class DoorprizeEngine {
     // Cek pemenang aktif saat ini untuk hadiah ini
     const existingPrizeWinners = this.winners.filter(w => w.prizeId === prize.id && w.eventId === this.activeEventId && w.active !== false);
 
-    // Deteksi apakah ini merupakan mode REPLACEMENT (kocok ulang)
-    // Mode replace aktif jika:
-    // a) replaceWinnerId dispesifikasikan secara eksplisit, ATAU
-    // b) Jumlah pemenang yang sudah ada telah mencapai atau melebihi kuota awal (existingPrizeWinners.length >= prize.totalWinners)
-    const isReplacement = !!replaceWinnerId || (existingPrizeWinners.length >= prize.totalWinners);
-
+    // Deteksi apakah ini merupakan mode REPLACEMENT (kocok ulang individu)
+    const isReplacement = !!replaceWinnerId;
     let targetReplaceWinnerId = replaceWinnerId;
-    if (!targetReplaceWinnerId && isReplacement && existingPrizeWinners.length > 0) {
-      // Default ganti pemenang terakhir yang ada
-      targetReplaceWinnerId = existingPrizeWinners[existingPrizeWinners.length - 1].id;
-    }
 
-    const drawCount = isReplacement ? 1 : Math.min(count, pool.length);
+    let drawCount = 1;
+    if (isReplacement) {
+      // Mode kocok ulang individu: HANYA 1 orang yang diundi menggantikan pemenang target
+      drawCount = 1;
+      if (!targetReplaceWinnerId && existingPrizeWinners.length > 0) {
+        targetReplaceWinnerId = existingPrizeWinners[existingPrizeWinners.length - 1].id;
+      }
+    } else {
+      // Mode kocokan normal: Hitung sisa kuota yang belum terisi
+      const remainingQuota = prize.totalWinners - existingPrizeWinners.length;
+      if (remainingQuota <= 0) {
+        throw new Error(`Kuota hadiah '${prize.name}' sudah terpenuhi penuh (${existingPrizeWinners.length}/${prize.totalWinners} pemenang). Gunakan tombol [Kocok Ulang (Replace)] pada nama pemenang tertentu jika ingin mengganti.`);
+      }
+      // Jangan pernah menarik melebihi sisa kuota yang tersedia
+      drawCount = Math.min(count, remainingQuota, pool.length);
+    }
 
     // Fisher-Yates shuffle untuk pengacakan merata
     const shuffled = [...pool];
@@ -531,21 +538,31 @@ class DoorprizeEngine {
       throw new Error('Tidak ada calon pemenang yang menunggu konfirmasi');
     }
 
-    const { prizeId, candidates, prize } = this.pendingDraw;
+    const { prizeId, prize, isReplacement } = this.pendingDraw;
+    let candidates = [...this.pendingDraw.candidates];
     const targetReplaceId = chosenReplaceWinnerId || this.pendingDraw.replaceWinnerId;
 
     // Ambil pemenang aktif hadiah ini
     const existingPrizeWinners = this.winners.filter(w => w.prizeId === prizeId && w.eventId === this.activeEventId && w.active !== false);
 
-    // Jika ada target replace atau jika total pemenang saat ini + baru melebihi total kuota yang di-setup:
-    if (targetReplaceId) {
-      // Hapus pemenang yang digantikan (REPLACE)
-      this.winners = this.winners.filter(w => w.id !== targetReplaceId);
-    } else if (existingPrizeWinners.length + candidates.length > prize.totalWinners) {
-      // Kuota sudah penuh: Replace pemenang yang ada sebanyak selisihnya
-      const excess = (existingPrizeWinners.length + candidates.length) - prize.totalWinners;
-      const toRemoveIds = new Set(existingPrizeWinners.slice(-excess).map(w => w.id));
-      this.winners = this.winners.filter(w => !toRemoveIds.has(w.id));
+    // Penanganan Mode Replace vs Penambahan Kuota Baru
+    if (isReplacement || targetReplaceId) {
+      if (targetReplaceId === 'ALL') {
+        // Hapus seluruh pemenang lama untuk hadiah ini
+        this.winners = this.winners.filter(w => !(w.prizeId === prizeId && w.eventId === this.activeEventId));
+      } else if (targetReplaceId) {
+        // Hapus pemenang yang digantikan secara spesifik
+        this.winners = this.winners.filter(w => w.id !== targetReplaceId);
+      }
+    } else {
+      // Mode penambahan normal: Cegah melebihi totalWinners
+      const availableSlots = Math.max(0, prize.totalWinners - existingPrizeWinners.length);
+      if (availableSlots <= 0) {
+        throw new Error(`Gagal menyimpan: Kuota pemenang untuk hadiah '${prize.name}' sudah penuh (${existingPrizeWinners.length}/${prize.totalWinners}).`);
+      }
+      if (candidates.length > availableSlots) {
+        candidates = candidates.slice(0, availableSlots);
+      }
     }
 
     // Masukkan kandidat baru ke dalam daftar pemenang resmi
