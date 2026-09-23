@@ -509,7 +509,7 @@
         </div>
       </div>
       <div style="margin-left: auto; display: flex; gap: 8px; align-items: center;">
-        <button class="btn-xs btn-blue" onclick="loadInitialData()" style="padding: 6px 12px; font-size: 12px;">
+        <button class="btn-xs btn-blue" onclick="syncDataRealTime(event)" style="padding: 6px 12px; font-size: 12px;">
           🔄 Sync Data Real-Time
         </button>
         <button class="btn-xs btn-green" onclick="downloadBackupFile()" style="padding: 6px 12px; font-size: 12px; font-weight: 700;">
@@ -1183,6 +1183,29 @@
         </button>
       </div>
     </div>
+  <!-- MODAL EDIT SKOR LANGSUNG DARI KLASEMEN -->
+  <div class="modal-overlay" id="score-modal" style="display: none; align-items: center; justify-content: center;">
+    <div class="modal-box" style="max-width: 420px; border: 1px solid #38bdf8; box-shadow: 0 10px 30px rgba(2, 132, 199, 0.3);">
+      <h3 style="margin: 0 0 8px 0; font-size: 16px; color: #38bdf8; display: flex; align-items: center; gap: 8px;">
+        <span>✏️</span> Edit Nilai Game Non-Digital
+      </h3>
+      <p id="score-modal-subtitle" style="margin: 0 0 16px 0; font-size: 12px; color: #94a3b8; line-height: 1.4;">
+        Ubah skor tim untuk game terpilih.
+      </p>
+
+      <input type="hidden" id="score-modal-game-id" value="">
+      <input type="hidden" id="score-modal-team-id" value="">
+
+      <div class="form-group-dense" style="margin-bottom: 14px;">
+        <label class="form-label-dense" style="color: #cbd5e1; font-weight: 700;">Skor Tim (Poin):</label>
+        <input type="number" id="score-modal-input" class="form-input-dense" style="font-size: 20px; font-weight: 800; font-family: 'Courier New', monospace; text-align: center; color: #facc15; padding: 10px; background: #080e1c; border: 1px solid #38bdf8; border-radius: 6px;" min="0" max="1000" step="10" onkeydown="if(event.key==='Enter') submitDirectScore()">
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px;">
+        <button type="button" class="btn-secondary-sm" onclick="closeScoreModal()" style="padding: 8px 16px;">Batal</button>
+        <button type="button" class="btn-primary-sm" onclick="submitDirectScore()" id="btn-save-score" style="background: #0284c7; padding: 8px 18px; font-weight: 700;">Simpan Nilai</button>
+      </div>
+    </div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
@@ -1234,6 +1257,33 @@
       updateBackupStats();
       fetchPendingAdmissions();
       fetchAuthorizedAdmins();
+    }
+
+    async function syncDataRealTime(e) {
+      const btn = (e && e.currentTarget) || (e && e.target);
+      const originalText = btn ? btn.innerHTML : '🔄 Sync Data Real-Time';
+      if (btn) {
+        btn.innerHTML = '⏳ Menyelaraskan...';
+        btn.disabled = true;
+      }
+      try {
+        const res = await fetch('/api/super/sync-cloud', { method: 'POST' });
+        const data = await res.json();
+        loadInitialData();
+        if (data.success) {
+          alert(`✅ ${data.message}\nTotal Game: ${data.gamesCount}, Total Tim: ${data.teamsCount}`);
+        } else {
+          alert(`⚠️ ${data.error || 'Gagal sinkronisasi data dari Firestore'}`);
+        }
+      } catch (err) {
+        console.warn('Sync cloud error, fallback to local fetch:', err);
+        loadInitialData();
+      } finally {
+        if (btn) {
+          btn.innerHTML = originalText;
+          btn.disabled = false;
+        }
+      }
     }
 
     loadInitialData();
@@ -1344,7 +1394,7 @@
           const score = (row.nonDigitalScores && typeof row.nonDigitalScores[g.id] === 'number') ? row.nonDigitalScores[g.id] : 0;
           rowHtml += `
             <td style="text-align: center;">
-              <span class="score-inline-btn" onclick="promptDirectScore('${g.id}', '${row.teamId}', '${g.title}', '${row.teamName}', ${score})" title="Klik untuk edit/isi nilai">
+              <span class="score-inline-btn" onclick="openScoreModal('${g.id}', '${row.teamId}')" title="Klik untuk edit/isi nilai">
                 <strong class="score-cell-val">${score}</strong> ✏️
               </span>
             </td>
@@ -1361,24 +1411,82 @@
       }).join('');
     }
 
-    function promptDirectScore(gameId, teamId, gameTitle, teamName, currentScore) {
-      const newScore = prompt(`Masukkan skor ${teamName} di game "${gameTitle}":`, currentScore);
-      if (newScore === null) return;
+    function openScoreModal(gameId, teamId, gameTitle, teamName, currentScore) {
+      const g = (currentLeaderboardData?.customGames || []).find(x => x.id === gameId);
+      const title = gameTitle || (g ? g.title : 'Game Non-Digital');
+      const tName = teamName || (masterTeamsData[teamId]?.name || teamId.toUpperCase());
+      const score = (currentScore !== undefined && currentScore !== null) 
+        ? currentScore 
+        : ((g && g.scores && typeof g.scores[teamId] === 'number') ? g.scores[teamId] : 0);
+
+      document.getElementById('score-modal-game-id').value = gameId;
+      document.getElementById('score-modal-team-id').value = teamId;
+      document.getElementById('score-modal-subtitle').innerHTML = `Game: <strong style="color:#f1f5f9;">${title}</strong><br>Tim: <strong style="color:#38bdf8;">${tName}</strong>`;
+      
+      const input = document.getElementById('score-modal-input');
+      input.value = score;
+
+      const modal = document.getElementById('score-modal');
+      if (modal) {
+        modal.style.display = 'flex';
+        setTimeout(() => {
+          input.focus();
+          input.select();
+        }, 50);
+      }
+    }
+
+    function closeScoreModal() {
+      const modal = document.getElementById('score-modal');
+      if (modal) modal.style.display = 'none';
+    }
+
+    function submitDirectScore() {
+      const gameId = document.getElementById('score-modal-game-id').value;
+      const teamId = document.getElementById('score-modal-team-id').value;
+      const newScore = document.getElementById('score-modal-input').value;
+      if (newScore === '' || isNaN(Number(newScore))) {
+        alert('Masukkan angka skor yang valid!');
+        return;
+      }
       const userEmail = (window.AuthGuard && window.AuthGuard.currentUser) ? window.AuthGuard.currentUser.email : 'SUPER_ADMIN';
+      const btn = document.getElementById('btn-save-score');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Menyimpan...';
+      }
 
       fetch('/api/super/set-score', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gameId, teamId, score: newScore, setBy: userEmail })
+        body: JSON.stringify({ gameId, teamId, score: Number(newScore), setBy: userEmail })
       })
       .then(r => r.json())
       .then(res => {
-        if (res.error) alert("Gagal: " + res.error);
-        else {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = 'Simpan Nilai';
+        }
+        if (res.error) {
+          alert("Gagal: " + res.error);
+        } else {
+          closeScoreModal();
           loadInitialData();
           fetchAuditLogs();
         }
+      })
+      .catch(err => {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = 'Simpan Nilai';
+        }
+        alert("Error: " + err.message);
       });
+    }
+
+    // Alias untuk kompatibilitas ke fungsi lama
+    function promptDirectScore(gameId, teamId, gameTitle, teamName, currentScore) {
+      openScoreModal(gameId, teamId, gameTitle, teamName, currentScore);
     }
 
     function renderCustomGames(games) {

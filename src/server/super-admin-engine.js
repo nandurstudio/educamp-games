@@ -124,7 +124,7 @@ class SuperAdminEngine {
       } else {
         this.masterTeams = JSON.parse(JSON.stringify(DEFAULT_PRELOADER_TEAMS));
         this.initDefaultGames();
-        this.saveStorage();
+        this.saveLocalDisk();
       }
     } catch (err) {
       console.error('[SuperAdmin Storage Error] Gagal membaca storage lokal:', err.message);
@@ -132,14 +132,18 @@ class SuperAdminEngine {
       this.initDefaultGames();
     }
 
-    // Sinkronisasi otomatis dari Cloud Firestore saat startup
+    // Sinkronisasi otomatis dari Cloud Firestore saat startup (Cloud Firestore adalah SINGLE SOURCE OF TRUTH)
     if (firebaseService.isAvailable()) {
       firebaseService.loadDoc('superadmin').then(cloudData => {
-        if (cloudData && typeof cloudData === 'object') {
+        if (cloudData && typeof cloudData === 'object' && cloudData.masterTeams) {
           this.applyStorageData(cloudData);
           console.log(`[SuperAdmin Firebase] Berhasil memulihkan ${Object.keys(this.masterTeams).length} tim & ${this.customGames.length} game dari Cloud Firestore!`);
           // Simpan sinkronisasi ke disk lokal agar cache lokal selalu termutakhir
           this.saveLocalDisk();
+        } else {
+          // Dokumen di Cloud Firestore belum ada sama sekali, baru lakukan inisialisasi awal
+          this.saveStorage();
+          console.log('[SuperAdmin Firebase] Inisialisasi awal dokumen superadmin ke Cloud Firestore');
         }
       }).catch(err => {
         console.error('[SuperAdmin Firebase] Gagal load dari Firestore:', err.message);
@@ -684,41 +688,104 @@ class SuperAdminEngine {
     this.customGames = [
       {
         id: 'game-pipa-bocor',
-        title: 'Pipa Bocor',
+        title: 'SUSUN KATA',
         emoji: '🪣',
-        description: 'Tantangan kekompakan menutup lubang pipa bocor agar bola pingpong dapat mengapung ke atas.',
-        rules: 'Hanya boleh menggunakan telapak tangan dan jari untuk menutup pipa. Air dari ember tidak boleh tercecer keluar lapangan.',
-        scores: {
-          qatra: 220,
-          vbom: 250,
-          omega: 270,
-          ipc: 240,
-          interlock: 260,
-          avatar: 300
-        },
+        description: 'Setiap peserta menyebutkan satu huruf dari kata yang diberikan oleh panitia',
+        rules: 'peserta berdiri berjajar atau ke samping\n*Panitia memberikan satu kata yang harus di sebutkan perhuruf oleh peserta\n*Setiap kelompok akan mendapatkan 5 kata\n*Setiap kata yang benar akan mendapatkan 100 point\n*waktu yang diberikan 15 menit',
+        scores: { qatra: 0, vbom: 0, omega: 0, ipc: 0, interlock: 0, avatar: 0 },
         maxScore: 300,
         status: 'COMPLETED',
-        createdBy: 'PANITIA_EDUCAMP',
-        createdAt: new Date().toISOString()
+        createdAt: '2026-09-17T01:12:28.451Z',
+        updatedAt: '2026-09-17T07:00:56.027Z'
       },
       {
         id: 'game-yel-yel',
-        title: 'Yel-Yel & Formasi Kreatif',
+        title: 'SEDOT KERTAS',
         emoji: '📣',
-        description: 'Penilaian kreativitas, kekompakan, dan semangat tempur saat meneriakkan yel-yel kebanggaan regu.',
-        rules: 'Waktu tampil maksimal 3 menit. Dinilai berdasarkan kekompakan, vokal, koreografi, dan kostum/atribut.',
-        scores: {
-          qatra: 260,
-          vbom: 280,
-          omega: 250,
-          ipc: 270,
-          interlock: 290,
-          avatar: 290
-        },
+        description: 'Peserta memindahkan memasukan kertas ke gelas plastik',
+        rules: 'sedot kertas di titik A lalu di transfer ke peserta di sampingnya menggunakan sedotan sampai dengan peserta terakhir,peserta terakhir memasukan kertas ke dalam gelas',
+        scores: { qatra: 0, vbom: 0, omega: 0, ipc: 0, interlock: 0, avatar: 0 },
         maxScore: 300,
         status: 'COMPLETED',
-        createdBy: 'PANITIA_EDUCAMP',
-        createdAt: new Date().toISOString()
+        createdAt: '2026-09-17T01:12:28.452Z',
+        updatedAt: '2026-09-17T07:02:05.178Z'
+      },
+      {
+        id: 'game-1789628981942-ybw7',
+        title: 'ESTAFET BOLA',
+        emoji: '🎯',
+        description: 'Memindahkan bola pingpong dari baskom yang berisi air secara estafet dan bergantian',
+        rules: 'peserta berbaris ke belakang,pasang gelas plastik di kepala,peserta ambil bola pingpong dari baskom secara estafet jika bola pertama sudah masuk ke baskom yg kosong,lalu di lanjutkan ke peserta kedua,peserta pertama pindah ke belakang,point di hitung dari jumlah bola yang di pindahkan ,satu bola 100 point',
+        scores: { qatra: 0, vbom: 0, omega: 0, ipc: 0, interlock: 0, avatar: 0 },
+        maxScore: 300,
+        status: 'ACTIVE',
+        createdAt: '2026-09-17T07:09:41.942Z'
+      },
+      {
+        id: 'game-1789629224742-exil',
+        title: 'ESTAFET ZIG-ZAG',
+        emoji: '🎯',
+        description: 'Peserta bergandengan tangan lalu berjalan zigzag melewati cones',
+        rules: 'Tangan peserta saling bergandengan ,berjalan melewati cones secara zig zag,point di mabil dari waktu yang tercepat,pointnya 120-100-80-60-40-20',
+        scores: { qatra: 0, vbom: 0, omega: 0, ipc: 0, interlock: 0, avatar: 0 },
+        maxScore: 300,
+        status: 'ACTIVE',
+        createdAt: '2026-09-17T07:13:44.742Z'
+      },
+      {
+        id: 'game-1789629436485-ypyh',
+        title: 'RELAY DRIBLING',
+        emoji: '🎯',
+        description: 'Peserta memindahkan balon dari depan ke belakang',
+        rules: 'Peserta berbaris,tangan peserta kedua dst memegang pundak peserta yang depannya,balon di arahkan ke belakang balonnya tidak boleh jatuh,point terbesar di hitung dari kelompok yang tercepat,point 120-100-80-60-40-20',
+        scores: { qatra: 0, vbom: 0, omega: 0, ipc: 0, interlock: 0, avatar: 0 },
+        maxScore: 300,
+        status: 'ACTIVE',
+        createdAt: '2026-09-17T07:17:16.485Z'
+      },
+      {
+        id: 'game-1789629877839-jb1c',
+        title: 'TRIBAL GAME',
+        emoji: '🎯',
+        description: 'Peserta memeragakan kata yg di berikan panitia',
+        rules: 'Peserta berbaris,peserta yg paling belakang akan di info kata oleh panitia,peserta memeragakan dari KATA yang di berikan oleh panitia,tidak boleh bersuara,point di hitung dari kata yang di bisa di tebak dengan benar',
+        scores: { qatra: 0, vbom: 0, omega: 0, ipc: 0, interlock: 0, avatar: 0 },
+        maxScore: 300,
+        status: 'ACTIVE',
+        createdAt: '2026-09-17T07:24:37.839Z'
+      },
+      {
+        id: 'game-1789630007800-bodj',
+        title: 'GRASAK-GRUSUK',
+        emoji: '🎯',
+        description: 'Merapihkan bangku di ruangan',
+        rules: 'peserta memindahkan  bangku dan di susun sesuai kelompok,kelompok yg bisa merapihkan bangku di bawah 1 menit akan mendapatkan point sebesar 300 point',
+        scores: { qatra: 0, vbom: 0, omega: 0, ipc: 0, interlock: 0, avatar: 0 },
+        maxScore: 300,
+        status: 'ACTIVE',
+        createdAt: '2026-09-17T07:26:47.800Z'
+      },
+      {
+        id: 'game-1789630235103-ksop',
+        title: 'COLABORATION',
+        emoji: '🎯',
+        description: 'Menjawab kata-kata dari clue yg diberikan',
+        rules: 'kelompok menjawab kata dari kumpulan clue yang ada ,point nilai 300 point',
+        scores: { qatra: 0, vbom: 0, omega: 0, ipc: 0, interlock: 0, avatar: 0 },
+        maxScore: 300,
+        status: 'ACTIVE',
+        createdAt: '2026-09-17T07:30:35.103Z'
+      },
+      {
+        id: 'game-1789630463687-g576',
+        title: 'GAME ONLINE',
+        emoji: '🎯',
+        description: 'Peserta menjawab pertanyaan via WA',
+        rules: 'ketua kelompok menjawab pertanyaan yg di berikan oleh painitia di grou panitia,kirim via WA,penjawab tercepat dan benar mendapatkan 100 point',
+        scores: { qatra: 0, vbom: 0, omega: 0, ipc: 0, interlock: 0, avatar: 0 },
+        maxScore: 300,
+        status: 'ACTIVE',
+        createdAt: '2026-09-17T07:34:23.687Z'
       }
     ];
   }

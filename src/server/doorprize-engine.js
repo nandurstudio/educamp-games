@@ -29,41 +29,55 @@ class DoorprizeEngine {
   }
 
   loadStorage() {
-    // 1. Coba baca dari file lokal disk
+    // 1. Coba baca dari file lokal disk jika tersedia
     if (fs.existsSync(STORAGE_FILE)) {
       try {
         const raw = fs.readFileSync(STORAGE_FILE, 'utf-8');
         const data = JSON.parse(raw);
         this.applyData(data);
-        console.log('[Doorprize Engine] Loaded doorprize state from local disk');
+        console.log(`[Doorprize Engine] Loaded state from local disk (${this.participants.length} peserta, ${this.winners.length} pemenang)`);
       } catch (err) {
         console.error('[Doorprize Engine] Error parsing local storage:', err.message);
       }
     }
 
-    // 2. Jika belum ada data, inisialisasi data default Educamp 2026
+    // 2. Jika disk kosong, siapkan struktur baseline tanpa peserta dummy
     if (this.events.length === 0) {
-      this.initDefaultData();
+      this.initDefaultStructureOnly();
     }
 
-    // 3. Sinkronisasi dengan Cloud Firestore jika tersedia
-    if (firebaseService.isAvailable()) {
-      firebaseService.loadDoc('doorprize_storage').then(cloudData => {
-        if (cloudData && typeof cloudData === 'object' && cloudData.events) {
-          this.applyData(cloudData);
-          this.saveLocalDisk();
-          console.log('[Doorprize Engine] Synchronized state from Cloud Firestore');
-        } else {
-          // Upload state awal ke Firestore
-          this.saveStorage();
-        }
-      }).catch(err => {
-        console.warn('[Doorprize Engine] Cloud Firestore sync skipped:', err.message);
-      });
+    // 3. Sinkronkan dengan Cloud Firestore
+    this.reloadFromFirebase().catch(err => {
+      console.warn('[Doorprize Engine] Cloud Firestore initial sync warning:', err.message);
+    });
+  }
+
+  async reloadFromFirebase() {
+    if (!firebaseService.isAvailable()) {
+      return false;
+    }
+    try {
+      const cloudData = await firebaseService.loadDoc('doorprize_storage');
+      if (cloudData && typeof cloudData === 'object' && Array.isArray(cloudData.events)) {
+        this.applyData(cloudData);
+        this.saveLocalDisk();
+        console.log(`[Doorprize Engine] Cloud Firestore sync complete: ${this.participants.length} peserta, ${this.prizes.length} hadiah, ${this.winners.length} pemenang`);
+        return true;
+      } else {
+        // Inisialisasi struktur awal ke Firestore jika belum ada
+        this.initDefaultStructureOnly();
+        await firebaseService.saveDoc('doorprize_storage', this.exportData());
+        this.saveLocalDisk();
+        console.log('[Doorprize Engine] Inisialisasi struktur awal ke Cloud Firestore (0 peserta dummy)');
+        return true;
+      }
+    } catch (err) {
+      console.error('[Doorprize Engine] Error loading from Cloud Firestore:', err.message);
+      return false;
     }
   }
 
-  initDefaultData() {
+  initDefaultStructureOnly() {
     const defaultEventId = 'ev-educamp-2026';
     this.events = [
       {
@@ -129,60 +143,13 @@ class DoorprizeEngine {
       }
     ];
     this.activePrizeId = this.prizes[0].id;
-
-    // Default 51 peserta aktif
-    this.participants = [
-      { id: 'p-1', eventId: defaultEventId, nik: 'K123456', name: 'Nandang Duryat', department: 'PLANT GENERAL & DIGITALIZATION', isGrandPrize: true, active: true },
-      { id: 'p-2', eventId: defaultEventId, nik: '987654321098', name: 'Jane Smith', department: 'Analytical Center', isGrandPrize: true, active: true },
-      { id: 'p-3', eventId: defaultEventId, nik: '112233445566', name: 'Alice Johnson', department: 'Quality Assurance', isGrandPrize: true, active: true },
-      { id: 'p-4', eventId: defaultEventId, nik: '223344556677', name: 'Bob Brown', department: 'CMD', isGrandPrize: true, active: true },
-      { id: 'p-5', eventId: defaultEventId, nik: '334455667788', name: 'Charlie White', department: 'Corporate QA', isGrandPrize: true, active: true },
-      { id: 'p-6', eventId: defaultEventId, nik: '123456789004', name: 'User Empat', department: 'CMD', isGrandPrize: false, active: true },
-      { id: 'p-7', eventId: defaultEventId, nik: '123456789005', name: 'User Lima', department: 'Corporate QA', isGrandPrize: false, active: true },
-      { id: 'p-8', eventId: defaultEventId, nik: '123456789006', name: 'User Enam', department: 'Costing', isGrandPrize: false, active: true },
-      { id: 'p-9', eventId: defaultEventId, nik: '123456789007', name: 'User Tujuh', department: 'EM', isGrandPrize: false, active: true },
-      { id: 'p-10', eventId: defaultEventId, nik: '123456789008', name: 'User Delapan', department: 'FG', isGrandPrize: false, active: true },
-      { id: 'p-11', eventId: defaultEventId, nik: '123456789009', name: 'User Sembilan', department: 'GVN', isGrandPrize: false, active: true },
-      { id: 'p-12', eventId: defaultEventId, nik: '123456789010', name: 'User Sepuluh', department: 'HRGAIR', isGrandPrize: false, active: true },
-      { id: 'p-13', eventId: defaultEventId, nik: '123456789011', name: 'User Sebelas', department: 'IDC', isGrandPrize: false, active: true },
-      { id: 'p-14', eventId: defaultEventId, nik: '123456789012', name: 'User Dua Belas', department: 'IT', isGrandPrize: true, active: true },
-      { id: 'p-15', eventId: defaultEventId, nik: '123456789013', name: 'User Tiga Belas', department: 'MS', isGrandPrize: false, active: true },
-      { id: 'p-16', eventId: defaultEventId, nik: '123456789014', name: 'User Empat Belas', department: 'Management', isGrandPrize: true, active: true },
-      { id: 'p-17', eventId: defaultEventId, nik: '123456789015', name: 'User Lima Belas', department: 'Nawakara', isGrandPrize: false, active: true },
-      { id: 'p-18', eventId: defaultEventId, nik: '123456789016', name: 'User Enam Belas', department: 'PLANT GENERAL', isGrandPrize: false, active: true },
-      { id: 'p-19', eventId: defaultEventId, nik: '123456789017', name: 'User Tujuh Belas', department: 'PPC Plant', isGrandPrize: false, active: true },
-      { id: 'p-20', eventId: defaultEventId, nik: '123456789018', name: 'User Delapan Belas', department: 'PPIC', isGrandPrize: false, active: true },
-      { id: 'p-21', eventId: defaultEventId, nik: '123456789019', name: 'User Sembilan Belas', department: 'Procurement', isGrandPrize: false, active: true },
-      { id: 'p-22', eventId: defaultEventId, nik: '123456789020', name: 'User Dua Puluh', department: 'Production', isGrandPrize: false, active: true },
-      { id: 'p-23', eventId: defaultEventId, nik: '123456789021', name: 'User Dua Satu', department: 'QA Plant', isGrandPrize: false, active: true },
-      { id: 'p-24', eventId: defaultEventId, nik: '123456789022', name: 'User Dua Dua', department: 'QFS-SHE', isGrandPrize: false, active: true },
-      { id: 'p-25', eventId: defaultEventId, nik: '123456789023', name: 'User Dua Tiga', department: 'RMPM', isGrandPrize: false, active: true },
-      { id: 'p-26', eventId: defaultEventId, nik: '123456789024', name: 'User Dua Empat', department: 'SCM', isGrandPrize: false, active: true },
-      { id: 'p-27', eventId: defaultEventId, nik: '123456789025', name: 'User Dua Lima', department: 'Swapro', isGrandPrize: false, active: true },
-      { id: 'p-28', eventId: defaultEventId, nik: '123456789026', name: 'User Dua Enam', department: 'TPP', isGrandPrize: false, active: true },
-      { id: 'p-29', eventId: defaultEventId, nik: '123456789027', name: 'User Dua Tujuh', department: 'Yogyakarta', isGrandPrize: false, active: true },
-      { id: 'p-30', eventId: defaultEventId, nik: '123456789028', name: 'User Dua Delapan', department: 'Bali', isGrandPrize: false, active: true },
-      { id: 'p-31', eventId: defaultEventId, nik: '123456789029', name: 'User Dua Sembilan', department: 'Bandung', isGrandPrize: false, active: true },
-      { id: 'p-32', eventId: defaultEventId, nik: '123456789030', name: 'User Tiga Puluh', department: 'Jakarta', isGrandPrize: false, active: true },
-      { id: 'p-33', eventId: defaultEventId, nik: '123456789031', name: 'User Tiga Satu', department: 'Medan', isGrandPrize: false, active: true },
-      { id: 'p-34', eventId: defaultEventId, nik: '123456789032', name: 'User Tiga Dua', department: 'Batam', isGrandPrize: false, active: true },
-      { id: 'p-35', eventId: defaultEventId, nik: '123456789033', name: 'User Tiga Tiga', department: 'Makassar', isGrandPrize: false, active: true },
-      { id: 'p-36', eventId: defaultEventId, nik: '123456789034', name: 'User Tiga Empat', department: 'Solo', isGrandPrize: false, active: true },
-      { id: 'p-37', eventId: defaultEventId, nik: '123456789035', name: 'User Tiga Lima', department: 'Bogor', isGrandPrize: false, active: true },
-      { id: 'p-38', eventId: defaultEventId, nik: '123456789036', name: 'User Tiga Enam', department: 'Denpasar', isGrandPrize: false, active: true },
-      { id: 'p-39', eventId: defaultEventId, nik: '123456789037', name: 'User Tiga Tujuh', department: 'Banjarmasin', isGrandPrize: false, active: true },
-      { id: 'p-40', eventId: defaultEventId, nik: '123456789038', name: 'User Tiga Delapan', department: 'Yogyakarta', isGrandPrize: false, active: true },
-      { id: 'p-41', eventId: defaultEventId, nik: '123456789039', name: 'User Tiga Sembilan', department: 'Medan', isGrandPrize: false, active: true },
-      { id: 'p-42', eventId: defaultEventId, nik: '123456789040', name: 'User Empat Puluh', department: 'Tangerang', isGrandPrize: false, active: true },
-      { id: 'p-43', eventId: defaultEventId, nik: '123456789041', name: 'User Empat Satu', department: 'Solo', isGrandPrize: false, active: true },
-      { id: 'p-44', eventId: defaultEventId, nik: '123456789042', name: 'User Empat Dua', department: 'Palembang', isGrandPrize: false, active: true },
-      { id: 'p-45', eventId: defaultEventId, nik: '123456789043', name: 'User Empat Tiga', department: 'Batam', isGrandPrize: false, active: true },
-      { id: 'p-46', eventId: defaultEventId, nik: '123456789044', name: 'User Empat Empat', department: 'Surabaya', isGrandPrize: false, active: true },
-      { id: 'p-47', eventId: defaultEventId, nik: '123456789045', name: 'User Empat Lima', department: 'Jakarta', isGrandPrize: false, active: true }
-    ];
-
+    this.participants = []; // Bersih dari peserta dummy hardcoded
     this.winners = [];
-    this.saveStorage();
+  }
+
+  // Backup method jika ingin inisialisasi default data
+  initDefaultData() {
+    this.initDefaultStructureOnly();
   }
 
   applyData(data) {
@@ -384,7 +351,106 @@ class DoorprizeEngine {
     return this.getState();
   }
 
-  // --- PARTICIPANT MANAGEMENT ---
+  // --- PARTICIPANT MANAGEMENT (CRUD LENGKAP & RELIABLE) ---
+
+  getParticipantById(participantId) {
+    return this.participants.find(p => p.id === participantId) || null;
+  }
+
+  saveParticipant(data) {
+    if (!data.name || !data.nik) {
+      throw new Error('NIK dan Nama Lengkap wajib diisi');
+    }
+    const nik = data.nik.toString().trim();
+    const name = data.name.toString().trim();
+    const department = (data.department || 'Umum').toString().trim();
+    const isGrandPrize = data.isGrandPrize !== undefined ? !!data.isGrandPrize : true;
+    const active = data.active !== undefined ? !!data.active : true;
+
+    if (data.id) {
+      const idx = this.participants.findIndex(p => p.id === data.id);
+      if (idx === -1) throw new Error('Peserta tidak ditemukan');
+      const oldNik = this.participants[idx].nik;
+      this.participants[idx] = {
+        ...this.participants[idx],
+        nik,
+        name,
+        department,
+        isGrandPrize,
+        active,
+        updatedAt: new Date().toISOString()
+      };
+
+      // Sinkronkan data pemenang jika peserta ini sudah pernah menang
+      if (Array.isArray(this.winners)) {
+        this.winners.forEach(w => {
+          if (w.participantId === data.id || w.nik === oldNik) {
+            w.nik = nik;
+            w.name = name;
+            w.department = department;
+          }
+        });
+      }
+
+      this.saveStorage();
+      return { participant: this.participants[idx], state: this.getState() };
+    } else {
+      // Cek apakah NIK sudah terdaftar di event ini
+      const targetEventId = data.eventId || this.activeEventId;
+      const existing = this.participants.find(p => p.nik.toString() === nik && p.eventId === targetEventId);
+      if (existing) {
+        throw new Error(`Peserta dengan NIK ${nik} sudah terdaftar atas nama: ${existing.name}`);
+      }
+      const newParticipant = {
+        id: 'p-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+        eventId: targetEventId,
+        nik,
+        name,
+        department,
+        isGrandPrize,
+        active,
+        createdAt: new Date().toISOString()
+      };
+      this.participants.push(newParticipant);
+      this.saveStorage();
+      return { participant: newParticipant, state: this.getState() };
+    }
+  }
+
+  deleteParticipant(participantId) {
+    const idx = this.participants.findIndex(p => p.id === participantId);
+    if (idx === -1) throw new Error('Peserta tidak ditemukan');
+    const removed = this.participants.splice(idx, 1)[0];
+
+    // Hapus juga dari pendingDraw jika ada
+    if (this.pendingDraw && Array.isArray(this.pendingDraw.candidates)) {
+      this.pendingDraw.candidates = this.pendingDraw.candidates.filter(c => c.participantId !== participantId && c.nik !== removed.nik);
+      if (this.pendingDraw.candidates.length === 0) {
+        this.pendingDraw = null;
+      }
+    }
+
+    this.saveStorage();
+    return { success: true, removed, state: this.getState() };
+  }
+
+  toggleParticipantActive(participantId) {
+    const p = this.participants.find(x => x.id === participantId);
+    if (!p) throw new Error('Peserta tidak ditemukan');
+    p.active = !p.active;
+    this.saveStorage();
+    return { participant: p, state: this.getState() };
+  }
+
+  clearParticipants(eventId = null) {
+    const targetEventId = eventId || this.activeEventId;
+    this.participants = this.participants.filter(p => p.eventId !== targetEventId);
+    if (this.pendingDraw && this.pendingDraw.eventId === targetEventId) {
+      this.pendingDraw = null;
+    }
+    this.saveStorage();
+    return this.getState();
+  }
 
   toggleGrandPrize(participantId) {
     const p = this.participants.find(x => x.id === participantId);
@@ -427,7 +493,7 @@ class DoorprizeEngine {
     return { added, updated, total: this.participants.filter(p => p.eventId === targetEventId).length };
   }
 
-  // --- LOTTERY / DRAWING LOGIC ---
+  // --- LOTTERY / DRAWING LOGIC (KUOTA KETAT & KOCOK ULANG INDIVIDU) ---
 
   getEligiblePool(prizeId, replacingWinnerId = null) {
     const prize = this.prizes.find(p => p.id === prizeId) || this.prizes.find(p => p.id === this.activePrizeId);
@@ -445,7 +511,6 @@ class DoorprizeEngine {
     // Jika kategori GRAND PRIZE, wajib memenuhi syarat isGrandPrize === true
     if (prize.category === 'GRAND PRIZE') {
       const gpPool = pool.filter(p => p.isGrandPrize);
-      // Jika pool GP ada isinya, gunakan itu
       if (gpPool.length > 0) {
         pool = gpPool;
       }
@@ -461,7 +526,7 @@ class DoorprizeEngine {
 
     const pool = this.getEligiblePool(prize.id, replaceWinnerId);
     if (pool.length === 0) {
-      throw new Error('Tidak ada peserta yang memenuhi syarat untuk diundi');
+      throw new Error('Tidak ada peserta yang memenuhi syarat untuk diundi (semua sudah menang atau tidak ada peserta eligible)');
     }
 
     // Cek pemenang aktif saat ini untuk hadiah ini
@@ -471,9 +536,12 @@ class DoorprizeEngine {
     const isReplacement = !!replaceWinnerId;
     let targetReplaceWinnerId = replaceWinnerId;
 
+    let targetCount = 1;
     let drawCount = 1;
+
     if (isReplacement) {
       // Mode kocok ulang individu: HANYA 1 orang yang diundi menggantikan pemenang target
+      targetCount = 1;
       drawCount = 1;
       if (!targetReplaceWinnerId && existingPrizeWinners.length > 0) {
         targetReplaceWinnerId = existingPrizeWinners[existingPrizeWinners.length - 1].id;
@@ -484,9 +552,15 @@ class DoorprizeEngine {
       if (remainingQuota <= 0) {
         throw new Error(`Kuota hadiah '${prize.name}' sudah terpenuhi penuh (${existingPrizeWinners.length}/${prize.totalWinners} pemenang). Gunakan tombol [Kocok Ulang (Replace)] pada nama pemenang tertentu jika ingin mengganti.`);
       }
-      // Jangan pernah menarik melebihi sisa kuota yang tersedia
-      drawCount = Math.min(count, remainingQuota, pool.length);
+      const requestedCount = Math.max(1, parseInt(count) || 1);
+      targetCount = Math.min(requestedCount, remainingQuota);
+      // Jangan pernah menarik melebihi sisa kuota yang tersedia atau sisa pool
+      drawCount = Math.min(targetCount, pool.length);
     }
+
+    const requestedCount = isReplacement ? 1 : Math.max(1, parseInt(count) || 1);
+    const insufficientPool = pool.length < targetCount;
+    const shortage = insufficientPool ? (targetCount - pool.length) : 0;
 
     // Fisher-Yates shuffle untuk pengacakan merata
     const shuffled = [...pool];
@@ -496,8 +570,8 @@ class DoorprizeEngine {
     }
 
     const selected = shuffled.slice(0, drawCount);
-    const candidateWinners = selected.map(p => ({
-      id: 'win-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+    const candidateWinners = selected.map((p, idx) => ({
+      id: 'win-' + Date.now() + '-' + idx + '-' + Math.random().toString(36).substr(2, 5),
       eventId: this.activeEventId,
       prizeId: prize.id,
       prizeName: prize.name,
@@ -507,6 +581,7 @@ class DoorprizeEngine {
       nik: p.nik,
       name: p.name,
       department: p.department,
+      orderNumber: idx + 1,
       timestamp: new Date().toISOString(),
       active: true
     }));
@@ -519,6 +594,10 @@ class DoorprizeEngine {
       isReplacement,
       replaceWinnerId: targetReplaceWinnerId,
       targetReplaceWinner: existingPrizeWinners.find(w => w.id === targetReplaceWinnerId) || null,
+      requestedCount,
+      drawCount,
+      insufficientPool,
+      shortage,
       drawnAt: new Date().toISOString()
     };
 
@@ -528,6 +607,10 @@ class DoorprizeEngine {
       isReplacement,
       replaceWinnerId: targetReplaceWinnerId,
       targetReplaceWinner: this.pendingDraw.targetReplaceWinner,
+      requestedCount,
+      drawCount,
+      insufficientPool,
+      shortage,
       remainingCount: pool.length - drawCount
     };
   }

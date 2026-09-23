@@ -516,6 +516,38 @@ app.get('/api/super/leaderboard', (req, res) => {
   res.json(superAdminEngine.getUnifiedLeaderboard());
 });
 
+// Force Sync / Pull State dari Cloud Firestore ke Memory & Local Storage
+app.post('/api/super/sync-cloud', async (req, res) => {
+  try {
+    if (firebaseService.isAvailable()) {
+      const cloudData = await firebaseService.loadDoc('superadmin');
+      if (cloudData && typeof cloudData === 'object') {
+        superAdminEngine.applyStorageData(cloudData);
+        superAdminEngine.saveLocalDisk();
+      }
+      const qbData = await firebaseService.loadDoc('question_bank');
+      if (qbData) questionBank.restoreData(qbData);
+      const ppData = await firebaseService.loadDoc('game_storage');
+      if (ppData) gameEngine.restoreData(ppData);
+      const ttData = await firebaseService.loadDoc('tug_storage');
+      if (ttData) tugEngine.restoreData(ttData);
+    }
+    io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
+    io.emit('CUSTOM_GAMES_UPDATE', superAdminEngine.getCustomGames());
+    io.emit('MASTER_TEAMS_UPDATE', superAdminEngine.getMasterTeams());
+    io.emit('STATE_UPDATE', gameEngine.getPublicState());
+    io.emit('TUG_STATE_UPDATE', tugEngine.getPublicState());
+    res.json({
+      success: true,
+      message: 'Berhasil sinkronisasi langsung dari Cloud Firestore!',
+      gamesCount: superAdminEngine.getCustomGames().length,
+      teamsCount: Object.keys(superAdminEngine.getMasterTeams()).length
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 2. Ambil Master Teams
 app.get('/api/super/master-teams', (req, res) => {
   res.json({ teams: superAdminEngine.getMasterTeams() });
@@ -918,6 +950,48 @@ app.post('/api/doorprize/participants/toggle-gp', (req, res) => {
     doorprizeEngine.toggleGrandPrize(participantId);
     io.emit('DOORPRIZE_STATE_UPDATE', doorprizeEngine.getState());
     res.json({ success: true });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/doorprize/participant', (req, res) => {
+  try {
+    const result = doorprizeEngine.saveParticipant(req.body);
+    io.emit('DOORPRIZE_STATE_UPDATE', doorprizeEngine.getState());
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.delete('/api/doorprize/participant/:id', (req, res) => {
+  try {
+    const result = doorprizeEngine.deleteParticipant(req.params.id);
+    io.emit('DOORPRIZE_STATE_UPDATE', doorprizeEngine.getState());
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/doorprize/participants/toggle-active', (req, res) => {
+  try {
+    const { participantId } = req.body;
+    const result = doorprizeEngine.toggleParticipantActive(participantId);
+    io.emit('DOORPRIZE_STATE_UPDATE', doorprizeEngine.getState());
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/doorprize/participants/clear', (req, res) => {
+  try {
+    const { eventId } = req.body;
+    const state = doorprizeEngine.clearParticipants(eventId);
+    io.emit('DOORPRIZE_STATE_UPDATE', state);
+    res.json({ success: true, state });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
