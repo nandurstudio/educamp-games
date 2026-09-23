@@ -496,17 +496,23 @@
   <div id="tab-participants-mgmt" class="tab-panel" style="display: none;">
     <div class="control-card">
       <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 20px; flex-wrap: wrap;">
-        <div style="display: flex; gap: 12px; flex: 1;">
+        <div style="display: flex; gap: 12px; flex: 1; min-width: 280px; flex-wrap: wrap;">
           <input type="text" class="form-control" id="search-participant" placeholder="Cari NIK, Nama, atau Departemen..." oninput="fetchParticipants()" style="max-width: 320px;">
-          <select class="form-control" id="filter-gp" onchange="fetchParticipants()" style="max-width: 220px;">
+          <select class="form-control" id="filter-gp" onchange="fetchParticipants()" style="max-width: 200px;">
             <option value="ALL">Semua Peserta</option>
             <option value="GP">Khusus Grand Prize</option>
             <option value="NON_GP">Non Grand Prize</option>
           </select>
         </div>
         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <button class="btn btn-primary" onclick="openParticipantModal()">
+            <span>➕</span> Tambah Peserta Baru
+          </button>
+          <button class="btn btn-secondary" onclick="syncDoorprizeCloud()" title="Tarik data terbaru langsung dari Cloud Firestore">
+            <span>🔄</span> Sync Cloud Firestore
+          </button>
           <button class="btn btn-success" onclick="toggleImportBox()">
-            <span>📥</span> Import Data Peserta (CSV / Text)
+            <span>📥</span> Import Data Peserta
           </button>
           <button class="btn btn-danger" onclick="clearAllParticipants()">
             <span>🗑️</span> Hapus Semua Peserta
@@ -517,7 +523,7 @@
       <!-- Import Box Hidden by default -->
       <div id="import-box" style="display: none; background: #0b1329; border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; margin-bottom: 20px;">
         <h4 style="color: var(--gold-primary); font-size: 15px; margin-bottom: 8px;">Import Peserta (Format Baris: NIK, Nama, Departemen, IsGrandPrize(1/0))</h4>
-        <textarea class="form-control" id="import-textarea" rows="6" placeholder="K123456, Nandang Duryat, PLANT DIGITALIZATION, 1&#10;K123457, John Doe, Production, 0"></textarea>
+        <textarea class="form-control" id="import-textarea" rows="6" placeholder="K123456, Nandang Duryat, PLANT GENERAL & DIGITALIZATION, 1&#10;K123457, John Doe, Production, 0"></textarea>
         <div style="display: flex; gap: 10px; margin-top: 10px;">
           <button class="btn btn-primary" onclick="processImport()">Proses Import</button>
           <button class="btn btn-secondary" onclick="toggleImportBox()">Batal</button>
@@ -528,12 +534,13 @@
         <table class="data-table">
           <thead>
             <tr>
-              <th>NIK</th>
+              <th style="width: 130px;">NIK</th>
               <th>Nama Lengkap</th>
               <th>Departemen</th>
-              <th>Grand Prize?</th>
-              <th>Status Undian</th>
-              <th>Aksi</th>
+              <th style="width: 130px; text-align: center;">Grand Prize</th>
+              <th style="width: 140px; text-align: center;">Status Undian</th>
+              <th style="width: 110px; text-align: center;">Status Aktif</th>
+              <th style="width: 150px; text-align: center;">Aksi</th>
             </tr>
           </thead>
           <tbody id="participants-table-body">
@@ -580,6 +587,62 @@
     </div>
   </div>
 
+  <!-- Modal Form Tambah / Edit Peserta -->
+  <div id="participant-modal" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.78); backdrop-filter: blur(5px); z-index: 9999; justify-content: center; align-items: center; padding: 20px;">
+    <div class="control-card" style="width: 100%; max-width: 520px; background: #0f172a; border: 1px solid #334155; box-shadow: 0 20px 50px rgba(0,0,0,0.7); border-radius: 16px; padding: 24px; position: relative;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #1e293b; padding-bottom: 12px;">
+        <h3 id="modal-participant-title" style="font-size: 18px; font-weight: 800; color: var(--gold-primary); display: flex; align-items: center; gap: 8px; margin: 0;">
+          <span>👤</span> Tambah Peserta Baru
+        </h3>
+        <button type="button" onclick="closeParticipantModal()" style="background: transparent; border: none; color: #94a3b8; font-size: 22px; cursor: pointer; padding: 4px; line-height: 1;">✕</button>
+      </div>
+
+      <form id="participant-form" onsubmit="submitParticipantForm(event)">
+        <input type="hidden" id="form-participant-id" value="">
+        
+        <div class="form-group">
+          <label for="form-participant-nik">Nomor Induk Karyawan (NIK) *</label>
+          <input type="text" class="form-control" id="form-participant-nik" required placeholder="Contoh: K123456 atau 12345678">
+        </div>
+
+        <div class="form-group">
+          <label for="form-participant-name">Nama Lengkap Peserta *</label>
+          <input type="text" class="form-control" id="form-participant-name" required placeholder="Contoh: Nandang Duryat">
+        </div>
+
+        <div class="form-group">
+          <label for="form-participant-department">Departemen / Unit Kerja</label>
+          <input type="text" class="form-control" id="form-participant-department" placeholder="Contoh: PLANT GENERAL & DIGITALIZATION">
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; background: #09111e; border: 1px solid #1e293b; border-radius: 10px; padding: 14px; margin-bottom: 20px;">
+          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none;">
+            <input type="checkbox" id="form-participant-gp" style="width: 18px; height: 18px; accent-color: #ef4444; cursor: pointer;">
+            <div>
+              <div style="font-size: 13px; font-weight: 700; color: #fff;">Grand Prize</div>
+              <div style="font-size: 11px; color: #94a3b8;">Eligible undian utama</div>
+            </div>
+          </label>
+
+          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none;">
+            <input type="checkbox" id="form-participant-active" checked style="width: 18px; height: 18px; accent-color: #22c55e; cursor: pointer;">
+            <div>
+              <div style="font-size: 13px; font-weight: 700; color: #fff;">Status Aktif</div>
+              <div style="font-size: 11px; color: #94a3b8;">Bisa diundi di sistem</div>
+            </div>
+          </label>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 12px;">
+          <button type="button" class="btn btn-secondary" onclick="closeParticipantModal()">Batal</button>
+          <button type="submit" class="btn btn-primary" id="btn-save-participant">
+            <span>💾</span> Simpan Peserta
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
 </main>
 
 <footer class="app-sticky-footer" id="app-sticky-footer">
@@ -615,6 +678,7 @@
   socket.on('DOORPRIZE_STATE_UPDATE', (newState) => {
     state = newState;
     renderAll();
+    fetchParticipants();
   });
 
   socket.on('DOORPRIZE_ROLL_STARTED', () => {
@@ -1423,60 +1487,252 @@
     initDropzone();
   }
 
-  // --- PARTICIPANTS MANAGEMENT ---
+  // --- PARTICIPANTS MANAGEMENT (CRUD & FIREBASE SYNC) ---
+
+  function escapeHtml(text) {
+    if (text == null) return '';
+    return String(text)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function escapeJs(text) {
+    if (text == null) return '';
+    return String(text).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
+  }
 
   async function fetchParticipants() {
-    const filter = document.getElementById('filter-gp').value;
-    const search = document.getElementById('search-participant').value;
-    const res = await fetch(`/api/doorprize/participants?filter=${encodeURIComponent(filter)}&search=${encodeURIComponent(search)}`);
-    const data = await res.json();
-    renderParticipantsTable(data.participants || []);
+    try {
+      const filter = document.getElementById('filter-gp') ? document.getElementById('filter-gp').value : 'ALL';
+      const search = document.getElementById('search-participant') ? document.getElementById('search-participant').value : '';
+      const res = await fetch(`/api/doorprize/participants?filter=${encodeURIComponent(filter)}&search=${encodeURIComponent(search)}`);
+      const data = await res.json();
+      window.currentParticipantsList = data.participants || [];
+      renderParticipantsTable(window.currentParticipantsList);
+      
+      const badge = document.getElementById('tab-participants-count');
+      if (badge && data.participants) {
+        badge.textContent = data.participants.length;
+      }
+    } catch (err) {
+      console.error('Error fetching participants:', err);
+    }
   }
 
   function renderParticipantsTable(list) {
     const tbody = document.getElementById('participants-table-body');
+    if (!tbody) return;
     tbody.innerHTML = '';
-    if (list.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #64748b;">Tidak ada data peserta</td></tr>';
+    if (!list || list.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #64748b; padding: 24px;">Tidak ada data peserta ditemukan.</td></tr>';
       return;
     }
 
     list.forEach(p => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td><strong>${p.nik}</strong></td>
-        <td>${p.name}</td>
-        <td>${p.department}</td>
+        <td><strong style="color: #38bdf8; font-family: monospace; font-size: 13px;">${escapeHtml(p.nik)}</strong></td>
         <td>
-          <button class="btn ${p.isGrandPrize ? 'btn-danger' : 'btn-secondary'}" style="padding: 3px 8px; font-size: 11px;" onclick="toggleGP('${p.id}')">
-            ${p.isGrandPrize ? '★ GRAND PRIZE' : 'Bukan GP'}
+          <div style="font-weight: 700; color: #fff;">${escapeHtml(p.name)}</div>
+        </td>
+        <td><span style="color: #94a3b8;">${escapeHtml(p.department || '-')}</span></td>
+        <td style="text-align: center;">
+          <button class="btn ${p.isGrandPrize ? 'btn-danger' : 'btn-secondary'}" style="padding: 3px 8px; font-size: 11px;" onclick="toggleGP('${p.id}')" title="Klik untuk ubah status Grand Prize">
+            ${p.isGrandPrize ? '★ GRAND PRIZE' : 'Regular'}
           </button>
         </td>
-        <td>
-          ${p.wonPrize ? `<span class="badge badge-won">Menang: ${p.wonPrize}</span>` : '<span style="color: #64748b;">Belum Menang</span>'}
+        <td style="text-align: center;">
+          ${p.wonPrize ? `<span class="badge badge-won" title="Menang ${escapeHtml(p.wonPrize)}">🏆 ${escapeHtml(p.wonPrize)}</span>` : '<span style="color: #64748b; font-size: 12px;">Belum Menang</span>'}
         </td>
-        <td>
-          <span style="font-size: 12px; color: ${p.active ? '#22c55e' : '#ef4444'};">
-            ${p.active ? 'Aktif' : 'Non-Aktif'}
-          </span>
+        <td style="text-align: center;">
+          <button class="btn ${p.active !== false ? 'btn-success' : 'btn-secondary'}" style="padding: 3px 8px; font-size: 11px;" onclick="toggleParticipantActive('${p.id}')" title="Klik untuk aktifkan / non-aktifkan">
+            ${p.active !== false ? '● Aktif' : '○ Non-Aktif'}
+          </button>
+        </td>
+        <td style="text-align: center; white-space: nowrap;">
+          <button class="btn btn-warning" style="padding: 4px 10px; font-size: 11px; margin-right: 6px; font-weight: 700;" onclick="editParticipant('${p.id}')">✏️ Edit</button>
+          <button class="btn btn-danger" style="padding: 4px 10px; font-size: 11px; font-weight: 700;" onclick="deleteParticipant('${p.id}', '${escapeJs(p.name)}')">🗑️ Hapus</button>
         </td>
       `;
       tbody.appendChild(tr);
     });
   }
 
+  function openParticipantModal(participant = null) {
+    const modal = document.getElementById('participant-modal');
+    const title = document.getElementById('modal-participant-title');
+    const btnSave = document.getElementById('btn-save-participant');
+
+    if (participant) {
+      title.innerHTML = '<span>✏️</span> Edit Data Peserta';
+      btnSave.innerHTML = '<span>💾</span> Perbarui Peserta';
+      document.getElementById('form-participant-id').value = participant.id || '';
+      document.getElementById('form-participant-nik').value = participant.nik || '';
+      document.getElementById('form-participant-name').value = participant.name || '';
+      document.getElementById('form-participant-department').value = participant.department || '';
+      document.getElementById('form-participant-gp').checked = !!participant.isGrandPrize;
+      document.getElementById('form-participant-active').checked = participant.active !== false;
+    } else {
+      title.innerHTML = '<span>👤</span> Tambah Peserta Baru';
+      btnSave.innerHTML = '<span>💾</span> Simpan Peserta';
+      document.getElementById('form-participant-id').value = '';
+      document.getElementById('form-participant-nik').value = '';
+      document.getElementById('form-participant-name').value = '';
+      document.getElementById('form-participant-department').value = '';
+      document.getElementById('form-participant-gp').checked = false;
+      document.getElementById('form-participant-active').checked = true;
+    }
+
+    modal.style.display = 'flex';
+    setTimeout(() => {
+      document.getElementById('form-participant-nik').focus();
+    }, 50);
+  }
+
+  function closeParticipantModal() {
+    const modal = document.getElementById('participant-modal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  function editParticipant(id) {
+    const p = (window.currentParticipantsList || []).find(item => item.id === id);
+    if (!p) {
+      alert('Data peserta tidak ditemukan');
+      return;
+    }
+    openParticipantModal(p);
+  }
+
+  async function submitParticipantForm(e) {
+    e.preventDefault();
+    const id = document.getElementById('form-participant-id').value.trim();
+    const nik = document.getElementById('form-participant-nik').value.trim();
+    const name = document.getElementById('form-participant-name').value.trim();
+    const department = document.getElementById('form-participant-department').value.trim() || 'Umum';
+    const isGrandPrize = document.getElementById('form-participant-gp').checked;
+    const active = document.getElementById('form-participant-active').checked;
+
+    if (!nik || !name) {
+      alert('NIK dan Nama Lengkap wajib diisi!');
+      return;
+    }
+
+    const payload = {
+      nik,
+      name,
+      department,
+      isGrandPrize,
+      active
+    };
+    if (id) {
+      payload.id = id;
+    }
+
+    try {
+      const res = await fetch('/api/doorprize/participant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const result = await res.json();
+      if (!res.ok || result.error) throw new Error(result.error || 'Gagal menyimpan data peserta');
+
+      closeParticipantModal();
+      await fetchParticipants();
+      await fetchState();
+    } catch (err) {
+      alert('Gagal: ' + err.message);
+    }
+  }
+
+  async function deleteParticipant(id, name) {
+    if (!confirm(`Apakah Anda yakin ingin menghapus peserta "${name}"?`)) return;
+    try {
+      const res = await fetch(`/api/doorprize/participant/${id}`, { method: 'DELETE' });
+      const result = await res.json();
+      if (!res.ok || result.error) throw new Error(result.error || 'Gagal menghapus peserta');
+
+      await fetchParticipants();
+      await fetchState();
+    } catch (err) {
+      alert('Gagal: ' + err.message);
+    }
+  }
+
+  async function toggleParticipantActive(participantId) {
+    try {
+      const res = await fetch('/api/doorprize/participants/toggle-active', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ participantId })
+      });
+      const result = await res.json();
+      if (!res.ok || result.error) throw new Error(result.error || 'Gagal mengubah status aktif');
+      await fetchParticipants();
+      await fetchState();
+    } catch (err) {
+      alert('Gagal: ' + err.message);
+    }
+  }
+
   async function toggleGP(participantId) {
-    await fetch('/api/doorprize/participants/toggle-gp', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ participantId })
-    });
-    fetchParticipants();
+    try {
+      const res = await fetch('/api/doorprize/participants/toggle-gp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ participantId })
+      });
+      const result = await res.json();
+      if (!res.ok || result.error) throw new Error(result.error || 'Gagal mengubah status Grand Prize');
+      await fetchParticipants();
+      await fetchState();
+    } catch (err) {
+      alert('Gagal: ' + err.message);
+    }
+  }
+
+  async function clearAllParticipants() {
+    const currentCount = (window.currentParticipantsList || []).length;
+    if (!confirm(`⚠️ PERINGATAN KERAS:\n\nApakah Anda yakin ingin MENGHAPUS SEMUA (${currentCount}) PESERTA undian?\n\nTindakan ini akan mengosongkan daftar peserta di memori dan Cloud Firestore!`)) {
+      return;
+    }
+    try {
+      const res = await fetch('/api/doorprize/participants/clear', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      const result = await res.json();
+      if (!res.ok || result.error) throw new Error(result.error || 'Gagal mengosongkan peserta');
+
+      alert('✅ Seluruh peserta berhasil dikosongkan!');
+      await fetchParticipants();
+      await fetchState();
+    } catch (err) {
+      alert('Gagal: ' + err.message);
+    }
+  }
+
+  async function syncDoorprizeCloud() {
+    try {
+      const res = await fetch('/api/doorprize/sync-cloud', { method: 'POST' });
+      const result = await res.json();
+      if (!res.ok || result.error) throw new Error(result.error || 'Gagal sinkronisasi');
+
+      alert(`✅ ${result.message}\n\nPeserta: ${result.participantsCount}\nHadiah: ${result.prizesCount}\nPemenang: ${result.winnersCount}`);
+      await fetchParticipants();
+      await fetchState();
+    } catch (err) {
+      alert('Gagal sinkronisasi Cloud Firestore: ' + err.message);
+    }
   }
 
   function toggleImportBox() {
     const box = document.getElementById('import-box');
-    box.style.display = box.style.display === 'none' ? 'block' : 'none';
+    if (box) box.style.display = box.style.display === 'none' ? 'block' : 'none';
   }
 
   async function processImport() {
@@ -1499,25 +1755,26 @@
 
     if (items.length === 0) return alert('Tidak ada baris valid ditemukan');
 
-    const res = await fetch('/api/doorprize/participants/import', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ items })
-    });
-    const result = await res.json();
-    alert(`Berhasil mengimpor! Ditambahkan: ${result.added}, Diperbarui: ${result.updated}`);
-    document.getElementById('import-textarea').value = '';
-    toggleImportBox();
-    fetchParticipants();
-    fetchState();
+    try {
+      const res = await fetch('/api/doorprize/participants/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items })
+      });
+      const result = await res.json();
+      alert(`Berhasil mengimpor! Ditambahkan: ${result.added}, Diperbarui: ${result.updated}`);
+      document.getElementById('import-textarea').value = '';
+      toggleImportBox();
+      await fetchParticipants();
+      await fetchState();
+    } catch (err) {
+      alert('Gagal import: ' + err.message);
+    }
   }
 
-  function clearAllParticipants() {
-    alert('⚠️ Fitur "Hapus Semua Peserta" memerlukan penambahan endpoint di server.js oleh Administrator/Backend Developer.');
-  }
-
-  // Initial load
+  // Initial load: Fetch system state and full participants list
   fetchState();
+  fetchParticipants();
 </script>
 
 </body>

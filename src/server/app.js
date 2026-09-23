@@ -874,6 +874,23 @@ app.post('/api/commitment/reset', (req, res) => {
 });
 
 // === REST API ENDPOINTS (DOORPRIZE & GRANDPRIZE) ===
+// Force Sync / Pull Doorprize State dari Cloud Firestore
+app.post('/api/doorprize/sync-cloud', async (req, res) => {
+  try {
+    const success = await doorprizeEngine.reloadFromFirebase();
+    io.emit('DOORPRIZE_STATE_UPDATE', doorprizeEngine.getState());
+    res.json({
+      success: true,
+      message: 'Data Doorprize berhasil disinkronkan langsung dari Cloud Firestore!',
+      participantsCount: doorprizeEngine.participants.length,
+      prizesCount: doorprizeEngine.prizes.length,
+      winnersCount: doorprizeEngine.winners.length
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/doorprize/state', (req, res) => {
   try {
     res.json(doorprizeEngine.getState());
