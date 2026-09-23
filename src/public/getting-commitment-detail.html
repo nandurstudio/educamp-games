@@ -207,6 +207,7 @@
 
   <script>
     const STORAGE_KEY = 'educamp_getting_commitment';
+    const BYPASS_KEYWORD = 'eduuucamp'; // Kata kunci bypass
 
     // Pemetaan Kata Kunci Berdasarkan ID
     const VALID_KEYWORDS = {
@@ -245,6 +246,11 @@
         return;
       }
 
+      // Cek apakah pengguna menggunakan kata kunci bypass
+      const isBypass = userInput.toLowerCase() === BYPASS_KEYWORD.toLowerCase();
+      // Nilai yang akan dikirim & disimpan (jika bypass, ganti dengan nilai asli)
+      const keywordToSubmit = isBypass ? expectedKeyword : userInput;
+
       submitBtn.disabled = true;
       submitBtn.textContent = 'MEMPROSES...';
 
@@ -254,7 +260,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             commitmentId,
-            keyword: userInput,
+            keyword: keywordToSubmit,
             submitter: 'PESERTA'
           })
         });
@@ -281,8 +287,9 @@
           submitBtn.textContent = 'SUBMIT';
         }
       } catch (err) {
-        // Fallback jika offline / server unreachable: gunakan validasi lokal
-        if (expectedKeyword && userInput.toLowerCase() === expectedKeyword.toLowerCase()) {
+        // Fallback jika offline / server unreachable
+        const isCorrect = keywordToSubmit.toLowerCase() === expectedKeyword.toLowerCase();
+        if (expectedKeyword && isCorrect) {
           errorMsg.style.display = 'none';
           try {
             let savedData = {};
@@ -307,4 +314,4 @@
     });
   </script>
 </body>
-</html> 
+</html>

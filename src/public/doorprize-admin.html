@@ -270,7 +270,7 @@
 
           <div id="reroll-indicator-banner" style="display: none; background: rgba(245, 158, 11, 0.15); border: 1px solid #f59e0b; border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; color: #fef08a; font-size: 13px;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-              <span>🔄 <strong>Mode Kocok Ulang:</strong> Menggantikan <strong id="reroll-target-name" style="color: #fff;">-</strong></span>
+              <span>🔄 <strong>Mode Kocok Ulang Individu:</strong> Menggantikan <strong id="reroll-target-name" style="color: #fff;">-</strong></span>
               <button type="button" onclick="cancelRerollTarget()" style="background: rgba(239, 68, 68, 0.25); border: 1px solid rgba(239, 68, 68, 0.5); color: #fca5a5; padding: 3px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 11px;">✕ Batal Target</button>
             </div>
           </div>
@@ -301,10 +301,10 @@
 
             <div id="pending-replace-section" style="display: none; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 12px 14px; margin-bottom: 14px;">
               <div style="color: #fca5a5; font-size: 13px; font-weight: 700; margin-bottom: 6px;">
-                ⚠️ Kuota Hadiah Terpenuhi (<span id="pending-quota-text"></span>). Pemenang lama akan di-REPLACE (bukan nambah kuota):
+                ⚠️ Kuota Hadiah Terpenuhi (<span id="pending-quota-text"></span>):
               </div>
               <div id="pending-replace-picker-wrapper">
-                <!-- Dropdown atau nama pemenang yang diganti -->
+                <!-- Keterangan Massal / Dropdown Individu -->
               </div>
             </div>
 
@@ -503,9 +503,12 @@
             <option value="NON_GP">Non Grand Prize</option>
           </select>
         </div>
-        <div>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
           <button class="btn btn-success" onclick="toggleImportBox()">
             <span>📥</span> Import Data Peserta (CSV / Text)
+          </button>
+          <button class="btn btn-danger" onclick="clearAllParticipants()">
+            <span>🗑️</span> Hapus Semua Peserta
           </button>
         </div>
       </div>
@@ -595,7 +598,6 @@
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/auth-guard.js"></script>
 <script>
-  // Aktifkan proteksi Game Master / Super Admin Auth Guard
   if (window.EducampAuthGuard) {
     new window.EducampAuthGuard({ requiredRole: 'GAME_MASTER' });
   }
@@ -663,10 +665,8 @@
     const cleanId = (tabId || '').replace(/^tab-/, '');
     const fullId = `tab-${cleanId}`;
 
-    // Deactivate all tab buttons
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
 
-    // Activate the clicked button safely
     if (clickedBtn && clickedBtn.classList) {
       clickedBtn.classList.add('active');
     } else if (window.event && window.event.currentTarget && window.event.currentTarget.classList) {
@@ -676,17 +676,13 @@
       if (matched) matched.classList.add('active');
     }
 
-    // Hide all tab panels
     document.querySelectorAll('.tab-panel').forEach(panel => {
       panel.style.display = 'none';
     });
 
-    // Show the target tab panel
     const target = document.getElementById(fullId);
     if (target) {
       target.style.display = 'block';
-    } else {
-      console.warn('Tab panel not found:', fullId);
     }
 
     if (cleanId === 'participants-mgmt') {
@@ -718,7 +714,7 @@
       prizeSelect.appendChild(opt);
     });
 
-    // Render active prize showcase
+    // Render active prize showcase & Set default jumlah kocokan
     if (state.activePrize) {
       const p = state.activePrize;
       document.getElementById('ctrl-prize-name').textContent = p.name;
@@ -729,6 +725,13 @@
       const wonThisPrize = (state.winners || []).filter(w => w.prizeId === p.id).length;
       document.getElementById('ctrl-prize-won').textContent = wonThisPrize;
       document.getElementById('current-prize-winners-count').textContent = wonThisPrize;
+
+      // Set input kocokan ke sisa kuota (jika 0/penuh, default ke total kuota hadiah)
+      const remainingQuota = Math.max(0, p.totalWinners - wonThisPrize);
+      const drawInput = document.getElementById('draw-count-input');
+      if (drawInput) {
+        drawInput.value = remainingQuota > 0 ? remainingQuota : (p.totalWinners || 1);
+      }
 
       // Render winners list for this prize
       const curList = document.getElementById('current-prize-winners-list');
@@ -757,7 +760,6 @@
       }
     }
 
-    // Cek apakah ada undian yang pending
     if (state.pendingDraw) {
       currentPendingDraw = state.pendingDraw;
       renderPendingDrawBox(state.pendingDraw);
@@ -766,7 +768,6 @@
       if (box) box.style.display = 'none';
     }
 
-    // Simpan daftar hadiah ke variabel global untuk akses edit cepat
     window.currentPrizesList = state.prizes || [];
     const countBadge = document.getElementById('prizes-count-badge');
     if (countBadge) countBadge.textContent = window.currentPrizesList.length;
@@ -835,13 +836,20 @@
     const existingWinners = (state?.winners || []).filter(w => w.prizeId === (prize ? prize.id : ''));
     const isReplace = pendingData.isReplacement || (prize && existingWinners.length >= prize.totalWinners);
 
-    const cands = pendingData.candidates || [];
+    // Dapatkan seluruh array kandidat
+    let cands = [];
+    if (Array.isArray(pendingData.candidates)) {
+      cands = pendingData.candidates;
+    } else if (pendingData.candidate) {
+      cands = [pendingData.candidate];
+    }
+
     let candHtml = '';
-    cands.forEach(c => {
+    cands.forEach((c, idx) => {
       candHtml += `
         <div style="display: flex; justify-content: space-between; align-items: center; background: #070d1e; padding: 12px 16px; border-radius: 8px; border: 1px solid #1e293b; margin-bottom: 8px;">
           <div>
-            <span style="font-size: 11px; color: #38bdf8; font-weight: 800; letter-spacing: 0.5px;">NIK: ${c.nik}</span>
+            <span style="font-size: 11px; color: #38bdf8; font-weight: 800; letter-spacing: 0.5px;">#${idx + 1} NIK: ${c.nik}</span>
             <h4 style="font-size: 18px; font-weight: 800; color: #fff; margin: 3px 0;">${c.name}</h4>
             <span style="font-size: 13px; color: #94a3b8;">${c.department || 'Umum'}</span>
           </div>
@@ -862,19 +870,28 @@
       repSec.style.display = 'block';
       document.getElementById('pending-quota-text').textContent = `${existingWinners.length}/${prize.totalWinners} Pemenang`;
       
-      let selectHtml = `
-        <label style="font-size: 12px; color: #fca5a5; display: block; margin-bottom: 6px; font-weight: 600;">
-          Pilih Pemenang Yang Akan Digantikan:
-        </label>
-        <select id="select-replace-target" class="form-control" style="background: #0b1329; border: 1px solid #ef4444; color: #fff; font-weight: 700;">
-      `;
-      existingWinners.forEach((ew, idx) => {
-        const isSelected = (pendingData.replaceWinnerId === ew.id) || (idx === existingWinners.length - 1);
-        selectHtml += `<option value="${ew.id}" ${isSelected ? 'selected' : ''}>Pemenang #${idx+1}: ${ew.name} (${ew.nik}) - ${ew.department}</option>`;
-      });
-      selectHtml += `</select>`;
-      repPicker.innerHTML = selectHtml;
-      saveBtn.innerHTML = '<span>🔄</span> SIMPAN & REPLACE PEMENANG';
+      if (targetReplaceWinnerId || pendingData.replaceWinnerId) {
+        let selectHtml = `
+          <label style="font-size: 12px; color: #fca5a5; display: block; margin-bottom: 6px; font-weight: 600;">
+            Pilih Pemenang Yang Akan Digantikan:
+          </label>
+          <select id="select-replace-target" class="form-control" style="background: #0b1329; border: 1px solid #ef4444; color: #fff; font-weight: 700;">
+        `;
+        existingWinners.forEach((ew, idx) => {
+          const isSelected = (pendingData.replaceWinnerId === ew.id) || (targetReplaceWinnerId === ew.id);
+          selectHtml += `<option value="${ew.id}" ${isSelected ? 'selected' : ''}>Pemenang #${idx+1}: ${ew.name} (${ew.nik}) - ${ew.department}</option>`;
+        });
+        selectHtml += `</select>`;
+        repPicker.innerHTML = selectHtml;
+        saveBtn.innerHTML = '<span>🔄</span> SIMPAN & REPLACE PEMENANG TERPILIH';
+      } else {
+        repPicker.innerHTML = `
+          <div style="font-size: 13px; color: #fca5a5; font-weight: 700;">
+            🔄 Mode Kocok Ulang Massal: Seluruh pemenang lama untuk hadiah ini (${existingWinners.length} orang) akan DIGANTIKAN sekaligus oleh ${cands.length} calon pemenang baru di atas.
+          </div>
+        `;
+        saveBtn.innerHTML = '<span>🔄</span> SIMPAN & REPLACE SEMUA PEMENANG';
+      }
     } else {
       repSec.style.display = 'none';
       repPicker.innerHTML = '';
@@ -891,9 +908,21 @@
       return;
     }
     const selectEl = document.getElementById('select-replace-target');
-    const replaceWinnerId = selectEl ? selectEl.value : (currentPendingDraw.replaceWinnerId || targetReplaceWinnerId);
+    let replaceWinnerId = selectEl ? selectEl.value : (currentPendingDraw.replaceWinnerId || targetReplaceWinnerId);
     
-    socket.emit('DOORPRIZE_CONFIRM_WINNER', { replaceWinnerId });
+    const prize = (state?.prizes || []).find(p => p.id === currentPendingDraw.prizeId) || state?.activePrize;
+    const existingWinners = (state?.winners || []).filter(w => w.prizeId === (prize ? prize.id : ''));
+    const isReplace = currentPendingDraw.isReplacement || (prize && existingWinners.length >= prize.totalWinners);
+
+    if (isReplace && !selectEl && !replaceWinnerId) {
+      replaceWinnerId = 'ALL';
+    }
+
+    socket.emit('DOORPRIZE_CONFIRM_WINNER', { 
+      replaceWinnerId,
+      replaceAll: replaceWinnerId === 'ALL'
+    });
+
     document.getElementById('box-pending-confirmation').style.display = 'none';
     currentPendingDraw = null;
     targetReplaceWinnerId = null;
@@ -928,20 +957,74 @@
     }
   }
 
+  // --- VALIDASI PENGOCOKAN (DILARANG JIKA KUOTA MELEBIHI PESERTA ELIGIBLE) ---
+
+  function getEligibleParticipantsCount() {
+    if (!state || !state.activePrize) return 0;
+    const isGP = state.activePrize.category === 'GRAND PRIZE';
+    return isGP 
+      ? (state.grandPrizeParticipantsCount !== undefined ? state.grandPrizeParticipantsCount : state.availableParticipantsCount)
+      : state.availableParticipantsCount;
+  }
+
   function startRolling() {
+    if (!state || !state.activePrize) {
+      alert('Silakan pilih hadiah terlebih dahulu!');
+      return;
+    }
+
+    const countInput = document.getElementById('draw-count-input');
+    const count = parseInt(countInput.value) || 1;
+    const available = getEligibleParticipantsCount();
+
+    if (available <= 0) {
+      alert('⚠️ Pengocokan Tidak Dapat Dilanjutkan!\n\nTidak ada peserta eligible (belum menang) yang tersedia untuk diundi.');
+      return;
+    }
+
+    // Jika targetReplaceWinnerId aktif (tombol Kocok Ulang per 1 nama), paksa 1 slot.
+    // Jika TIDAK, gunakan jumlah `count` yang diisi oleh admin (misal 12 orang).
+    const requiredCount = targetReplaceWinnerId ? 1 : count;
+
+    if (requiredCount > available) {
+      alert(`⚠️ Pengocokan Tidak Dapat Dilanjutkan!\n\nJumlah yang ingin dikocok (${requiredCount} peserta) MELEBIHI jumlah peserta eligible yang belum menang (${available} peserta).`);
+      return;
+    }
+
     const prizeId = document.getElementById('select-active-prize').value;
     socket.emit('DOORPRIZE_START_ROLL', { 
       prizeId,
+      count: requiredCount,
       replaceWinnerId: targetReplaceWinnerId 
     });
   }
 
   function stopRollingAndDraw() {
+    if (!state || !state.activePrize) {
+      alert('Silakan pilih hadiah terlebih dahulu!');
+      return;
+    }
+
+    const countInput = document.getElementById('draw-count-input');
+    const count = parseInt(countInput.value) || 1;
+    const available = getEligibleParticipantsCount();
+
+    if (available <= 0) {
+      alert('⚠️ Pengocokan Tidak Dapat Dilanjutkan!\n\nTidak ada peserta eligible (belum menang) yang tersedia untuk diundi.');
+      return;
+    }
+
+    const requiredCount = targetReplaceWinnerId ? 1 : count;
+
+    if (requiredCount > available) {
+      alert(`⚠️ Pengocokan Tidak Dapat Dilanjutkan!\n\nJumlah yang ingin dikocok (${requiredCount} peserta) MELEBIHI jumlah peserta eligible yang belum menang (${available} peserta).`);
+      return;
+    }
+
     const prizeId = document.getElementById('select-active-prize').value;
-    const count = parseInt(document.getElementById('draw-count-input').value) || 1;
     socket.emit('DOORPRIZE_STOP_ROLL', { 
       prizeId, 
-      count,
+      count: requiredCount,
       replaceWinnerId: targetReplaceWinnerId 
     });
   }
@@ -993,7 +1076,6 @@
     reader.onload = (e) => {
       const img = new Image();
       img.onload = () => {
-        // Skala ke dimensi maksimal 800px agar ringan dan cepat di Cloud Firestore
         const maxDim = 800;
         let w = img.width;
         let h = img.height;
@@ -1078,20 +1160,17 @@
     document.getElementById('form-prize-quota').value = p.totalWinners || 1;
     document.getElementById('form-prize-photo').value = p.photo || '';
     
-    // Update preview
     const imgPreview = document.getElementById('form-prize-img-preview');
     imgPreview.src = p.photo || '/images/doorprize/grandprize/TV.png';
     document.getElementById('preview-image-title').textContent = p.name;
     document.getElementById('preview-image-type').textContent = p.photo && p.photo.startsWith('data:') ? 'Foto Kustom' : 'Preset / URL';
 
-    // Update UI headers & buttons
     document.getElementById('form-prize-title').textContent = '✏️ Edit Data Hadiah';
     document.getElementById('form-prize-badge').textContent = 'Mode Edit';
     document.getElementById('form-prize-badge').className = 'badge badge-gp';
     document.getElementById('btn-save-prize-label').textContent = 'Perbarui Hadiah';
     document.getElementById('btn-cancel-prize-edit').style.display = 'inline-flex';
 
-    // Focus ke input nama
     document.getElementById('form-prize-name').focus();
     document.getElementById('form-prize-element').scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
@@ -1167,7 +1246,6 @@
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error || 'Gagal menghapus');
       
-      // Jika yang dihapus sedang dalam mode edit, reset form
       if (document.getElementById('form-prize-id').value === id) {
         resetPrizeForm();
       }
@@ -1177,7 +1255,6 @@
     }
   }
 
-  // Inisialisasi Drag & Drop listener untuk dropzone
   function initDropzone() {
     const dropzone = document.getElementById('prize-dropzone');
     if (dropzone) {
@@ -1303,6 +1380,10 @@
     toggleImportBox();
     fetchParticipants();
     fetchState();
+  }
+
+  function clearAllParticipants() {
+    alert('⚠️ Fitur "Hapus Semua Peserta" memerlukan penambahan endpoint di server.js oleh Administrator/Backend Developer.');
   }
 
   // Initial load
