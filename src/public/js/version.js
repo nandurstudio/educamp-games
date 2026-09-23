@@ -4,7 +4,7 @@
  * dari Single Source of Truth (package.json via /api/version).
  */
 (function () {
-  window.APP_VERSION = "v1.3.3";
+  window.APP_VERSION = "v1.3.4";
 
   function applyVersion(ver) {
     if (!ver) return;

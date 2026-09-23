@@ -106,6 +106,210 @@
       transform: translateY(-5px);
     }
 
+    /* Interactive Reveal Cards & Mystery Mode */
+    .reveal-card {
+      cursor: pointer;
+      position: relative;
+      user-select: none;
+      transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.35s ease, border-color 0.35s ease;
+    }
+    .reveal-card:hover {
+      transform: translateY(-8px) scale(1.02);
+    }
+    .reveal-card:active {
+      transform: translateY(-2px) scale(0.99);
+    }
+
+    /* Shimmer effect on mystery cards */
+    .reveal-card.is-hidden {
+      border-style: dashed !important;
+      background: linear-gradient(135deg, rgba(15, 23, 42, 0.92) 0%, rgba(30, 41, 59, 0.75) 100%) !important;
+    }
+    .reveal-card.is-hidden::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
+      background-size: 200% 100%;
+      animation: cardShimmer 2.5s infinite;
+      pointer-events: none;
+    }
+    @keyframes cardShimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+
+    /* Podium Card Internal Faces */
+    .podium-pillar .mystery-face {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      min-height: 200px;
+      padding: 10px 0;
+    }
+    .podium-pillar.podium-first .mystery-face {
+      min-height: 230px;
+    }
+
+    .podium-pillar .revealed-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+    }
+
+    .podium-pillar.is-hidden .revealed-content {
+      display: none !important;
+    }
+    .podium-pillar.is-revealed .mystery-face {
+      display: none !important;
+    }
+    .podium-pillar.is-revealed .revealed-content {
+      animation: revealPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+
+    @keyframes revealPop {
+      0% {
+        opacity: 0;
+        transform: scale(0.86) translateY(12px);
+        filter: blur(8px);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+        filter: blur(0);
+      }
+    }
+
+    .mystery-icon-box {
+      font-size: 42px;
+      margin: 14px 0 8px 0;
+      animation: pulseMystery 2s infinite ease-in-out;
+      filter: drop-shadow(0 0 14px currentColor);
+    }
+    @keyframes pulseMystery {
+      0%, 100% { transform: scale(1); opacity: 0.9; }
+      50% { transform: scale(1.12); opacity: 1; }
+    }
+
+    .mystery-title {
+      font-size: 20px;
+      font-weight: 900;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+    }
+    .mystery-hint {
+      font-size: 12px;
+      font-weight: 700;
+      color: #94a3b8;
+      background: rgba(148, 163, 184, 0.12);
+      border: 1px dashed rgba(148, 163, 184, 0.3);
+      padding: 5px 14px;
+      border-radius: 20px;
+      margin-top: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Small badge at top-right corner to indicate status */
+    .card-tap-badge {
+      position: absolute;
+      top: 10px;
+      right: 12px;
+      font-size: 10px;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 6px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      opacity: 0.85;
+      transition: opacity 0.2s;
+    }
+    .reveal-card:hover .card-tap-badge {
+      opacity: 1;
+    }
+    .card-tap-badge.badge-locked {
+      background: rgba(239, 68, 68, 0.2);
+      color: #fca5a5;
+      border: 1px solid rgba(239, 68, 68, 0.4);
+    }
+    .card-tap-badge.badge-unlocked {
+      background: rgba(34, 197, 94, 0.2);
+      color: #86efac;
+      border: 1px solid rgba(34, 197, 94, 0.4);
+    }
+
+    /* Area 4: Matrix Section & Card */
+    .matrix-card.reveal-card {
+      transition: all 0.35s ease;
+    }
+    .matrix-card.is-hidden {
+      border: 2px dashed #475569 !important;
+      background: linear-gradient(180deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.8) 100%) !important;
+    }
+    .matrix-mystery-wrapper {
+      padding: 44px 20px;
+      text-align: center;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .matrix-card.is-revealed .matrix-mystery-wrapper {
+      display: none !important;
+    }
+    .matrix-card.is-hidden .matrix-table-container {
+      display: none !important;
+    }
+    .matrix-card.is-revealed .matrix-table-container {
+      animation: revealPop 0.45s ease forwards;
+    }
+
+    /* Control Toolbar for GM */
+    .reveal-control-bar {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      margin: 16px auto 6px auto;
+      flex-wrap: wrap;
+    }
+    .reveal-btn-pill {
+      background: rgba(30, 41, 59, 0.85);
+      border: 1px solid #475569;
+      color: #e2e8f0;
+      padding: 7px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+    .reveal-btn-pill:hover {
+      background: rgba(99, 102, 241, 0.25);
+      border-color: #6366f1;
+      color: #fff;
+      transform: translateY(-2px);
+    }
+    .reveal-status-pill {
+      font-size: 12px;
+      font-weight: 800;
+      color: #f59e0b;
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      padding: 6px 14px;
+      border-radius: 20px;
+    }
+
     /* First Place (Center - Elevated) */
     .podium-first {
       order: 2;
@@ -350,35 +554,69 @@
     </div>
     <h1 class="board-title">KLASEMEN AKUMULASI JUARA</h1>
     <p class="board-sub">Integrasi Poin Game Digital (Panjat Pinang, Tarik Tambang) & Game Non-Digital Outbound</p>
+
+    <!-- GM Reveal Control Toolbar -->
+    <div class="reveal-control-bar">
+      <span class="reveal-status-pill" id="reveal-status-indicator">🔒 0/4 Area Terbuka</span>
+      <button type="button" class="reveal-btn-pill" onclick="revealAll()">
+        <span>🎉 Buka Semua</span>
+      </button>
+      <button type="button" class="reveal-btn-pill" onclick="hideAll()">
+        <span>🔒 Kunci Semua</span>
+      </button>
+    </div>
   </header>
 
-  <!-- PODIUM 3 BESAR -->
+  <!-- PODIUM 3 BESAR (Area 1, Area 2, Area 3) -->
   <section class="podium-section" id="podium-container">
     <!-- Di-render dinamis lewat JavaScript -->
   </section>
 
-  <!-- MATRIKS RINCIAN SEMUA PERMAINAN -->
+  <!-- MATRIKS RINCIAN SEMUA PERMAINAN (Area 4: List) -->
   <section class="matrix-section">
-    <div class="matrix-card">
-      <div class="matrix-header">
-        <div class="matrix-title">
-          <span>📊 Matriks Perolehan Skor Seluruh Permainan</span>
-        </div>
-        <div class="live-indicator">
-          <span class="live-dot"></span>
-          <span>LIVE AUTO-SYNC</span>
+    <div class="matrix-card reveal-card is-hidden" id="matrix-card-wrapper" onclick="handleMatrixCardClick(event)">
+      <!-- Badge Status Pojok Kanan Atas -->
+      <span class="card-tap-badge badge-locked" id="matrix-tap-badge">🔒 Terkunci</span>
+
+      <!-- Tampilan Mystery Saat Terkunci -->
+      <div class="matrix-mystery-wrapper" id="matrix-mystery-view">
+        <div class="mystery-icon-box" style="color: #6366f1;">📊</div>
+        <div class="mystery-title" style="color: #a5b4fc;">TABEL SKOR & KLASEMEN LENGKAP</div>
+        <p style="color: #94a3b8; font-size: 14px; max-width: 550px; margin-bottom: 14px;">
+          Seluruh rincian perolehan poin per permainan dan peringkat tim 4 ke bawah masih dirahasiakan oleh Game Master.
+        </p>
+        <div class="mystery-hint">
+          <span>👆 KLIK AREA INI UNTUK MEMBUKA LIST & MATRIKS SKOR</span>
         </div>
       </div>
 
-      <div style="overflow-x: auto;">
-        <table class="matrix-table" id="matrix-table">
-          <thead id="matrix-thead">
-            <!-- Diisi kolom game dinamis -->
-          </thead>
-          <tbody id="matrix-tbody">
-            <!-- Diisi perolehan tiap tim -->
-          </tbody>
-        </table>
+      <!-- Tampilan Content Saat Terbuka -->
+      <div class="matrix-table-container" id="matrix-content-view">
+        <div class="matrix-header">
+          <div class="matrix-title">
+            <span>📊 Matriks Perolehan Skor Seluruh Permainan</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <button type="button" class="reveal-btn-pill" style="font-size: 11px; padding: 4px 10px;" onclick="toggleReveal('list', event)">
+              🔒 Kunci Kembali
+            </button>
+            <div class="live-indicator">
+              <span class="live-dot"></span>
+              <span>LIVE AUTO-SYNC</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="overflow-x: auto;">
+          <table class="matrix-table" id="matrix-table">
+            <thead id="matrix-thead">
+              <!-- Diisi kolom game dinamis -->
+            </thead>
+            <tbody id="matrix-tbody">
+              <!-- Diisi perolehan tiap tim -->
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </section>
@@ -393,7 +631,7 @@
       <div class="footer-semver" title="Semantic Versioning">
         <span class="semver-dot"></span>
         <span class="semver-label">SemVer</span>
-        <span>v1.3.0</span>
+        <span>v1.3.4</span>
       </div>
     </div>
   </footer>
@@ -402,6 +640,231 @@
   <script>
     const socket = io();
     let prevWinnerTeamId = null;
+    let latestLeaderboardData = null;
+
+    // State 4 Revealable Areas (Area 1: first, Area 2: second, Area 3: third, Area 4: list)
+    let revealedState = {
+      first: false,
+      second: false,
+      third: false,
+      list: false
+    };
+
+    // Sinkronisasi state dari sessionStorage agar tidak reset saat reconnect / refresh
+    try {
+      const saved = sessionStorage.getItem('educamp_leaderboard_reveals');
+      if (saved) {
+        revealedState = Object.assign(revealedState, JSON.parse(saved));
+      }
+    } catch (e) {
+      console.warn("Storage access failed:", e);
+    }
+
+    function saveRevealedState() {
+      try {
+        sessionStorage.setItem('educamp_leaderboard_reveals', JSON.stringify(revealedState));
+      } catch (e) {}
+      updateRevealUI();
+    }
+
+    // Web Audio API Procedural Sound Synthesizer (Tanpa asset audio eksternal)
+    let audioCtx = null;
+    function getAudioContext() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    function playProceduralSound(type) {
+      try {
+        const ctx = getAudioContext();
+        const now = ctx.currentTime;
+
+        if (type === 'first') {
+          // Fanfare Kemenangan Emas Juara 1: C5 -> E5 -> G5 -> C6
+          const notes = [523.25, 659.25, 783.99, 1046.50];
+          notes.forEach((freq, idx) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, now + idx * 0.12);
+
+            gain.gain.setValueAtTime(0, now + idx * 0.12);
+            gain.gain.linearRampToValueAtTime(0.35, now + idx * 0.12 + 0.03);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.12 + (idx === 3 ? 1.0 : 0.45));
+
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+
+            osc.start(now + idx * 0.12);
+            osc.stop(now + idx * 0.12 + (idx === 3 ? 1.0 : 0.45));
+          });
+        } else if (type === 'second') {
+          // Chime Perak Lembut Juara 2: E5 -> B5
+          const notes = [659.25, 987.77];
+          notes.forEach((freq, idx) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, now + idx * 0.14);
+
+            gain.gain.setValueAtTime(0, now + idx * 0.14);
+            gain.gain.linearRampToValueAtTime(0.28, now + idx * 0.14 + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.14 + 0.6);
+
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+
+            osc.start(now + idx * 0.14);
+            osc.stop(now + idx * 0.14 + 0.6);
+          });
+        } else if (type === 'third') {
+          // Chime Perunggu Juara 3: D5 -> A5
+          const notes = [587.33, 880.00];
+          notes.forEach((freq, idx) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, now + idx * 0.14);
+
+            gain.gain.setValueAtTime(0, now + idx * 0.14);
+            gain.gain.linearRampToValueAtTime(0.25, now + idx * 0.14 + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.14 + 0.55);
+
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+
+            osc.start(now + idx * 0.14);
+            osc.stop(now + idx * 0.14 + 0.55);
+          });
+        } else if (type === 'list') {
+          // Sweep Synthesizer Pengungkapan List Matriks
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(440, now);
+          osc.frequency.exponentialRampToValueAtTime(880, now + 0.35);
+
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc.start(now);
+          osc.stop(now + 0.45);
+        } else if (type === 'lock') {
+          // Soft click feedback saat mengunci
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(320, now);
+          osc.frequency.exponentialRampToValueAtTime(160, now + 0.12);
+
+          gain.gain.setValueAtTime(0.12, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc.start(now);
+          osc.stop(now + 0.12);
+        }
+      } catch (e) {
+        console.warn("Procedural sound error:", e);
+      }
+    }
+
+    function toggleReveal(key, evt) {
+      if (evt) evt.stopPropagation();
+      revealedState[key] = !revealedState[key];
+      saveRevealedState();
+
+      if (revealedState[key]) {
+        playProceduralSound(key);
+        if (key === 'first') {
+          triggerConfetti();
+        }
+      } else {
+        playProceduralSound('lock');
+      }
+
+      // Re-render podium jika kartu podium di-toggle
+      if (['first', 'second', 'third'].includes(key) && latestLeaderboardData) {
+        renderPodium(latestLeaderboardData.leaderboard || []);
+      }
+    }
+
+    function handleMatrixCardClick(evt) {
+      if (!revealedState.list) {
+        toggleReveal('list', evt);
+      }
+    }
+
+    function revealAll() {
+      revealedState.first = true;
+      revealedState.second = true;
+      revealedState.third = true;
+      revealedState.list = true;
+      saveRevealedState();
+
+      playProceduralSound('first');
+      triggerConfetti();
+
+      if (latestLeaderboardData) {
+        renderPodium(latestLeaderboardData.leaderboard || []);
+      }
+    }
+
+    function hideAll() {
+      revealedState.first = false;
+      revealedState.second = false;
+      revealedState.third = false;
+      revealedState.list = false;
+      saveRevealedState();
+
+      playProceduralSound('lock');
+
+      if (latestLeaderboardData) {
+        renderPodium(latestLeaderboardData.leaderboard || []);
+      }
+    }
+
+    function updateRevealUI() {
+      // Update Toolbar Status Pill
+      const indicator = document.getElementById('reveal-status-indicator');
+      if (indicator) {
+        const count = ['first', 'second', 'third', 'list'].filter(k => revealedState[k]).length;
+        indicator.textContent = count === 4 ? '🎉 Semua 4 Area Terbuka' : `🔒 ${count}/4 Area Terbuka`;
+        indicator.style.color = count === 4 ? '#22c55e' : '#f59e0b';
+        indicator.style.borderColor = count === 4 ? 'rgba(34, 197, 94, 0.4)' : 'rgba(245, 158, 11, 0.35)';
+      }
+
+      // Update Area 4 (Matrix Card)
+      const wrapper = document.getElementById('matrix-card-wrapper');
+      const badge = document.getElementById('matrix-tap-badge');
+      if (wrapper) {
+        if (revealedState.list) {
+          wrapper.classList.remove('is-hidden');
+          wrapper.classList.add('is-revealed');
+          if (badge) {
+            badge.className = 'card-tap-badge badge-unlocked';
+            badge.textContent = '🔓 Terbuka';
+          }
+        } else {
+          wrapper.classList.remove('is-revealed');
+          wrapper.classList.add('is-hidden');
+          if (badge) {
+            badge.className = 'card-tap-badge badge-locked';
+            badge.textContent = '🔒 Terkunci';
+          }
+        }
+      }
+    }
 
     function fetchLeaderboard() {
       fetch('/api/super/leaderboard')
@@ -418,14 +881,15 @@
 
     function renderDashboard(data) {
       if (!data || !Array.isArray(data.leaderboard)) return;
+      latestLeaderboardData = data;
 
       const teams = data.leaderboard;
       const customGames = data.customGames || [];
 
-      // Cek apakah ada perubahan posisi juara 1 untuk confetti
+      // Cek apakah ada perubahan posisi juara 1 untuk confetti (hanya jika Juara 1 sudah terbuka)
       if (teams.length > 0) {
         const topTeamId = teams[0].teamId;
-        if (prevWinnerTeamId && prevWinnerTeamId !== topTeamId) {
+        if (prevWinnerTeamId && prevWinnerTeamId !== topTeamId && revealedState.first) {
           triggerConfetti();
         }
         prevWinnerTeamId = topTeamId;
@@ -436,14 +900,17 @@
 
       // 2. Render Tabel Matriks Skor
       renderMatrix(teams, customGames);
+
+      // 3. Sinkronkan UI Status Reveal
+      updateRevealUI();
     }
 
     function renderPodium(teams) {
       const container = document.getElementById('podium-container');
       if (!container) return;
 
-      if (teams.length === 0) {
-        container.innerHTML = '<div style="color: #64748b; text-align: center;">Belum ada data tim.</div>';
+      if (!teams || teams.length === 0) {
+        container.innerHTML = '<div style="color: #64748b; text-align: center; padding: 20px;">Belum ada data tim.</div>';
         return;
       }
 
@@ -453,44 +920,85 @@
 
       let html = '';
 
-      // Juara 2 (Perak - Kiri)
+      // Juara 2 (Perak - Kiri) -> Area 2
       if (second) {
+        const isRev = revealedState.second;
         html += `
-          <div class="podium-pillar podium-second">
+          <div class="podium-pillar podium-second reveal-card ${isRev ? 'is-revealed' : 'is-hidden'}" onclick="toggleReveal('second', event)" title="Klik untuk Buka/Kunci Juara 2">
             <div class="trophy-badge trophy-second">🥈</div>
-            <div class="podium-team-dot" style="background: ${second.teamColor}; color: ${second.teamColor};"></div>
-            <div class="podium-team-name">${second.teamName.toUpperCase()}</div>
-            <div class="podium-team-members">${second.membersCount} Anggota Regu</div>
-            <div class="podium-grand-score">${second.grandTotal}</div>
-            <div class="podium-score-label">TOTAL POIN</div>
+            <span class="card-tap-badge ${isRev ? 'badge-unlocked' : 'badge-locked'}">
+              ${isRev ? '🔓 Terbuka' : '🔒 Terkunci'}
+            </span>
+
+            <div class="mystery-face">
+              <div class="mystery-icon-box" style="color: #cbd5e1;">❓</div>
+              <div class="mystery-title" style="color: #cbd5e1;">MISTERI JUARA 2</div>
+              <div class="mystery-hint">👆 Klik untuk Membuka Juara 2</div>
+            </div>
+
+            <div class="revealed-content">
+              <div class="podium-team-dot" style="background: ${second.teamColor}; color: ${second.teamColor};"></div>
+              <div class="podium-team-name">${second.teamName.toUpperCase()}</div>
+              <div class="podium-team-members">${second.membersCount} Anggota Regu</div>
+              <div class="podium-grand-score">${second.grandTotal}</div>
+              <div class="podium-score-label">TOTAL POIN</div>
+            </div>
           </div>
         `;
       }
 
-      // Juara 1 (Emas - Tengah Tinggi)
+      // Juara 1 (Emas - Tengah Tinggi) -> Area 1
       if (first) {
+        const isRev = revealedState.first;
         html += `
-          <div class="podium-pillar podium-first">
+          <div class="podium-pillar podium-first reveal-card ${isRev ? 'is-revealed' : 'is-hidden'}" onclick="toggleReveal('first', event)" title="Klik untuk Buka/Kunci Juara 1">
             <div class="trophy-badge trophy-first">👑</div>
-            <div class="podium-team-dot" style="background: ${first.teamColor}; color: ${first.teamColor}; width: 20px; height: 20px;"></div>
-            <div class="podium-team-name" style="font-size: 26px; color: #f59e0b;">${first.teamName.toUpperCase()}</div>
-            <div class="podium-team-members" style="color: #fde68a;">${first.membersCount} Anggota Regu</div>
-            <div class="podium-grand-score" style="font-size: 48px;">${first.grandTotal}</div>
-            <div class="podium-score-label" style="color: #f59e0b;">JUARA 1 UTAMA</div>
+            <span class="card-tap-badge ${isRev ? 'badge-unlocked' : 'badge-locked'}">
+              ${isRev ? '🔓 Terbuka' : '🔒 Terkunci'}
+            </span>
+
+            <div class="mystery-face">
+              <div class="mystery-icon-box" style="color: #f59e0b;">👑</div>
+              <div class="mystery-title" style="color: #f59e0b;">SANG JUARA 1 UTAMA</div>
+              <div class="mystery-hint" style="color: #fde68a; border-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.15);">
+                ✨ Klik untuk Mengungkap Juara 1! ✨
+              </div>
+            </div>
+
+            <div class="revealed-content">
+              <div class="podium-team-dot" style="background: ${first.teamColor}; color: ${first.teamColor}; width: 20px; height: 20px;"></div>
+              <div class="podium-team-name" style="font-size: 26px; color: #f59e0b;">${first.teamName.toUpperCase()}</div>
+              <div class="podium-team-members" style="color: #fde68a;">${first.membersCount} Anggota Regu</div>
+              <div class="podium-grand-score" style="font-size: 48px;">${first.grandTotal}</div>
+              <div class="podium-score-label" style="color: #f59e0b;">JUARA 1 UTAMA</div>
+            </div>
           </div>
         `;
       }
 
-      // Juara 3 (Perunggu - Kanan)
+      // Juara 3 (Perunggu - Kanan) -> Area 3
       if (third) {
+        const isRev = revealedState.third;
         html += `
-          <div class="podium-pillar podium-third">
+          <div class="podium-pillar podium-third reveal-card ${isRev ? 'is-revealed' : 'is-hidden'}" onclick="toggleReveal('third', event)" title="Klik untuk Buka/Kunci Juara 3">
             <div class="trophy-badge trophy-third">🥉</div>
-            <div class="podium-team-dot" style="background: ${third.teamColor}; color: ${third.teamColor};"></div>
-            <div class="podium-team-name">${third.teamName.toUpperCase()}</div>
-            <div class="podium-team-members">${third.membersCount} Anggota Regu</div>
-            <div class="podium-grand-score">${third.grandTotal}</div>
-            <div class="podium-score-label">TOTAL POIN</div>
+            <span class="card-tap-badge ${isRev ? 'badge-unlocked' : 'badge-locked'}">
+              ${isRev ? '🔓 Terbuka' : '🔒 Terkunci'}
+            </span>
+
+            <div class="mystery-face">
+              <div class="mystery-icon-box" style="color: #d97706;">❓</div>
+              <div class="mystery-title" style="color: #d97706;">MISTERI JUARA 3</div>
+              <div class="mystery-hint">👆 Klik untuk Membuka Juara 3</div>
+            </div>
+
+            <div class="revealed-content">
+              <div class="podium-team-dot" style="background: ${third.teamColor}; color: ${third.teamColor};"></div>
+              <div class="podium-team-name">${third.teamName.toUpperCase()}</div>
+              <div class="podium-team-members">${third.membersCount} Anggota Regu</div>
+              <div class="podium-grand-score">${third.grandTotal}</div>
+              <div class="podium-score-label">TOTAL POIN</div>
+            </div>
           </div>
         `;
       }
