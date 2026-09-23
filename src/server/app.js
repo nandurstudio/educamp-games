@@ -15,11 +15,21 @@ const commitmentEngine = require('./commitment-engine');
 const doorprizeEngine = require('./doorprize-engine');
 const firebaseService = require('./firebase-service');
 const { generateQuizQuestions } = require('./gemini-service');
+const pkg = require('../../package.json');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: '*' }
+});
+
+// Endpoint Versi Platform Dinamis (Single Source of Truth dari package.json)
+app.get('/api/version', (req, res) => {
+  res.json({
+    version: pkg.version,
+    semver: `v${pkg.version}`,
+    name: pkg.name
+  });
 });
 
 // === GLOBAL TIMER MANAGERS (SERVER-WIDE) ===
