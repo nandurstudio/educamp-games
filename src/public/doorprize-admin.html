@@ -826,8 +826,16 @@
           if (drawInput) {
             drawInput.disabled = false;
             drawInput.max = remainingQuota;
-            const curVal = parseInt(drawInput.value) || remainingQuota;
-            drawInput.value = Math.min(curVal > 0 ? curVal : remainingQuota, remainingQuota);
+            // Jika hadiah berganti atau baru dimuat, set nilai input langsung ke kuota sisa hadiah
+            if (window.lastActivePrizeId !== p.id) {
+              drawInput.value = remainingQuota;
+              window.lastActivePrizeId = p.id;
+            } else {
+              const curVal = parseInt(drawInput.value);
+              if (isNaN(curVal) || curVal <= 0 || curVal > remainingQuota) {
+                drawInput.value = remainingQuota;
+              }
+            }
           }
           if (startBtn) {
             startBtn.disabled = false;
@@ -953,6 +961,17 @@
   // --- ACTIONS ---
 
   function changeActivePrize(prizeId) {
+    window.lastActivePrizeId = prizeId;
+    const selectedPrize = (state?.prizes || []).find(p => p.id === prizeId);
+    if (selectedPrize) {
+      const wonThisPrize = (state?.winners || []).filter(w => w.prizeId === selectedPrize.id).length;
+      const remainingQuota = Math.max(0, selectedPrize.totalWinners - wonThisPrize);
+      const drawInput = document.getElementById('draw-count-input');
+      if (drawInput) {
+        drawInput.value = remainingQuota > 0 ? remainingQuota : 0;
+        drawInput.max = remainingQuota > 0 ? remainingQuota : 1;
+      }
+    }
     fetch('/api/doorprize/prize/select', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1508,7 +1527,9 @@
     try {
       const filter = document.getElementById('filter-gp') ? document.getElementById('filter-gp').value : 'ALL';
       const search = document.getElementById('search-participant') ? document.getElementById('search-participant').value : '';
-      const res = await fetch(`/api/doorprize/participants?filter=${encodeURIComponent(filter)}&search=${encodeURIComponent(search)}`);
+      const res = await fetch(`/api/doorprize/participants?filter=${encodeURIComponent(filter)}&search=${encodeURIComponent(search)}&_t=${Date.now()}`, {
+        cache: 'no-store'
+      });
       const data = await res.json();
       window.currentParticipantsList = data.participants || [];
       renderParticipantsTable(window.currentParticipantsList);
@@ -1717,16 +1738,30 @@
   }
 
   async function syncDoorprizeCloud() {
+    const btn = event?.currentTarget;
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span>⏳</span> Sinkronisasi...';
+    }
     try {
-      const res = await fetch('/api/doorprize/sync-cloud', { method: 'POST' });
+      const res = await fetch('/api/doorprize/sync-cloud', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
       const result = await res.json();
       if (!res.ok || result.error) throw new Error(result.error || 'Gagal sinkronisasi');
 
-      alert(`✅ ${result.message}\n\nPeserta: ${result.participantsCount}\nHadiah: ${result.prizesCount}\nPemenang: ${result.winnersCount}`);
       await fetchParticipants();
       await fetchState();
+
+      alert(`✅ ${result.message}\n\nPeserta: ${result.participantsCount} orang\nHadiah: ${result.prizesCount} item\nPemenang: ${result.winnersCount} orang`);
     } catch (err) {
       alert('Gagal sinkronisasi Cloud Firestore: ' + err.message);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<span>🔄</span> Sync Cloud Firestore';
+      }
     }
   }
 

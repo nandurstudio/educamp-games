@@ -919,7 +919,10 @@ app.post('/api/commitment/reset', (req, res) => {
 // Force Sync / Pull Doorprize State dari Cloud Firestore
 app.post('/api/doorprize/sync-cloud', async (req, res) => {
   try {
-    const success = await doorprizeEngine.reloadFromFirebase();
+    if (typeof superAdminEngine.reloadFromFirebase === 'function') {
+      await superAdminEngine.reloadFromFirebase();
+    }
+    const success = await doorprizeEngine.reloadFromFirebase(superAdminEngine.getMasterTeams());
     io.emit('DOORPRIZE_STATE_UPDATE', doorprizeEngine.getState());
     res.json({
       success: true,
@@ -935,6 +938,7 @@ app.post('/api/doorprize/sync-cloud', async (req, res) => {
 
 app.get('/api/doorprize/state', (req, res) => {
   try {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.json(doorprizeEngine.getState());
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -943,6 +947,7 @@ app.get('/api/doorprize/state', (req, res) => {
 
 app.get('/api/doorprize/participants', (req, res) => {
   try {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     const { filter, search } = req.query;
     res.json({ participants: doorprizeEngine.getParticipants(filter, search) });
   } catch (err) {

@@ -52,7 +52,7 @@ class DoorprizeEngine {
     });
   }
 
-  async reloadFromFirebase() {
+  async reloadFromFirebase(masterTeams = null) {
     if (!firebaseService.isAvailable()) {
       return false;
     }
@@ -60,21 +60,102 @@ class DoorprizeEngine {
       const cloudData = await firebaseService.loadDoc('doorprize_storage');
       if (cloudData && typeof cloudData === 'object' && Array.isArray(cloudData.events)) {
         this.applyData(cloudData);
-        this.saveLocalDisk();
-        console.log(`[Doorprize Engine] Cloud Firestore sync complete: ${this.participants.length} peserta, ${this.prizes.length} hadiah, ${this.winners.length} pemenang`);
-        return true;
       } else {
         // Inisialisasi struktur awal ke Firestore jika belum ada
         this.initDefaultStructureOnly();
-        await firebaseService.saveDoc('doorprize_storage', this.exportData());
-        this.saveLocalDisk();
-        console.log('[Doorprize Engine] Inisialisasi struktur awal ke Cloud Firestore (0 peserta dummy)');
-        return true;
       }
+
+      // Sinkronkan anggota tim resmi dari masterTeams jika tersedia
+      let teamsToSync = masterTeams;
+      if (!teamsToSync) {
+        try {
+          const saData = await firebaseService.loadDoc('superadmin');
+          if (saData && saData.masterTeams) {
+            teamsToSync = saData.masterTeams;
+          }
+        } catch (_) {}
+      }
+      if (teamsToSync) {
+        this.syncWithMasterTeams(teamsToSync, false);
+      }
+
+      this.saveLocalDisk();
+      await firebaseService.saveDoc('doorprize_storage', this.exportData());
+      console.log(`[Doorprize Engine] Cloud Firestore sync complete: ${this.participants.length} peserta, ${this.prizes.length} hadiah, ${this.winners.length} pemenang`);
+      return true;
     } catch (err) {
       console.error('[Doorprize Engine] Error loading from Cloud Firestore:', err.message);
       return false;
     }
+  }
+
+  syncWithMasterTeams(masterTeams, forceSave = true) {
+    if (!masterTeams || typeof masterTeams !== 'object') return this.participants;
+
+    const dummyNameRegex = /^(user\s+(empat|lima|enam|tujuh|delapan|sembilan|sepuluh|sebelas|dua belas|tiga belas|empat belas|lima belas|enam belas|tujuh belas|delapan belas|sembilan belas|dua puluh|dua satu|dua dua|dua tiga|dua empat|dua lima|dua enam|dua tujuh|dua delapan|dua sembilan|tiga puluh|tiga satu|tiga dua|tiga tiga|tiga empat|tiga lima|tiga enam|tiga tujuh|tiga delapan|tiga sembilan|empat puluh|empat satu|empat dua|empat tiga|empat empat|empat lima)|jane smith|alice johnson|bob brown|charlie white)$/i;
+
+    // Bersihkan peserta dummy bawaan sample lama
+    const cleanList = (this.participants || []).filter(p => !dummyNameRegex.test((p.name || '').trim()));
+    const targetEventId = this.activeEventId || 'ev-educamp-2026';
+
+    const existingByName = new Map();
+    cleanList.forEach(p => {
+      existingByName.set((p.name || '').trim().toLowerCase(), p);
+    });
+
+    let seq = 1;
+    Object.values(masterTeams).forEach(team => {
+      const teamName = team.name || 'UMUM';
+      (team.members || []).forEach(member => {
+        const memberName = (typeof member === 'string' ? member : member.name || '').trim();
+        if (!memberName) return;
+
+        const key = memberName.toLowerCase();
+        if (existingByName.has(key)) {
+          const p = existingByName.get(key);
+          if (p.department !== teamName) {
+            p.department = teamName;
+          }
+        } else {
+          const pad = String(seq).padStart(3, '0');
+          const newP = {
+            id: 'p-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+            eventId: targetEventId,
+            nik: `EDU-${pad}`,
+            name: memberName,
+            department: teamName,
+            isGrandPrize: false,
+            active: true,
+            createdAt: new Date().toISOString()
+          };
+          cleanList.push(newP);
+          existingByName.set(key, newP);
+        }
+        seq++;
+      });
+    });
+
+    // Pastikan akun utama Nandang Duryat selalu ada
+    if (!existingByName.has('nandang duryat')) {
+      cleanList.unshift({
+        id: 'p-1',
+        eventId: targetEventId,
+        nik: 'K123456',
+        name: 'Nandang Duryat',
+        department: 'PLANT GENERAL & DIGITALIZATION',
+        isGrandPrize: false,
+        active: true,
+        createdAt: new Date().toISOString()
+      });
+    }
+
+    this.participants = cleanList;
+    console.log(`[Doorprize Engine] Sync masterTeams selesai: ${this.participants.length} peserta resmi`);
+
+    if (forceSave) {
+      this.saveStorage();
+    }
+    return this.participants;
   }
 
   initDefaultStructureOnly() {

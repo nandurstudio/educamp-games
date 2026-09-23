@@ -494,7 +494,19 @@ class SuperAdminEngine {
       }
     }
 
-    return { gameEngineChanged, tugEngineChanged };
+    // 3. Sinkronkan ke DoorprizeEngine (Peserta Terintegrasi Single Source of Truth)
+    let doorprizeChanged = false;
+    try {
+      const doorprizeEngine = require('./doorprize-engine');
+      if (doorprizeEngine && typeof doorprizeEngine.syncWithMasterTeams === 'function') {
+        doorprizeEngine.syncWithMasterTeams(this.masterTeams, true);
+        doorprizeChanged = true;
+      }
+    } catch (e) {
+      console.warn('[SuperAdmin] Gagal sinkronisasi ke Doorprize Engine:', e.message);
+    }
+
+    return { gameEngineChanged, tugEngineChanged, doorprizeChanged };
   }
 
   syncTeamData(identifier, { name, color, members, updatedBy }) {
