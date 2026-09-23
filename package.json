@@ -1,6 +1,6 @@
 {
   "name": "educamp-games",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Platform Game Web Interaktif Educamp & Team Building dengan Controller Tablet, Multi-Game Hub & Google AI Studio (Nandur Studio)",
   "main": "src/server/app.js",
   "scripts": {

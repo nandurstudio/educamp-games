@@ -213,13 +213,8 @@
         </div>
         <div class="form-group">
           <label>Pilih Kelompok Educamp:</label>
-          <select id="select-team-left" onchange="onTeamPresetChange('left')">
-            <option value="qatra">QATRA (8 Anggota)</option>
-            <option value="vbom">V-BOM (8 Anggota)</option>
-            <option value="omega">OMEGA (8 Anggota)</option>
-            <option value="ipc">IPC (8 Anggota)</option>
-            <option value="interlock">INTERLOCK (8 Anggota)</option>
-            <option value="avatar">AVATAR (7 Anggota)</option>
+          <select id="select-team-left" onchange="onTeamPresetChange('left')" style="border-color: #38bdf8;">
+            <option value="CUSTOM">-- Kustom / Input Manual --</option>
           </select>
         </div>
         <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px;">
@@ -232,8 +227,9 @@
             <input type="color" id="color-team-left" oninput="onColorChange('left', this.value)" onchange="onColorChange('left', this.value)" style="height: 42px; padding: 4px; cursor: pointer; width: 100%; border-radius: 6px; border: 1px solid #475569; background: #0f172a;">
           </div>
         </div>
-        <label>Anggota Regu (<span id="count-left">8</span> orang):</label>
-        <div class="members-badge-list" id="members-left-list"></div>
+        <label style="display: block; font-size: 13px; color: #94a3b8; margin-bottom: 6px;">Anggota Regu (<span id="count-left">8</span> orang):</label>
+        <div id="members-left-list" style="margin-bottom: 10px;"></div>
+        <button type="button" class="btn" onclick="addMemberTug('left')" style="width: 100%; background: #0284c7; color: white; padding: 8px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">➕ Tambah Anggota Tim Kiri</button>
       </div>
 
       <!-- Tim Kanan -->
@@ -244,13 +240,8 @@
         </div>
         <div class="form-group">
           <label>Pilih Kelompok Educamp:</label>
-          <select id="select-team-right" onchange="onTeamPresetChange('right')">
-            <option value="qatra">QATRA (8 Anggota)</option>
-            <option value="vbom" selected>V-BOM (8 Anggota)</option>
-            <option value="omega">OMEGA (8 Anggota)</option>
-            <option value="ipc">IPC (8 Anggota)</option>
-            <option value="interlock">INTERLOCK (8 Anggota)</option>
-            <option value="avatar">AVATAR (7 Anggota)</option>
+          <select id="select-team-right" onchange="onTeamPresetChange('right')" style="border-color: #38bdf8;">
+            <option value="CUSTOM">-- Kustom / Input Manual --</option>
           </select>
         </div>
         <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px;">
@@ -263,8 +254,9 @@
             <input type="color" id="color-team-right" oninput="onColorChange('right', this.value)" onchange="onColorChange('right', this.value)" style="height: 42px; padding: 4px; cursor: pointer; width: 100%; border-radius: 6px; border: 1px solid #475569; background: #0f172a;">
           </div>
         </div>
-        <label>Anggota Regu (<span id="count-right">8</span> orang):</label>
-        <div class="members-badge-list" id="members-right-list"></div>
+        <label style="display: block; font-size: 13px; color: #94a3b8; margin-bottom: 6px;">Anggota Regu (<span id="count-right">8</span> orang):</label>
+        <div id="members-right-list" style="margin-bottom: 10px;"></div>
+        <button type="button" class="btn" onclick="addMemberTug('right')" style="width: 100%; background: #0284c7; color: white; padding: 8px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">➕ Tambah Anggota Tim Kanan</button>
       </div>
 
       <!-- Tombol Aksi Simpan Tim & Jersey -->
@@ -327,7 +319,7 @@
     <div class="footer-semver" title="Semantic Versioning">
       <span class="semver-dot"></span>
       <span class="semver-label">SemVer</span>
-      <span>v1.2.0</span>
+      <span>v1.3.0</span>
     </div>
   </div>
 </footer>
@@ -336,100 +328,75 @@
 <script>
   const socket = io();
   let currentTugState = null;
+  let masterTeamsPresets = {}; // Master Data Tim Dinamis dari Cloud Firestore
   let localTeamsConfig = {
     teamLeft: null,
     teamRight: null
   };
 
-  const EDUCAMP_PRESETS = {
-    qatra: {
-      name: "QATRA",
-      color: "#e74c3c",
-      members: [
-        { name: "Fajar Fauzan", bodyType: "tall-skinny", skinTone: "fair" },
-        { name: "Irvan Hasan", bodyType: "tall-chubby", skinTone: "tan" },
-        { name: "Sri Rejeki", bodyType: "short-skinny", skinTone: "fair" },
-        { name: "Malawi", bodyType: "tall-skinny", skinTone: "olive" },
-        { name: "Fuji S R", bodyType: "short-chubby", skinTone: "tan" },
-        { name: "Adi Sofyan", bodyType: "tall-chubby", skinTone: "deep" },
-        { name: "Yogi H. P.", bodyType: "tall-skinny", skinTone: "olive" },
-        { name: "Mahajiwa", bodyType: "short-skinny", skinTone: "tan" }
-      ]
-    },
-    vbom: {
-      name: "V-BOM",
-      color: "#3498db",
-      members: [
-        { name: "Andy Chendra", bodyType: "tall-skinny", skinTone: "fair" },
-        { name: "Cahyo Agung Martanto", bodyType: "tall-chubby", skinTone: "tan" },
-        { name: "Joko S", bodyType: "short-skinny", skinTone: "olive" },
-        { name: "Dimas JP", bodyType: "tall-skinny", skinTone: "fair" },
-        { name: "Haris Baihaqi", bodyType: "short-chubby", skinTone: "tan" },
-        { name: "Sukaryadi", bodyType: "tall-chubby", skinTone: "deep" },
-        { name: "Abdul Halim", bodyType: "tall-skinny", skinTone: "olive" },
-        { name: "Budy Sutrisno", bodyType: "short-skinny", skinTone: "tan" }
-      ]
-    },
-    omega: {
-      name: "OMEGA",
-      color: "#2ecc71",
-      members: [
-        { name: "Agung Joko Supriyanto", bodyType: "tall-skinny", skinTone: "fair" },
-        { name: "Budi Santoso", bodyType: "tall-chubby", skinTone: "tan" },
-        { name: "Ahmad Sanusi", bodyType: "tall-skinny", skinTone: "olive" },
-        { name: "Riana Kurnianti", bodyType: "short-skinny", skinTone: "fair" },
-        { name: "Yudi S", bodyType: "tall-skinny", skinTone: "tan" },
-        { name: "Dyanza Aria Perdana", bodyType: "tall-chubby", skinTone: "fair" },
-        { name: "Yogo", bodyType: "short-skinny", skinTone: "olive" },
-        { name: "Fendi S", bodyType: "tall-chubby", skinTone: "deep" }
-      ]
-    },
-    ipc: {
-      name: "IPC",
-      color: "#f39c12",
-      members: [
-        { name: "Andreas Hari listanto", bodyType: "tall-skinny", skinTone: "fair" },
-        { name: "Vony", bodyType: "short-skinny", skinTone: "fair" },
-        { name: "Satrianto Ariardi", bodyType: "tall-chubby", skinTone: "tan" },
-        { name: "Dimas Riyantoro", bodyType: "tall-skinny", skinTone: "olive" },
-        { name: "Eurotiva Pratista", bodyType: "short-skinny", skinTone: "fair" },
-        { name: "Isa Dwiyono", bodyType: "tall-skinny", skinTone: "tan" },
-        { name: "A Ropi", bodyType: "tall-chubby", skinTone: "olive" }
-      ]
-    },
-    interlock: {
-      name: "INTERLOCK",
-      color: "#9b59b6",
-      members: [
-        { name: "Yudha Agus Tri Basuki", bodyType: "tall-skinny", skinTone: "fair" },
-        { name: "Asep Sopiyan", bodyType: "tall-chubby", skinTone: "tan" },
-        { name: "Verdiana Zahroh N B", bodyType: "short-skinny", skinTone: "fair" },
-        { name: "Yuswa Slamet", bodyType: "tall-skinny", skinTone: "olive" },
-        { name: "Abu Muntholib", bodyType: "short-chubby", skinTone: "deep" },
-        { name: "Hayadi", bodyType: "tall-chubby", skinTone: "tan" },
-        { name: "Wachid Sadali", bodyType: "tall-skinny", skinTone: "olive" },
-        { name: "Alim", bodyType: "short-skinny", skinTone: "tan" }
-      ]
-    },
-    avatar: {
-      name: "AVATAR",
-      color: "#00cec9",
-      members: [
-        { name: "Dicky F", bodyType: "tall-skinny", skinTone: "fair" },
-        { name: "Harmanto", bodyType: "tall-chubby", skinTone: "tan" },
-        { name: "Priyo Anarkie", bodyType: "tall-skinny", skinTone: "olive" },
-        { name: "Stevie", bodyType: "short-skinny", skinTone: "fair" },
-        { name: "Dedi Setiadi", bodyType: "short-chubby", skinTone: "deep" },
-        { name: "Nanang", bodyType: "tall-chubby", skinTone: "tan" },
-        { name: "Dewangga", bodyType: "tall-skinny", skinTone: "olive" }
-      ]
+  async function fetchMasterTeams() {
+    try {
+      const res = await fetch('/api/super/master-teams');
+      const data = await res.json();
+      if (data && data.teams) {
+        masterTeamsPresets = data.teams;
+        renderPresetDropdowns();
+      }
+    } catch (e) {
+      console.error("Gagal mengambil master teams:", e);
     }
-  };
+  }
+
+  function renderPresetDropdowns() {
+    const leftSelect = document.getElementById('select-team-left');
+    const rightSelect = document.getElementById('select-team-right');
+    if (!leftSelect || !rightSelect) return;
+
+    const presetKeys = Object.keys(masterTeamsPresets);
+    const currentLeftName = (localTeamsConfig.teamLeft?.name || '').toUpperCase();
+    const currentRightName = (localTeamsConfig.teamRight?.name || '').toUpperCase();
+
+    const matchLeft = presetKeys.find(k => (masterTeamsPresets[k].name || '').toUpperCase() === currentLeftName) || 'CUSTOM';
+    const matchRight = presetKeys.find(k => (masterTeamsPresets[k].name || '').toUpperCase() === currentRightName) || 'CUSTOM';
+
+    const buildOptions = (selectedKey) => [
+      `<option value="CUSTOM" ${selectedKey==='CUSTOM'?'selected':''}>-- Kustom / Input Manual --</option>`,
+      ...presetKeys.map(k => {
+        const t = masterTeamsPresets[k];
+        const count = t.members ? t.members.length : 0;
+        return `<option value="${k}" ${selectedKey===k?'selected':''}>🏷️ ${t.name} (${count} Anggota)</option>`;
+      })
+    ].join('');
+
+    leftSelect.innerHTML = buildOptions(matchLeft);
+    rightSelect.innerHTML = buildOptions(matchRight);
+  }
 
   fetchHistory();
+  fetchMasterTeams();
 
   socket.on('connect', () => {
     fetchHistory();
+    fetchMasterTeams();
+  });
+
+  socket.on('MASTER_TEAMS_UPDATE', (teams) => {
+    if (teams && typeof teams === 'object') {
+      masterTeamsPresets = teams;
+      // Sinkronkan anggota tim kiri & kanan jika namanya cocok dengan tim master
+      ['left', 'right'].forEach(side => {
+        const teamObj = side === 'left' ? localTeamsConfig.teamLeft : localTeamsConfig.teamRight;
+        if (teamObj) {
+          const found = Object.values(masterTeamsPresets).find(mt => (mt.name || '').trim().toUpperCase() === (teamObj.name || '').trim().toUpperCase());
+          if (found && Array.isArray(found.members)) {
+            teamObj.members = JSON.parse(JSON.stringify(found.members));
+            if (found.color) teamObj.color = found.color;
+          }
+        }
+      });
+      renderPresetDropdowns();
+      if (currentTugState) renderUI(currentTugState);
+    }
   });
 
   let configDebounceTimer = null;
@@ -556,8 +523,8 @@
         document.getElementById('color-team-left').value = localTeamsConfig.teamLeft.color;
       }
       updateTeamVisuals('left', localTeamsConfig.teamLeft.color);
-      document.getElementById('count-left').textContent = localTeamsConfig.teamLeft.members.length;
-      renderMemberList('members-left-list', localTeamsConfig.teamLeft.members);
+      document.getElementById('count-left').textContent = localTeamsConfig.teamLeft.members?.length || 0;
+      renderMemberList('left');
     }
 
     // Render Tim Kanan
@@ -569,22 +536,79 @@
         document.getElementById('color-team-right').value = localTeamsConfig.teamRight.color;
       }
       updateTeamVisuals('right', localTeamsConfig.teamRight.color);
-      document.getElementById('count-right').textContent = localTeamsConfig.teamRight.members.length;
-      renderMemberList('members-right-list', localTeamsConfig.teamRight.members);
+      document.getElementById('count-right').textContent = localTeamsConfig.teamRight.members?.length || 0;
+      renderMemberList('right');
     }
+    renderPresetDropdowns();
   }
 
-  function renderMemberList(containerId, members) {
-    const el = document.getElementById(containerId);
-    if (!el || !Array.isArray(members)) return;
-    el.innerHTML = members.map((m, idx) => `
-      <span class="member-chip">${idx + 1}. ${m.name}</span>
+  function renderMemberList(side) {
+    const isLeft = side === 'left';
+    const container = document.getElementById(isLeft ? 'members-left-list' : 'members-right-list');
+    const teamObj = isLeft ? localTeamsConfig.teamLeft : localTeamsConfig.teamRight;
+    if (!container || !teamObj || !Array.isArray(teamObj.members)) return;
+
+    const members = teamObj.members;
+    const countEl = document.getElementById(isLeft ? 'count-left' : 'count-right');
+    if (countEl) countEl.textContent = members.length;
+
+    container.innerHTML = members.map((m, idx) => `
+      <div class="team-member-row" style="display: grid; grid-template-columns: 2fr 1.4fr 1.2fr 34px; gap: 6px; margin-bottom: 6px; align-items: center;">
+        <input type="text" value="${m.name}" placeholder="Nama ${idx+1}" onchange="onMemberChange('${side}', ${idx}, 'name', this.value)" style="padding: 6px 8px; border-radius: 4px; border: 1px solid #334155; background: #0f172a; color: #fff; font-size: 13px;">
+        <select onchange="onMemberChange('${side}', ${idx}, 'bodyType', this.value)" style="padding: 6px 6px; border-radius: 4px; border: 1px solid #334155; background: #0f172a; color: #fff; font-size: 12px;">
+          <option value="tall-skinny" ${m.bodyType==='tall-skinny'?'selected':''}>Tinggi Kurus</option>
+          <option value="short-skinny" ${m.bodyType==='short-skinny'?'selected':''}>Pendek Kurus</option>
+          <option value="tall-chubby" ${m.bodyType==='tall-chubby'?'selected':''}>Tinggi Gemuk</option>
+          <option value="short-chubby" ${m.bodyType==='short-chubby'?'selected':''}>Pendek Gemuk</option>
+        </select>
+        <select onchange="onMemberChange('${side}', ${idx}, 'skinTone', this.value)" style="padding: 6px 6px; border-radius: 4px; border: 1px solid #334155; background: #0f172a; color: #fff; font-size: 12px;">
+          <option value="fair" ${m.skinTone==='fair'?'selected':''}>Kulit Cerah</option>
+          <option value="olive" ${m.skinTone==='olive'?'selected':''}>Kuning Langsat</option>
+          <option value="tan" ${m.skinTone==='tan'?'selected':''}>Sawo Matang</option>
+          <option value="deep" ${m.skinTone==='deep'?'selected':''}>Kulit Gelap</option>
+        </select>
+        <button type="button" onclick="removeMemberTug('${side}', ${idx})" title="Hapus anggota ini" style="padding: 6px; font-size: 13px; font-weight: bold; background: #dc2626; color: white; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center;">✕</button>
+      </div>
     `).join('');
+  }
+
+  function onMemberChange(side, idx, field, val) {
+    const teamObj = side === 'left' ? localTeamsConfig.teamLeft : localTeamsConfig.teamRight;
+    if (!teamObj || !teamObj.members || !teamObj.members[idx]) return;
+    teamObj.members[idx][field] = val;
+    triggerDebouncedUpdate();
+  }
+
+  function addMemberTug(side) {
+    const teamObj = side === 'left' ? localTeamsConfig.teamLeft : localTeamsConfig.teamRight;
+    if (!teamObj) return;
+    if (!Array.isArray(teamObj.members)) teamObj.members = [];
+    const count = teamObj.members.length + 1;
+    teamObj.members.push({
+      name: `Anggota ${count}`,
+      bodyType: 'tall-skinny',
+      skinTone: 'fair'
+    });
+    renderMemberList(side);
+    triggerDebouncedUpdate();
+  }
+
+  function removeMemberTug(side, idx) {
+    const teamObj = side === 'left' ? localTeamsConfig.teamLeft : localTeamsConfig.teamRight;
+    if (!teamObj || !teamObj.members) return;
+    if (teamObj.members.length <= 1) {
+      alert("Minimal harus ada 1 anggota dalam regu!");
+      return;
+    }
+    teamObj.members.splice(idx, 1);
+    renderMemberList(side);
+    triggerDebouncedUpdate();
   }
 
   function onTeamPresetChange(side) {
     const presetKey = document.getElementById(side === 'left' ? 'select-team-left' : 'select-team-right').value;
-    const preset = EDUCAMP_PRESETS[presetKey];
+    if (presetKey === 'CUSTOM') return;
+    const preset = masterTeamsPresets[presetKey];
     if (!preset) return;
 
     if (side === 'left') {

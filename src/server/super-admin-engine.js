@@ -403,6 +403,7 @@ class SuperAdminEngine {
       performedBy: updatedBy || 'SUPER_ADMIN'
     });
     this.saveStorage();
+    this.propagateToActiveGames(team);
     return team;
   }
 
@@ -434,7 +435,110 @@ class SuperAdminEngine {
   resetTeamsToDefault() {
     this.masterTeams = JSON.parse(JSON.stringify(DEFAULT_PRELOADER_TEAMS));
     this.saveStorage();
+    Object.values(this.masterTeams).forEach(team => {
+      this.propagateToActiveGames(team);
+    });
     return this.masterTeams;
+  }
+
+  // === SINKRONISASI PEMAIN / ANGGOTA TIM KE SELURUH GAME (SINGLE SOURCE OF TRUTH) ===
+  propagateToActiveGames(teamData) {
+    if (!teamData || !teamData.name) return { gameEngineChanged: false, tugEngineChanged: false };
+    const teamNameUpper = (teamData.name || '').trim().toUpperCase();
+    const teamId = teamData.id;
+
+    // 1. Sinkronkan ke GameEngine (Panjat Pinang)
+    let gameEngineChanged = false;
+    if (gameEngine && gameEngine.teams) {
+      Object.keys(gameEngine.teams).forEach(tId => {
+        const gTeam = gameEngine.teams[tId];
+        if (gTeam && ((gTeam.name && gTeam.name.trim().toUpperCase() === teamNameUpper) || tId === teamId)) {
+          gTeam.name = teamData.name;
+          if (teamData.color) gTeam.color = teamData.color;
+          if (Array.isArray(teamData.members)) {
+            gTeam.members = JSON.parse(JSON.stringify(teamData.members));
+          }
+          gameEngineChanged = true;
+        }
+      });
+      if (gameEngineChanged) {
+        gameEngine.saveStorage();
+      }
+    }
+
+    // 2. Sinkronkan ke TugEngine (Tarik Tambang)
+    let tugEngineChanged = false;
+    if (tugEngine) {
+      ['teamLeft', 'teamRight'].forEach(side => {
+        const tTeam = tugEngine[side];
+        if (tTeam && ((tTeam.name && tTeam.name.trim().toUpperCase() === teamNameUpper) || tTeam.id === teamId)) {
+          tTeam.name = teamData.name;
+          if (teamData.color) tTeam.color = teamData.color;
+          if (Array.isArray(teamData.members)) {
+            tTeam.members = JSON.parse(JSON.stringify(teamData.members));
+          }
+          tugEngineChanged = true;
+        }
+      });
+      if (tugEngineChanged) {
+        tugEngine.saveStorage();
+      }
+    }
+
+    return { gameEngineChanged, tugEngineChanged };
+  }
+
+  syncTeamData(identifier, { name, color, members, updatedBy }) {
+    if (!identifier && !name) return null;
+    const cleanId = (identifier || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    const cleanName = (name || '').trim();
+    const nameUpper = cleanName.toUpperCase();
+
+    // Cari tim yang cocok di masterTeams (berdasarkan ID atau Nama)
+    let targetKey = null;
+    if (cleanId && this.masterTeams[cleanId]) {
+      targetKey = cleanId;
+    } else {
+      // Cari via kesamaan nama
+      targetKey = Object.keys(this.masterTeams).find(k => {
+        const t = this.masterTeams[k];
+        return (t.name && t.name.trim().toUpperCase() === nameUpper) || k === cleanId;
+      });
+    }
+
+    let teamObj = null;
+    if (targetKey && this.masterTeams[targetKey]) {
+      teamObj = this.masterTeams[targetKey];
+      if (cleanName) teamObj.name = cleanName;
+      if (color) teamObj.color = color.trim();
+      if (Array.isArray(members) && members.length > 0) {
+        teamObj.members = JSON.parse(JSON.stringify(members));
+      }
+      teamObj.updatedBy = updatedBy || 'SYNC_AUTO';
+      teamObj.updatedAt = new Date().toISOString();
+    } else {
+      // Buat tim baru jika belum pernah ada di master
+      const newId = cleanId || cleanName.toLowerCase().replace(/[^a-z0-9]/g, '') || `team-${Date.now()}`;
+      teamObj = {
+        id: newId,
+        name: cleanName || `Tim ${newId}`,
+        color: color || '#38bdf8',
+        members: Array.isArray(members) ? JSON.parse(JSON.stringify(members)) : [],
+        createdBy: updatedBy || 'SYNC_AUTO',
+        createdAt: new Date().toISOString()
+      };
+      this.masterTeams[newId] = teamObj;
+      targetKey = newId;
+    }
+
+    this.saveStorage();
+    const syncResult = this.propagateToActiveGames(teamObj);
+
+    return {
+      team: teamObj,
+      targetKey,
+      ...syncResult
+    };
   }
 
   // === PERHITUNGAN DIGITAL POINTS ===

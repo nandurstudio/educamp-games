@@ -999,7 +999,7 @@
       <div class="footer-semver" title="Semantic Versioning">
         <span class="semver-dot"></span>
         <span class="semver-label">SemVer</span>
-        <span>v1.2.0</span>
+        <span>v1.3.0</span>
       </div>
     </div>
   </footer>
@@ -1299,6 +1299,15 @@
           renderMasterTeams(masterTeamsData);
         }
       });
+    });
+
+    socket.on('MASTER_TEAMS_UPDATE', (teams) => {
+      if (teams && typeof teams === 'object') {
+        masterTeamsData = teams;
+        renderMasterTeams(masterTeamsData);
+        const kpiTeams = document.getElementById('kpi-total-teams');
+        if (kpiTeams) kpiTeams.textContent = `${Object.keys(teams).length} Tim`;
+      }
     });
 
     function renderAll(data) {
@@ -1742,10 +1751,18 @@
 
       if (!name) { alert('Nama tim wajib diisi!'); return; }
 
+      const existingMembers = (id && masterTeamsData[id]?.members) || [];
       const members = rawMembers.split('\n')
         .map(line => line.trim())
         .filter(line => line.length > 0)
-        .map(nameStr => ({ name: nameStr, bodyType: 'tall-skinny', skinTone: 'fair' }));
+        .map((nameStr, idx) => {
+          const matchExisting = existingMembers.find(em => (em.name || '').trim().toUpperCase() === nameStr.toUpperCase()) || existingMembers[idx];
+          return {
+            name: nameStr,
+            bodyType: matchExisting?.bodyType || 'tall-skinny',
+            skinTone: matchExisting?.skinTone || 'fair'
+          };
+        });
 
       const userEmail = (window.AuthGuard && window.AuthGuard.currentUser) ? window.AuthGuard.currentUser.email : 'SUPER_ADMIN';
       const payload = { name, color, members, createdBy: userEmail, updatedBy: userEmail };

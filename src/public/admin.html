@@ -238,7 +238,7 @@
     <div class="footer-semver" title="Semantic Versioning">
       <span class="semver-dot"></span>
       <span class="semver-label">SemVer</span>
-      <span>v1.2.0</span>
+      <span>v1.3.0</span>
     </div>
   </div>
 </footer>
@@ -248,108 +248,36 @@
   const socket = io();
   let currentGameState = null;
   let localTeams = null; // Menyimpan data tim lokal
+  let masterTeamsPresets = {}; // Master Data Tim Dinamis dari Cloud Firestore
 
   const PALETTE = [
     '#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#00cec9', '#e67e22', '#e84393'
   ];
 
-  // Master Data Preset 6 Kelompok Educamp Resmi
-  const EDUCAMP_PRESETS = {
-    qatra: {
-      name: "QATRA",
-      color: "#e74c3c",
-      members: [
-        { name: "Fajar Fauzan", bodyType: "tall-skinny", skinTone: "fair" },
-        { name: "Irvan Hasan", bodyType: "tall-chubby", skinTone: "tan" },
-        { name: "Sri Rejeki", bodyType: "short-skinny", skinTone: "fair" },
-        { name: "Malawi", bodyType: "tall-skinny", skinTone: "olive" },
-        { name: "Fuji S R", bodyType: "short-chubby", skinTone: "tan" },
-        { name: "Adi Sofyan", bodyType: "tall-chubby", skinTone: "deep" },
-        { name: "Yogi H. P.", bodyType: "tall-skinny", skinTone: "olive" },
-        { name: "Mahajiwa", bodyType: "short-skinny", skinTone: "tan" }
-      ]
-    },
-    vbom: {
-      name: "V-BOM",
-      color: "#3498db",
-      members: [
-        { name: "Andy Chendra", bodyType: "tall-skinny", skinTone: "fair" },
-        { name: "Cahyo Agung Martanto", bodyType: "tall-chubby", skinTone: "tan" },
-        { name: "Joko S", bodyType: "short-skinny", skinTone: "olive" },
-        { name: "Dimas JP", bodyType: "tall-skinny", skinTone: "fair" },
-        { name: "Haris Baihaqi", bodyType: "short-chubby", skinTone: "tan" },
-        { name: "Sukaryadi", bodyType: "tall-chubby", skinTone: "deep" },
-        { name: "Abdul Halim", bodyType: "tall-skinny", skinTone: "olive" },
-        { name: "Budy Sutrisno", bodyType: "short-skinny", skinTone: "tan" }
-      ]
-    },
-    omega: {
-      name: "OMEGA",
-      color: "#2ecc71",
-      members: [
-        { name: "Agung Joko Supriyanto", bodyType: "tall-chubby", skinTone: "tan" },
-        { name: "Budi Santoso", bodyType: "tall-skinny", skinTone: "fair" },
-        { name: "Ahmad Sanusi", bodyType: "short-skinny", skinTone: "olive" },
-        { name: "Riana Kurnianti", bodyType: "short-skinny", skinTone: "fair" },
-        { name: "Yudi S", bodyType: "tall-chubby", skinTone: "tan" },
-        { name: "Dyanza Aria Perdana", bodyType: "tall-skinny", skinTone: "olive" },
-        { name: "Yogo", bodyType: "short-chubby", skinTone: "deep" },
-        { name: "Fendi S", bodyType: "tall-skinny", skinTone: "tan" }
-      ]
-    },
-    ipc: {
-      name: "IPC",
-      color: "#f39c12",
-      members: [
-        { name: "Andreas Hari listanto", bodyType: "tall-skinny", skinTone: "fair" },
-        { name: "Vony", bodyType: "short-skinny", skinTone: "fair" },
-        { name: "Satrianto Ariardi", bodyType: "tall-chubby", skinTone: "tan" },
-        { name: "Dimas Riyantoro", bodyType: "tall-skinny", skinTone: "olive" },
-        { name: "Eurotiva Pratista", bodyType: "short-skinny", skinTone: "fair" },
-        { name: "Isa Dwiyono", bodyType: "tall-skinny", skinTone: "tan" },
-        { name: "A Ropi", bodyType: "tall-chubby", skinTone: "olive" }
-      ]
-    },
-    interlock: {
-      name: "INTERLOCK",
-      color: "#9b59b6",
-      members: [
-        { name: "Yudha Agus Tri Basuki", bodyType: "tall-skinny", skinTone: "fair" },
-        { name: "Asep Sopiyan", bodyType: "tall-chubby", skinTone: "tan" },
-        { name: "Verdiana Zahroh N B", bodyType: "short-skinny", skinTone: "fair" },
-        { name: "Yuswa Slamet", bodyType: "tall-skinny", skinTone: "olive" },
-        { name: "Abu Muntholib", bodyType: "short-chubby", skinTone: "deep" },
-        { name: "Hayadi", bodyType: "tall-chubby", skinTone: "tan" },
-        { name: "Wachid Sadali", bodyType: "tall-skinny", skinTone: "olive" },
-        { name: "Alim", bodyType: "short-skinny", skinTone: "tan" }
-      ]
-    },
-    avatar: {
-      name: "AVATAR",
-      color: "#00cec9",
-      members: [
-        { name: "Dicky F", bodyType: "tall-skinny", skinTone: "fair" },
-        { name: "Harmanto", bodyType: "tall-chubby", skinTone: "tan" },
-        { name: "Priyo Anarkie", bodyType: "tall-skinny", skinTone: "olive" },
-        { name: "Stevie", bodyType: "short-skinny", skinTone: "fair" },
-        { name: "Dedi Setiadi", bodyType: "short-chubby", skinTone: "deep" },
-        { name: "Nanang", bodyType: "tall-chubby", skinTone: "tan" },
-        { name: "Dewangga", bodyType: "tall-skinny", skinTone: "olive" }
-      ]
+  async function fetchMasterTeams() {
+    try {
+      const res = await fetch('/api/super/master-teams');
+      const data = await res.json();
+      if (data && data.teams) {
+        masterTeamsPresets = data.teams;
+        renderAllTeamsCards();
+      }
+    } catch (e) {
+      console.error("Gagal mengambil master teams:", e);
     }
-  };
+  }
 
   function onPresetSelect(tId, presetKey) {
     if (!localTeams || !localTeams[tId]) return;
     if (presetKey === 'CUSTOM') return;
 
-    const preset = EDUCAMP_PRESETS[presetKey];
+    const preset = masterTeamsPresets[presetKey];
     if (!preset) return;
 
     // Terapkan nama, warna, dan seluruh anggota preset secara instan
     localTeams[tId].name = preset.name;
     localTeams[tId].color = preset.color;
-    localTeams[tId].members = JSON.parse(JSON.stringify(preset.members));
+    localTeams[tId].members = JSON.parse(JSON.stringify(preset.members || []));
 
     renderAllTeamsCards();
     updateHeaderLinks();
@@ -358,11 +286,31 @@
 
   socket.emit('JOIN_ROLE', { role: 'ADMIN' });
 
-  // Ambil data riwayat saat inisialisasi awal
+  // Ambil data riwayat dan tim master saat inisialisasi awal
   fetchHistory();
+  fetchMasterTeams();
 
   socket.on('connect', () => {
     fetchHistory();
+    fetchMasterTeams();
+  });
+
+  socket.on('MASTER_TEAMS_UPDATE', (teams) => {
+    if (teams && typeof teams === 'object') {
+      masterTeamsPresets = teams;
+      if (localTeams) {
+        Object.keys(localTeams).forEach(tId => {
+          const myTeam = localTeams[tId];
+          const foundMaster = Object.values(masterTeamsPresets).find(mt => (mt.name || '').trim().toUpperCase() === (myTeam.name || '').trim().toUpperCase());
+          if (foundMaster && Array.isArray(foundMaster.members)) {
+            myTeam.members = JSON.parse(JSON.stringify(foundMaster.members));
+            if (foundMaster.color) myTeam.color = foundMaster.color;
+          }
+        });
+      }
+      renderAllTeamsCards();
+      updateHeaderLinks();
+    }
   });
 
   socket.on('STATE_UPDATE', (state) => {
@@ -527,8 +475,17 @@
       card.style.borderLeft = `5px solid ${team.color || '#e74c3c'}`;
 
       // Deteksi apakah nama tim cocok dengan salah satu preset
-      const presetKeys = Object.keys(EDUCAMP_PRESETS);
-      const matchingPreset = presetKeys.find(k => EDUCAMP_PRESETS[k].name.toUpperCase() === (team.name || '').toUpperCase()) || 'CUSTOM';
+      const presetKeys = Object.keys(masterTeamsPresets);
+      const matchingPreset = presetKeys.find(k => (masterTeamsPresets[k].name || '').toUpperCase() === (team.name || '').toUpperCase()) || 'CUSTOM';
+
+      const presetOptionsHtml = [
+        `<option value="CUSTOM" ${matchingPreset==='CUSTOM'?'selected':''}>-- Kustom / Input Manual --</option>`,
+        ...presetKeys.map(k => {
+          const p = masterTeamsPresets[k];
+          const count = p.members ? p.members.length : 0;
+          return `<option value="${k}" ${matchingPreset===k?'selected':''}>🏷️ ${p.name} (${count} Orang)</option>`;
+        })
+      ].join('');
 
       card.innerHTML = `
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
@@ -540,13 +497,7 @@
           <div class="form-group" style="margin: 0;">
             <label>Pilih Preset Kelompok Educamp:</label>
             <select id="${tId}-preset" onchange="onPresetSelect('${tId}', this.value)" style="border-color: #38bdf8;">
-              <option value="CUSTOM" ${matchingPreset==='CUSTOM'?'selected':''}>-- Kustom / Input Manual --</option>
-              <option value="qatra" ${matchingPreset==='qatra'?'selected':''}>🔴 QATRA (8 Orang)</option>
-              <option value="vbom" ${matchingPreset==='vbom'?'selected':''}>🔵 V-BOM (8 Orang)</option>
-              <option value="omega" ${matchingPreset==='omega'?'selected':''}>🟢 OMEGA (8 Orang)</option>
-              <option value="ipc" ${matchingPreset==='ipc'?'selected':''}>🟡 IPC (8 Orang)</option>
-              <option value="interlock" ${matchingPreset==='interlock'?'selected':''}>🟣 INTERLOCK (8 Orang)</option>
-              <option value="avatar" ${matchingPreset==='avatar'?'selected':''}>🔷 AVATAR (7 Orang)</option>
+              ${presetOptionsHtml}
             </select>
           </div>
           <div class="form-group" style="margin: 0;">
@@ -605,15 +556,15 @@
 
     // Cek apakah ada preset resmi yang belum terpakai di arena
     const existingNames = Object.values(localTeams).map(t => (t.name || '').toUpperCase());
-    const unusedPresetKey = Object.keys(EDUCAMP_PRESETS).find(k => !existingNames.includes(EDUCAMP_PRESETS[k].name.toUpperCase()));
+    const unusedPresetKey = Object.keys(masterTeamsPresets).find(k => !existingNames.includes((masterTeamsPresets[k].name || '').toUpperCase()));
 
     if (unusedPresetKey) {
-      const preset = EDUCAMP_PRESETS[unusedPresetKey];
+      const preset = masterTeamsPresets[unusedPresetKey];
       localTeams[newId] = {
         id: newId,
         name: preset.name,
-        color: preset.color,
-        members: JSON.parse(JSON.stringify(preset.members))
+        color: preset.color || defaultColor,
+        members: JSON.parse(JSON.stringify(preset.members || []))
       };
     } else {
       localTeams[newId] = {

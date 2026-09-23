@@ -637,7 +637,10 @@ app.post('/api/super/reset-custom-scores', (req, res) => {
 app.post('/api/super/teams', (req, res) => {
   try {
     const team = superAdminEngine.addTeam(req.body);
+    io.emit('MASTER_TEAMS_UPDATE', superAdminEngine.getMasterTeams());
     io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
+    io.emit('STATE_UPDATE', gameEngine.getPublicState());
+    io.emit('TUG_STATE_UPDATE', tugEngine.getPublicState());
     res.json({ success: true, team, message: `Tim ${team.name} berhasil ditambahkan!` });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -648,7 +651,10 @@ app.post('/api/super/teams', (req, res) => {
 app.put('/api/super/teams/:id', (req, res) => {
   try {
     const team = superAdminEngine.updateTeam(req.params.id, req.body);
+    io.emit('MASTER_TEAMS_UPDATE', superAdminEngine.getMasterTeams());
     io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
+    io.emit('STATE_UPDATE', gameEngine.getPublicState());
+    io.emit('TUG_STATE_UPDATE', tugEngine.getPublicState());
     res.json({ success: true, team, message: `Tim ${team.name} berhasil diperbarui!` });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -660,7 +666,10 @@ app.delete('/api/super/teams/:id', (req, res) => {
   try {
     const deletedBy = req.body?.deletedBy || req.query?.deletedBy || 'SUPER_ADMIN';
     const deleted = superAdminEngine.deleteTeam(req.params.id, deletedBy);
+    io.emit('MASTER_TEAMS_UPDATE', superAdminEngine.getMasterTeams());
     io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
+    io.emit('STATE_UPDATE', gameEngine.getPublicState());
+    io.emit('TUG_STATE_UPDATE', tugEngine.getPublicState());
     res.json({ success: true, team: deleted, message: `Tim ${deleted.name} berhasil dihapus!` });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -671,7 +680,10 @@ app.delete('/api/super/teams/:id', (req, res) => {
 app.post('/api/super/teams/reset-default', (req, res) => {
   try {
     const teams = superAdminEngine.resetTeamsToDefault();
+    io.emit('MASTER_TEAMS_UPDATE', superAdminEngine.getMasterTeams());
     io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
+    io.emit('STATE_UPDATE', gameEngine.getPublicState());
+    io.emit('TUG_STATE_UPDATE', tugEngine.getPublicState());
     res.json({ success: true, teams, message: 'Daftar tim berhasil di-reset ke 6 tim default Educamp!' });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -1096,6 +1108,7 @@ io.on('connection', (socket) => {
   // Kirim state awal saat client tersambung
   socket.emit('STATE_UPDATE', gameEngine.getPublicState());
   socket.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
+  socket.emit('MASTER_TEAMS_UPDATE', superAdminEngine.getMasterTeams());
   socket.emit('COMMITMENT_STATE_UPDATE', commitmentEngine.getPublicState());
   socket.emit('DOORPRIZE_STATE_UPDATE', doorprizeEngine.getState());
 
@@ -1154,6 +1167,22 @@ io.on('connection', (socket) => {
     }
     if (config.teams) {
       gameEngine.setTeamsConfig(config.teams);
+      // Sinkronkan setiap tim ke Master Teams (Single Source of Truth)
+      let tugNeedsUpdate = false;
+      Object.entries(config.teams).forEach(([tId, tData]) => {
+        const syncRes = superAdminEngine.syncTeamData(tId, {
+          name: tData.name,
+          color: tData.color,
+          members: tData.members,
+          updatedBy: 'PANJAT_PINANG_ADMIN'
+        });
+        if (syncRes && syncRes.tugEngineChanged) tugNeedsUpdate = true;
+      });
+      io.emit('MASTER_TEAMS_UPDATE', superAdminEngine.getMasterTeams());
+      io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
+      if (tugNeedsUpdate) {
+        io.emit('TUG_STATE_UPDATE', tugEngine.getPublicState());
+      }
     } else {
       gameEngine.saveStorage();
     }
@@ -1259,6 +1288,31 @@ io.on('connection', (socket) => {
     if (typeof cfg.slipPenalty === 'number') tugEngine.slipPenalty = cfg.slipPenalty;
     if (cfg.teamLeft || cfg.teamRight) {
       tugEngine.setTeams({ teamLeft: cfg.teamLeft, teamRight: cfg.teamRight });
+      // Sinkronkan ke Master Teams (Single Source of Truth)
+      let pinangNeedsUpdate = false;
+      if (cfg.teamLeft) {
+        const syncLeft = superAdminEngine.syncTeamData(cfg.teamLeft.id || cfg.teamLeft.name, {
+          name: cfg.teamLeft.name,
+          color: cfg.teamLeft.color,
+          members: cfg.teamLeft.members,
+          updatedBy: 'TUG_ADMIN'
+        });
+        if (syncLeft && syncLeft.gameEngineChanged) pinangNeedsUpdate = true;
+      }
+      if (cfg.teamRight) {
+        const syncRight = superAdminEngine.syncTeamData(cfg.teamRight.id || cfg.teamRight.name, {
+          name: cfg.teamRight.name,
+          color: cfg.teamRight.color,
+          members: cfg.teamRight.members,
+          updatedBy: 'TUG_ADMIN'
+        });
+        if (syncRight && syncRight.gameEngineChanged) pinangNeedsUpdate = true;
+      }
+      io.emit('MASTER_TEAMS_UPDATE', superAdminEngine.getMasterTeams());
+      io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
+      if (pinangNeedsUpdate) {
+        io.emit('STATE_UPDATE', gameEngine.getPublicState());
+      }
     } else {
       tugEngine.saveStorage();
     }
