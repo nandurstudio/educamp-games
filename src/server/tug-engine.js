@@ -25,16 +25,24 @@ class TugEngine {
     }
 
     if (firebaseService.isAvailable()) {
-      firebaseService.loadDoc('tarik_tambang').then(cloudData => {
-        if (cloudData && typeof cloudData === 'object') {
-          this.applyStorageData(cloudData);
-          console.log(`[Tug Firebase] Data Tarik Tambang berhasil dimuat dari Firestore (${this.history.length} sesi riwayat)!`);
-          this.saveLocalDisk();
-        }
-      }).catch(err => {
-        console.error('[Tug Firebase] Gagal load dari Firestore:', err.message);
-      });
+      this.reloadFromFirebase();
     }
+  }
+
+  async reloadFromFirebase() {
+    if (!firebaseService.isAvailable()) return false;
+    try {
+      const cloudData = await firebaseService.loadDoc('tarik_tambang');
+      if (cloudData && typeof cloudData === 'object') {
+        this.applyStorageData(cloudData);
+        console.log(`[Tug Firebase] Data Tarik Tambang berhasil direload dari Firestore (${this.history.length} sesi riwayat)!`);
+        this.saveLocalDisk();
+        return true;
+      }
+    } catch (err) {
+      console.error('[Tug Firebase] Gagal load dari Firestore:', err.message);
+    }
+    return false;
   }
 
   applyStorageData(data) {

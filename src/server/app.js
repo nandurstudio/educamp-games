@@ -558,6 +558,48 @@ app.post('/api/super/sync-cloud', async (req, res) => {
   }
 });
 
+// 1B. Unified System Reload / Force Sync seluruh modul dari Cloud Firestore
+app.all(['/api/system/reload', '/api/system/sync-cloud'], async (req, res) => {
+  try {
+    const results = {};
+    if (typeof superAdminEngine.reloadFromFirebase === 'function') {
+      results.superAdmin = await superAdminEngine.reloadFromFirebase();
+    }
+    if (typeof doorprizeEngine.reloadFromFirebase === 'function') {
+      results.doorprize = await doorprizeEngine.reloadFromFirebase();
+    }
+    if (typeof gameEngine.reloadFromFirebase === 'function') {
+      results.pinang = await gameEngine.reloadFromFirebase();
+    }
+    if (typeof tugEngine.reloadFromFirebase === 'function') {
+      results.tug = await tugEngine.reloadFromFirebase();
+    }
+    if (typeof commitmentEngine.reloadFromFirebase === 'function') {
+      results.commitment = await commitmentEngine.reloadFromFirebase();
+    }
+    if (typeof questionBank.reloadFromFirebase === 'function') {
+      results.questions = await questionBank.reloadFromFirebase();
+    }
+
+    io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
+    io.emit('CUSTOM_GAMES_UPDATE', superAdminEngine.getCustomGames());
+    io.emit('MASTER_TEAMS_UPDATE', superAdminEngine.getMasterTeams());
+    io.emit('DOORPRIZE_STATE_UPDATE', doorprizeEngine.getState());
+    io.emit('STATE_UPDATE', gameEngine.getPublicState());
+    io.emit('TUG_STATE_UPDATE', tugEngine.getPublicState());
+    io.emit('COMMITMENT_STATE_UPDATE', commitmentEngine.getPublicState());
+
+    res.json({
+      success: true,
+      message: 'Seluruh sistem dan engine game berhasil direload langsung dari Cloud Firestore!',
+      results
+    });
+  } catch (err) {
+    console.error('[System Reload Error]', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 2. Ambil Master Teams
 app.get('/api/super/master-teams', (req, res) => {
   res.json({ teams: superAdminEngine.getMasterTeams() });

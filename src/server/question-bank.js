@@ -652,15 +652,23 @@ class QuestionBank {
 
   loadFromFirestore() {
     if (firebaseService.isAvailable()) {
-      firebaseService.loadDoc('question_bank').then(cloudData => {
-        if (cloudData && typeof cloudData === 'object' && Array.isArray(cloudData.questions) && cloudData.questions.length > 0) {
-          this.setQuestions(cloudData.questions, cloudData.source || 'RESTORED', false);
-          console.log(`[QuestionBank Firebase] Berhasil memuat ${this.questions.length} soal kustom dari Firestore!`);
-        }
-      }).catch(err => {
-        console.error('[QuestionBank Firebase] Gagal load dari Firestore:', err.message);
-      });
+      this.reloadFromFirebase();
     }
+  }
+
+  async reloadFromFirebase() {
+    if (!firebaseService.isAvailable()) return false;
+    try {
+      const cloudData = await firebaseService.loadDoc('question_bank');
+      if (cloudData && typeof cloudData === 'object' && Array.isArray(cloudData.questions) && cloudData.questions.length > 0) {
+        this.setQuestions(cloudData.questions, cloudData.source || 'RESTORED', false);
+        console.log(`[QuestionBank Firebase] Berhasil memuat ${this.questions.length} soal kustom dari Firestore!`);
+        return true;
+      }
+    } catch (err) {
+      console.error('[QuestionBank Firebase] Gagal load dari Firestore:', err.message);
+    }
+    return false;
   }
 
   getAll() {

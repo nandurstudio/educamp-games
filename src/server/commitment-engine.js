@@ -50,19 +50,29 @@ class CommitmentEngine {
 
     // 2. Sinkronkan dengan Cloud Firestore jika tersedia
     if (firebaseService.isAvailable()) {
-      firebaseService.loadDoc('getting_commitment').then(cloudData => {
-        if (cloudData && typeof cloudData === 'object') {
-          this.applyData(cloudData);
-          this.saveLocalDisk();
-          console.log('[Commitment Engine] Synchronized state from Cloud Firestore');
-        } else {
+      this.reloadFromFirebase().then(success => {
+        if (!success) {
           // Inisialisasi awal ke cloud jika belum ada
           this.saveStorage();
         }
-      }).catch(err => {
-        console.warn('[Commitment Engine] Firestore initial pull warning:', err.message);
       });
     }
+  }
+
+  async reloadFromFirebase() {
+    if (!firebaseService.isAvailable()) return false;
+    try {
+      const cloudData = await firebaseService.loadDoc('getting_commitment');
+      if (cloudData && typeof cloudData === 'object') {
+        this.applyData(cloudData);
+        this.saveLocalDisk();
+        console.log('[Commitment Engine] Synchronized state from Cloud Firestore');
+        return true;
+      }
+    } catch (err) {
+      console.warn('[Commitment Engine] Firestore pull warning:', err.message);
+    }
+    return false;
   }
 
   applyData(data) {

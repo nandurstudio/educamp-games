@@ -25,16 +25,24 @@ class GameEngine {
     }
 
     if (firebaseService.isAvailable()) {
-      firebaseService.loadDoc('panjat_pinang').then(cloudData => {
-        if (cloudData && typeof cloudData === 'object') {
-          this.applyStorageData(cloudData);
-          console.log(`[Panjat Pinang Firebase] Berhasil me-load konfigurasi dari Firestore (${this.history.length} riwayat pertandingan)!`);
-          this.saveLocalDisk();
-        }
-      }).catch(err => {
-        console.error('[Panjat Pinang Firebase] Gagal load dari Firestore:', err.message);
-      });
+      this.reloadFromFirebase();
     }
+  }
+
+  async reloadFromFirebase() {
+    if (!firebaseService.isAvailable()) return false;
+    try {
+      const cloudData = await firebaseService.loadDoc('panjat_pinang');
+      if (cloudData && typeof cloudData === 'object') {
+        this.applyStorageData(cloudData);
+        console.log(`[Panjat Pinang Firebase] Berhasil reload konfigurasi dari Firestore (${this.history.length} riwayat pertandingan)!`);
+        this.saveLocalDisk();
+        return true;
+      }
+    } catch (err) {
+      console.error('[Panjat Pinang Firebase] Gagal load dari Firestore:', err.message);
+    }
+    return false;
   }
 
   applyStorageData(data) {

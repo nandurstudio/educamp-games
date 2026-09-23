@@ -134,21 +134,30 @@ class SuperAdminEngine {
 
     // Sinkronisasi otomatis dari Cloud Firestore saat startup (Cloud Firestore adalah SINGLE SOURCE OF TRUTH)
     if (firebaseService.isAvailable()) {
-      firebaseService.loadDoc('superadmin').then(cloudData => {
-        if (cloudData && typeof cloudData === 'object' && cloudData.masterTeams) {
-          this.applyStorageData(cloudData);
-          console.log(`[SuperAdmin Firebase] Berhasil memulihkan ${Object.keys(this.masterTeams).length} tim & ${this.customGames.length} game dari Cloud Firestore!`);
-          // Simpan sinkronisasi ke disk lokal agar cache lokal selalu termutakhir
-          this.saveLocalDisk();
-        } else {
+      this.reloadFromFirebase().then(success => {
+        if (!success) {
           // Dokumen di Cloud Firestore belum ada sama sekali, baru lakukan inisialisasi awal
           this.saveStorage();
           console.log('[SuperAdmin Firebase] Inisialisasi awal dokumen superadmin ke Cloud Firestore');
         }
-      }).catch(err => {
-        console.error('[SuperAdmin Firebase] Gagal load dari Firestore:', err.message);
       });
     }
+  }
+
+  async reloadFromFirebase() {
+    if (!firebaseService.isAvailable()) return false;
+    try {
+      const cloudData = await firebaseService.loadDoc('superadmin');
+      if (cloudData && typeof cloudData === 'object' && cloudData.masterTeams) {
+        this.applyStorageData(cloudData);
+        this.saveLocalDisk();
+        console.log(`[SuperAdmin Firebase] Berhasil memulihkan ${Object.keys(this.masterTeams).length} tim & ${this.customGames.length} game dari Cloud Firestore!`);
+        return true;
+      }
+    } catch (err) {
+      console.error('[SuperAdmin Firebase] Gagal load dari Firestore:', err.message);
+    }
+    return false;
   }
 
   applyStorageData(data) {
