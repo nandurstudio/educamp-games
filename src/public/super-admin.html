@@ -1183,8 +1183,10 @@
         </button>
       </div>
     </div>
+  </div>
+
   <!-- MODAL EDIT SKOR LANGSUNG DARI KLASEMEN -->
-  <div class="modal-overlay" id="score-modal" style="display: none; align-items: center; justify-content: center;">
+  <div class="modal-overlay" id="score-modal" style="display: none; align-items: center; justify-content: center;" onclick="if(event.target===this) closeScoreModal()">
     <div class="modal-box" style="max-width: 420px; border: 1px solid #38bdf8; box-shadow: 0 10px 30px rgba(2, 132, 199, 0.3);">
       <h3 style="margin: 0 0 8px 0; font-size: 16px; color: #38bdf8; display: flex; align-items: center; gap: 8px;">
         <span>✏️</span> Edit Nilai Game Non-Digital
@@ -1413,27 +1415,36 @@
 
     function openScoreModal(gameId, teamId, gameTitle, teamName, currentScore) {
       const g = (currentLeaderboardData?.customGames || []).find(x => x.id === gameId);
+      const row = (currentLeaderboardData?.leaderboard || []).find(r => r.teamId === teamId);
       const title = gameTitle || (g ? g.title : 'Game Non-Digital');
-      const tName = teamName || (masterTeamsData[teamId]?.name || teamId.toUpperCase());
+      const tName = teamName || (masterTeamsData && masterTeamsData[teamId]?.name) || row?.teamName || teamId.toUpperCase();
       const score = (currentScore !== undefined && currentScore !== null) 
         ? currentScore 
-        : ((g && g.scores && typeof g.scores[teamId] === 'number') ? g.scores[teamId] : 0);
+        : ((row && row.nonDigitalScores && typeof row.nonDigitalScores[gameId] === 'number') 
+          ? row.nonDigitalScores[gameId] 
+          : ((g && g.scores && typeof g.scores[teamId] === 'number') ? g.scores[teamId] : 0));
 
-      document.getElementById('score-modal-game-id').value = gameId;
-      document.getElementById('score-modal-team-id').value = teamId;
-      document.getElementById('score-modal-subtitle').innerHTML = `Game: <strong style="color:#f1f5f9;">${title}</strong><br>Tim: <strong style="color:#38bdf8;">${tName}</strong>`;
-      
+      const gameIdInput = document.getElementById('score-modal-game-id');
+      const teamIdInput = document.getElementById('score-modal-team-id');
+      const subtitle = document.getElementById('score-modal-subtitle');
       const input = document.getElementById('score-modal-input');
+      const modal = document.getElementById('score-modal');
+
+      if (!modal || !input) {
+        console.error('Score modal element not found!');
+        return;
+      }
+
+      if (gameIdInput) gameIdInput.value = gameId;
+      if (teamIdInput) teamIdInput.value = teamId;
+      if (subtitle) subtitle.innerHTML = `Game: <strong style="color:#f1f5f9;">${title}</strong><br>Tim: <strong style="color:#38bdf8;">${tName}</strong>`;
       input.value = score;
 
-      const modal = document.getElementById('score-modal');
-      if (modal) {
-        modal.style.display = 'flex';
-        setTimeout(() => {
-          input.focus();
-          input.select();
-        }, 50);
-      }
+      modal.style.display = 'flex';
+      setTimeout(() => {
+        input.focus();
+        input.select();
+      }, 50);
     }
 
     function closeScoreModal() {
