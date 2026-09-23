@@ -205,7 +205,10 @@
     </div>
   </div>
 
-  <div style="display: flex; align-items: center; gap: 14px;">
+  <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+    <button class="fullscreen-btn" id="btn-audio-toggle" onclick="toggleAudio()" title="Aktifkan / Matikan Suara & Musik Panggung" style="color: #22c55e; border-color: rgba(34, 197, 94, 0.4); font-weight: 700;">
+      <span id="audio-icon">🔊</span> <span id="audio-text">Audio: AKTIF</span>
+    </button>
     <div class="status-pill">
       <span class="status-dot" id="connection-dot"></span>
       <span id="connection-text">Menyambungkan...</span>
@@ -286,7 +289,7 @@
     <div class="footer-semver" title="Semantic Versioning">
       <span class="semver-dot"></span>
       <span class="semver-label">SemVer</span>
-      <span>v1.3.0</span>
+      <span>v1.3.4</span>
     </div>
   </div>
 </footer>
@@ -299,45 +302,173 @@
   let rollingInterval = null;
   let audioContext = null;
   let currentPrizeId = null; // Melacak ID hadiah aktif saat ini
+  let audioEnabled = true;
+  let currentCelebrationAudio = null;
 
-  function playTickSound() {
+  // Web Audio API Context (Auto-resume jika suspended)
+  function getAudioContext() {
+    if (!audioContext) {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioContext.state === 'suspended') {
+      audioContext.resume();
+    }
+    return audioContext;
+  }
+
+  // Toggle Mute / Unmute Audio Panggung
+  function toggleAudio() {
+    audioEnabled = !audioEnabled;
+    const btn = document.getElementById('btn-audio-toggle');
+    const icon = document.getElementById('audio-icon');
+    const text = document.getElementById('audio-text');
+
+    if (audioEnabled) {
+      getAudioContext();
+      if (btn) {
+        btn.style.color = '#22c55e';
+        btn.style.borderColor = 'rgba(34, 197, 94, 0.4)';
+      }
+      if (icon) icon.textContent = '🔊';
+      if (text) text.textContent = 'Audio: AKTIF';
+    } else {
+      stopAllAudio();
+      if (btn) {
+        btn.style.color = '#94a3b8';
+        btn.style.borderColor = '#334155';
+      }
+      if (icon) icon.textContent = '🔇';
+      if (text) text.textContent = 'Audio: BISU';
+    }
+  }
+
+  // Otomatis Unlock AudioContext saat pengguna pertama kali menyentuh/mengklik layar
+  function handleFirstUserInteraction() {
+    getAudioContext();
+    window.removeEventListener('click', handleFirstUserInteraction);
+    window.removeEventListener('keydown', handleFirstUserInteraction);
+    window.removeEventListener('touchstart', handleFirstUserInteraction);
+  }
+  window.addEventListener('click', handleFirstUserInteraction);
+  window.addEventListener('keydown', handleFirstUserInteraction);
+  window.addEventListener('touchstart', handleFirstUserInteraction);
+
+  // 1. Suara Saat Mengocok (Rhythmic Rolling Drumroll / Slot Wheel Tick)
+  function playRollTick() {
+    if (!audioEnabled) return;
     try {
-      if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      const osc = audioContext.createOscillator();
-      const gain = audioContext.createGain();
+      const ctx = getAudioContext();
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      // Drumroll / slot tick: warm pitch with punchy exponential decay
       osc.type = 'triangle';
-      osc.frequency.setValueAtTime(300 + Math.random() * 200, audioContext.currentTime);
-      gain.gain.setValueAtTime(0.12, audioContext.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.06);
+      const baseFreq = 180 + Math.random() * 90;
+      osc.frequency.setValueAtTime(baseFreq, now);
+      osc.frequency.exponentialRampToValueAtTime(60, now + 0.05);
+
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+
       osc.connect(gain);
-      gain.connect(audioContext.destination);
-      osc.start();
-      osc.stop(audioContext.currentTime + 0.06);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.05);
     } catch(e) {}
   }
 
-  function playWinChime() {
+  // 2. Suara Saat Stop / Kandidat Terpilih (Suspense Reveal Chime)
+  function playCandidateRevealSound() {
+    if (!audioEnabled) return;
     try {
-      const audio = new Audio('/audio/celebration_short.mp3');
-      audio.volume = 0.85;
-      audio.play().catch(() => {
-        // Fallback Web Audio API sintetis jika autoplay audio dicegah
-        if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
-        notes.forEach((freq, i) => {
-          const osc = audioContext.createOscillator();
-          const gain = audioContext.createGain();
-          osc.type = 'triangle';
-          osc.frequency.setValueAtTime(freq, audioContext.currentTime + i * 0.12);
-          gain.gain.setValueAtTime(0.2, audioContext.currentTime + i * 0.12);
-          gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + i * 0.12 + 0.4);
-          osc.connect(gain);
-          gain.connect(audioContext.destination);
-          osc.start(audioContext.currentTime + i * 0.12);
-          osc.stop(audioContext.currentTime + i * 0.12 + 0.4);
-        });
+      const ctx = getAudioContext();
+      const now = ctx.currentTime;
+
+      // Akor suspense dramatis: G4 -> C5 -> Eb5 -> G5
+      const notes = [392.00, 523.25, 622.25, 783.99];
+      notes.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+
+        gain.gain.setValueAtTime(0, now + idx * 0.08);
+        gain.gain.linearRampToValueAtTime(0.25, now + idx * 0.08 + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.8);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(now + idx * 0.08);
+        osc.stop(now + idx * 0.08 + 0.8);
       });
     } catch(e) {}
+  }
+
+  // 3. Suara Saat Pemenang Sah Dikonfirmasi (Grand Celebration Fanfare + MP3)
+  function playWinCelebration() {
+    if (!audioEnabled) return;
+
+    // A. Mainkan MP3 Celebration (jika diizinkan oleh browser)
+    try {
+      if (currentCelebrationAudio) {
+        currentCelebrationAudio.pause();
+        currentCelebrationAudio.currentTime = 0;
+      }
+      currentCelebrationAudio = new Audio('/audio/celebration_short.mp3');
+      currentCelebrationAudio.volume = 0.85;
+      currentCelebrationAudio.play().catch(err => {
+        console.log("MP3 autoplay diblokir browser, memutar Web Audio procedural fanfare:", err);
+      });
+    } catch(e) {}
+
+    // B. Mainkan Web Audio API Procedural Grand Fanfare (Pasti berbunyi!)
+    try {
+      const ctx = getAudioContext();
+      const now = ctx.currentTime;
+
+      // Heroic Brass Fanfare: C5 -> E5 -> G5 -> C6
+      const brassNotes = [
+        { f: 523.25, t: 0.0,  d: 0.15 },
+        { f: 523.25, t: 0.15, d: 0.15 },
+        { f: 523.25, t: 0.30, d: 0.15 },
+        { f: 659.25, t: 0.45, d: 0.35 },
+        { f: 587.33, t: 0.80, d: 0.20 },
+        { f: 659.25, t: 1.00, d: 0.20 },
+        { f: 783.99, t: 1.20, d: 0.80 },
+        { f: 1046.50, t: 1.20, d: 0.85 }
+      ];
+
+      brassNotes.forEach(n => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(n.f, now + n.t);
+
+        gain.gain.setValueAtTime(0, now + n.t);
+        gain.gain.linearRampToValueAtTime(0.3, now + n.t + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + n.t + n.d);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(now + n.t);
+        osc.stop(now + n.t + n.d);
+      });
+    } catch(e) {}
+  }
+
+  function stopAllAudio() {
+    if (currentCelebrationAudio) {
+      try {
+        currentCelebrationAudio.pause();
+        currentCelebrationAudio.currentTime = 0;
+      } catch(e) {}
+    }
   }
 
   // Socket Connection Status
@@ -471,8 +602,8 @@
         if (nameEl) nameEl.textContent = randomCand.name;
         if (deptEl) deptEl.textContent = randomCand.department || 'Umum';
       }
-      playTickSound();
-    }, 60);
+      playRollTick();
+    }, 70);
   });
 
   // EVENT: HASIL UNDIAN TERPILIH (STOP ROLL)
@@ -521,6 +652,9 @@
     } else {
       renderResultGrid(candidates, 'candidate');
     }
+
+    // Mainkan efek audio reveal kandidat terpilih (Suspense Chord)
+    playCandidateRevealSound();
   });
 
   // EVENT: PEMENANG SAH DIKONFIRMASI
@@ -541,7 +675,7 @@
     }
 
     renderResultGrid(winners, 'winner');
-    playWinChime();
+    playWinCelebration();
     launchConfetti();
 
     // Perbarui podium daftar pemenang bawah jika ada state baru
@@ -558,6 +692,7 @@
   function resetRollerToStandby() {
     clearInterval(rollingInterval);
     rollingInterval = null;
+    stopAllAudio();
 
     document.getElementById('connection-dot').className = 'status-dot active';
     document.getElementById('connection-text').textContent = 'Terhubung Live';

@@ -310,6 +310,96 @@
       border-radius: 20px;
     }
 
+    /* Dramatic Countdown Overlay (3 s/d 1 Suspense) */
+    .countdown-overlay {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at center, rgba(15, 23, 42, 0.96) 0%, rgba(2, 6, 23, 0.98) 100%);
+      border-radius: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+      animation: fadeInFast 0.2s ease;
+      backdrop-filter: blur(8px);
+      box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.6);
+      pointer-events: all;
+    }
+    @keyframes fadeInFast {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .countdown-circle {
+      position: relative;
+      width: 105px;
+      height: 105px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 12px;
+    }
+
+    .countdown-ring {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 3px solid rgba(245, 158, 11, 0.2);
+      border-top-color: #f59e0b;
+      animation: spinCountdownRing 1s linear infinite;
+      box-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
+    }
+    @keyframes spinCountdownRing {
+      to { transform: rotate(360deg); }
+    }
+
+    .countdown-digit {
+      font-size: 64px;
+      font-weight: 900;
+      font-family: 'Courier New', monospace;
+      color: #f59e0b;
+      text-shadow: 0 0 25px rgba(245, 158, 11, 0.9), 0 0 50px rgba(245, 158, 11, 0.5);
+      line-height: 1;
+      animation: digitPulse 1s infinite cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    @keyframes digitPulse {
+      0% {
+        transform: scale(1.6);
+        opacity: 0.2;
+        filter: blur(4px);
+      }
+      35% {
+        transform: scale(1);
+        opacity: 1;
+        filter: blur(0);
+      }
+      80% {
+        transform: scale(0.96);
+        opacity: 0.95;
+      }
+      100% {
+        transform: scale(0.85);
+        opacity: 0.3;
+      }
+    }
+
+    .countdown-label {
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #e2e8f0;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+      text-align: center;
+    }
+    .countdown-sub {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 5px;
+      letter-spacing: 1px;
+    }
+
     /* First Place (Center - Elevated) */
     .podium-first {
       order: 2;
@@ -430,7 +520,8 @@
 
     .matrix-table {
       width: 100%;
-      border-collapse: collapse;
+      border-collapse: separate;
+      border-spacing: 0;
       text-align: left;
     }
     .matrix-table th {
@@ -442,14 +533,68 @@
       letter-spacing: 1px;
       color: #94a3b8;
       border-bottom: 2px solid #334155;
+      white-space: nowrap;
     }
     .matrix-table td {
-      padding: 16px;
+      padding: 14px 16px;
       font-size: 14px;
       border-bottom: 1px solid #1e293b;
+      white-space: nowrap;
+      background: #0b1324;
     }
-    .matrix-table tr:hover {
-      background: rgba(255, 255, 255, 0.03);
+    .matrix-table tr:hover td {
+      background: #1e293b !important;
+    }
+
+    /* Freeze Pane Columns (Rank, Nama Tim, GRAND TOTAL) */
+    .col-freeze-rank {
+      position: sticky;
+      left: 0;
+      width: 65px;
+      min-width: 65px;
+      max-width: 65px;
+      z-index: 6;
+      background: #0f172a !important;
+      text-align: center;
+    }
+    .col-freeze-name {
+      position: sticky;
+      left: 65px;
+      width: 230px;
+      min-width: 230px;
+      max-width: 230px;
+      z-index: 6;
+      background: #0f172a !important;
+    }
+    .col-freeze-total {
+      position: sticky;
+      left: 295px; /* 65px + 230px */
+      width: 160px;
+      min-width: 160px;
+      max-width: 160px;
+      z-index: 6;
+      background: #131c31 !important;
+      border-right: 2px solid #475569 !important;
+      box-shadow: 6px 0 16px rgba(0, 0, 0, 0.5);
+      text-align: center;
+    }
+
+    .matrix-table th.col-freeze-rank,
+    .matrix-table th.col-freeze-name {
+      background: #111827 !important;
+      z-index: 12;
+    }
+    .matrix-table th.col-freeze-total {
+      background: #172238 !important;
+      z-index: 12;
+      border-right: 2px solid #475569 !important;
+      box-shadow: 6px 0 16px rgba(0, 0, 0, 0.5);
+    }
+
+    .matrix-table tr:hover td.col-freeze-rank,
+    .matrix-table tr:hover td.col-freeze-name,
+    .matrix-table tr:hover td.col-freeze-total {
+      background: #1e293b !important;
     }
 
     .team-badge-flex {
@@ -607,7 +752,7 @@
           </div>
         </div>
 
-        <div style="overflow-x: auto;">
+        <div style="overflow-x: auto; position: relative; max-width: 100%;">
           <table class="matrix-table" id="matrix-table">
             <thead id="matrix-thead">
               <!-- Diisi kolom game dinamis -->
@@ -779,59 +924,184 @@
       }
     }
 
-    function toggleReveal(key, evt) {
-      if (evt) evt.stopPropagation();
-      revealedState[key] = !revealedState[key];
-      saveRevealedState();
+    function playCountdownTick(count) {
+      try {
+        const ctx = getAudioContext();
+        const now = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
 
-      if (revealedState[key]) {
-        playProceduralSound(key);
-        if (key === 'first') {
-          triggerConfetti();
-        }
-      } else {
-        playProceduralSound('lock');
+        // 3 -> 440 Hz (A4), 2 -> 554.37 Hz (C#5), 1 -> 659.25 Hz (E5)
+        const freqs = { 3: 440, 2: 554.37, 1: 659.25 };
+        const freq = freqs[count] || 500;
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now);
+        osc.frequency.exponentialRampToValueAtTime(freq * 1.15, now + 0.12);
+
+        gain.gain.setValueAtTime(0.35, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.22);
+      } catch (e) {
+        console.warn("Countdown audio error:", e);
+      }
+    }
+
+    // Active Countdown Timers Map
+    const activeCountdowns = {};
+
+    function startDramaticReveal(key, onComplete) {
+      if (activeCountdowns[key]) return; // Cegah double trigger saat countdown berjalan
+
+      // Ambil elemen card target
+      let cardEl = null;
+      let labelText = "MEMBUKA RAHASIA...";
+      if (key === 'first') {
+        cardEl = document.querySelector('.podium-first');
+        labelText = "👑 MENGUNGKAP JUARA 1!";
+      } else if (key === 'second') {
+        cardEl = document.querySelector('.podium-second');
+        labelText = "🥈 MENGUNGKAP JUARA 2";
+      } else if (key === 'third') {
+        cardEl = document.querySelector('.podium-third');
+        labelText = "🥉 MENGUNGKAP JUARA 3";
+      } else if (key === 'list') {
+        cardEl = document.getElementById('matrix-card-wrapper');
+        labelText = "📊 MEMBUKA MATRIKS SKOR";
       }
 
-      // Re-render podium jika kartu podium di-toggle
-      if (['first', 'second', 'third'].includes(key) && latestLeaderboardData) {
-        renderPodium(latestLeaderboardData.leaderboard || []);
+      if (!cardEl) {
+        revealedState[key] = true;
+        saveRevealedState();
+        playProceduralSound(key);
+        if (key === 'first') triggerConfetti();
+        if (onComplete) onComplete();
+        return;
+      }
+
+      // Pastikan overlay lama dihapus jika ada
+      const existingOv = document.getElementById(`countdown-overlay-${key}`);
+      if (existingOv) existingOv.remove();
+
+      // Buat countdown overlay di dalam card
+      const overlay = document.createElement('div');
+      overlay.className = 'countdown-overlay';
+      overlay.id = `countdown-overlay-${key}`;
+      overlay.innerHTML = `
+        <div class="countdown-circle">
+          <div class="countdown-ring"></div>
+          <div class="countdown-digit" id="countdown-digit-${key}">3</div>
+        </div>
+        <div class="countdown-label">${labelText}</div>
+        <div class="countdown-sub">MEMBUKA DALAM HITUNGAN DETIK...</div>
+      `;
+      cardEl.appendChild(overlay);
+
+      let count = 3;
+      playCountdownTick(count);
+
+      activeCountdowns[key] = setInterval(() => {
+        count--;
+        if (count > 0) {
+          const digitEl = document.getElementById(`countdown-digit-${key}`);
+          if (digitEl) {
+            digitEl.textContent = count;
+            digitEl.style.animation = 'none';
+            void digitEl.offsetWidth;
+            digitEl.style.animation = 'digitPulse 1s infinite cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+          }
+          playCountdownTick(count);
+        } else {
+          // Hitungan 0 -> REVEAL!
+          clearInterval(activeCountdowns[key]);
+          delete activeCountdowns[key];
+          if (overlay && overlay.parentNode) {
+            overlay.remove();
+          }
+
+          revealedState[key] = true;
+          saveRevealedState();
+
+          playProceduralSound(key);
+          if (key === 'first') {
+            triggerConfetti();
+          }
+
+          if (['first', 'second', 'third'].includes(key) && latestLeaderboardData) {
+            renderPodium(latestLeaderboardData.leaderboard || []);
+          }
+          if (key === 'list') {
+            updateMatrixCardUI();
+          }
+
+          if (onComplete) onComplete();
+        }
+      }, 1000);
+    }
+
+    function toggleReveal(key, evt) {
+      if (evt) evt.stopPropagation();
+
+      // Jika sedang menghitung mundur, abaikan klik
+      if (activeCountdowns[key]) return;
+
+      if (revealedState[key]) {
+        // Jika sudah terbuka, langsung kunci kembali dengan soft click sound
+        revealedState[key] = false;
+        saveRevealedState();
+        playProceduralSound('lock');
+
+        if (['first', 'second', 'third'].includes(key) && latestLeaderboardData) {
+          renderPodium(latestLeaderboardData.leaderboard || []);
+        }
+        if (key === 'list') {
+          updateMatrixCardUI();
+        }
+      } else {
+        // Jika masih tertutup, mulai DRAMATIC COUNTDOWN 3 -> 2 -> 1!
+        startDramaticReveal(key);
       }
     }
 
     function handleMatrixCardClick(evt) {
-      if (!revealedState.list) {
+      if (!revealedState.list && !activeCountdowns['list']) {
         toggleReveal('list', evt);
       }
     }
 
     function revealAll() {
-      revealedState.first = true;
-      revealedState.second = true;
-      revealedState.third = true;
-      revealedState.list = true;
-      saveRevealedState();
+      const lockedKeys = ['first', 'second', 'third', 'list'].filter(k => !revealedState[k]);
+      if (lockedKeys.length === 0) return;
 
-      playProceduralSound('first');
-      triggerConfetti();
-
-      if (latestLeaderboardData) {
-        renderPodium(latestLeaderboardData.leaderboard || []);
-      }
+      lockedKeys.forEach(k => {
+        startDramaticReveal(k);
+      });
     }
 
     function hideAll() {
-      revealedState.first = false;
-      revealedState.second = false;
-      revealedState.third = false;
-      revealedState.list = false;
-      saveRevealedState();
+      // Bersihkan semua active countdown jika ada
+      ['first', 'second', 'third', 'list'].forEach(k => {
+        if (activeCountdowns[k]) {
+          clearInterval(activeCountdowns[k]);
+          delete activeCountdowns[k];
+          const ov = document.getElementById(`countdown-overlay-${k}`);
+          if (ov) ov.remove();
+        }
+        revealedState[k] = false;
+      });
 
+      saveRevealedState();
       playProceduralSound('lock');
 
       if (latestLeaderboardData) {
         renderPodium(latestLeaderboardData.leaderboard || []);
       }
+      updateMatrixCardUI();
     }
 
     function updateRevealUI() {
@@ -1011,21 +1281,21 @@
       const tbody = document.getElementById('matrix-tbody');
       if (!thead || !tbody) return;
 
-      // Header Kolom: Rank, Nama Tim, Panjat Pinang, Tarik Tambang, [Custom Game 1, 2...], Grand Total
+      // Header Kolom: 1. Rank (Freeze), 2. Nama Tim (Freeze), 3. GRAND TOTAL (Freeze), lalu game lainnya di kanan
       let headerHtml = `
         <tr>
-          <th style="width: 60px;">Rank</th>
-          <th>Nama Tim</th>
-          <th style="text-align: center;">🎋 Panjat Pinang</th>
-          <th style="text-align: center;">🪢 Tarik Tambang</th>
+          <th class="col-freeze-rank">Rank</th>
+          <th class="col-freeze-name">Nama Tim</th>
+          <th class="col-freeze-total" style="color: #f59e0b;">🏆 GRAND TOTAL</th>
+          <th style="text-align: center; min-width: 140px;">🎋 Panjat Pinang</th>
+          <th style="text-align: center; min-width: 140px;">🪢 Tarik Tambang</th>
       `;
 
       customGames.forEach(g => {
-        headerHtml += `<th style="text-align: center;">${g.emoji || '🎯'} ${g.title}</th>`;
+        headerHtml += `<th style="text-align: center; min-width: 140px;">${g.emoji || '🎯'} ${g.title}</th>`;
       });
 
       headerHtml += `
-          <th style="text-align: right; color: #f59e0b;">🏆 GRAND TOTAL</th>
         </tr>
       `;
       thead.innerHTML = headerHtml;
@@ -1043,16 +1313,17 @@
 
         bodyHtml += `
           <tr>
-            <td style="font-weight: 900; font-size: 15px;">${rankBadge}</td>
-            <td>
+            <td class="col-freeze-rank" style="font-weight: 900; font-size: 15px;">${rankBadge}</td>
+            <td class="col-freeze-name">
               <div class="team-badge-flex">
                 <span class="team-circle" style="background: ${t.teamColor};"></span>
-                <div>
-                  <strong style="font-size: 16px; color: #ffffff;">${t.teamName.toUpperCase()}</strong>
+                <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                  <strong style="font-size: 15px; color: #ffffff;">${t.teamName.toUpperCase()}</strong>
                   <div style="font-size: 11px; color: #64748b;">${t.membersCount} Anggota</div>
                 </div>
               </div>
             </td>
+            <td class="col-freeze-total score-total-cell">${t.grandTotal}</td>
             <td style="text-align: center;" class="score-cell">${pinangScore}</td>
             <td style="text-align: center;" class="score-cell">${tugScore}</td>
         `;
@@ -1065,7 +1336,6 @@
         });
 
         bodyHtml += `
-            <td style="text-align: right;" class="score-total-cell">${t.grandTotal}</td>
           </tr>
         `;
       });
