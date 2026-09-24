@@ -73,6 +73,7 @@ function startTimer() {
                   isDraw: gameEngine.isDraw,
                   matchScores: gameEngine.matchScores
                 });
+                superAdminEngine.saveStorage();
                 io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
               }
             }
@@ -90,6 +91,7 @@ function startTimer() {
           isDraw: gameEngine.isDraw,
           matchScores: gameEngine.matchScores
         });
+        superAdminEngine.saveStorage();
         io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
       }
     } else {
@@ -537,11 +539,10 @@ app.post('/api/super/sync-cloud', async (req, res) => {
       }
       const qbData = await firebaseService.loadDoc('question_bank');
       if (qbData) questionBank.restoreData(qbData);
-      const ppData = await firebaseService.loadDoc('game_storage');
-      if (ppData) gameEngine.restoreData(ppData);
-      const ttData = await firebaseService.loadDoc('tug_storage');
-      if (ttData) tugEngine.restoreData(ttData);
+      if (typeof gameEngine.reloadFromFirebase === 'function') await gameEngine.reloadFromFirebase();
+      if (typeof tugEngine.reloadFromFirebase === 'function') await tugEngine.reloadFromFirebase();
     }
+    superAdminEngine.saveStorage();
     io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
     io.emit('CUSTOM_GAMES_UPDATE', superAdminEngine.getCustomGames());
     io.emit('MASTER_TEAMS_UPDATE', superAdminEngine.getMasterTeams());
@@ -1413,6 +1414,7 @@ io.on('connection', (socket) => {
         isDraw: false,
         matchScores: gameEngine.matchScores
       });
+      superAdminEngine.saveStorage();
       io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
     }
   });

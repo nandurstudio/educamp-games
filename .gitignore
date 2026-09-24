@@ -11,3 +11,6 @@ data/*.json
 firebase-applet-config.json
 serviceAccountKey.json
 *.secret.json
+
+# Local Backups
+backups/

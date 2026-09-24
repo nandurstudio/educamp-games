@@ -210,10 +210,13 @@ class SuperAdminEngine {
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
       }
+      const unified = this.getUnifiedLeaderboard();
       const data = {
         masterTeams: this.masterTeams,
         customGames: this.customGames,
         digitalSettings: this.digitalSettings,
+        digitalScores: this.getDigitalPoints(),
+        leaderboard: unified.leaderboard,
         auditLogs: this.auditLogs || [],
         updatedAt: new Date().toISOString()
       };
@@ -226,10 +229,13 @@ class SuperAdminEngine {
   saveStorage() {
     this.saveLocalDisk();
     if (firebaseService.isAvailable()) {
+      const unified = this.getUnifiedLeaderboard();
       const payload = {
         masterTeams: this.masterTeams,
         customGames: this.customGames,
         digitalSettings: this.digitalSettings,
+        digitalScores: this.getDigitalPoints(),
+        leaderboard: unified.leaderboard,
         auditLogs: this.auditLogs || [],
         updatedAt: new Date().toISOString()
       };
@@ -240,10 +246,13 @@ class SuperAdminEngine {
   }
 
   getStorageData() {
+    const unified = this.getUnifiedLeaderboard();
     return {
       masterTeams: this.masterTeams,
       customGames: this.customGames,
       digitalSettings: this.digitalSettings,
+      digitalScores: this.getDigitalPoints(),
+      leaderboard: unified.leaderboard,
       auditLogs: this.auditLogs || [],
       updatedAt: new Date().toISOString()
     };
@@ -604,25 +613,40 @@ class SuperAdminEngine {
     // B. Riwayat sesi Panjat Pinang (Aturan 300 Pemenang / 150 Kalah / 150 Seri)
     const pinangHistory = gameEngine.history || [];
     pinangHistory.forEach(session => {
+      let scoresApplied = false;
+
+      // 1. Prioritaskan pembacaan dari session.matchScores
       if (session.matchScores && typeof session.matchScores === 'object' && Object.keys(session.matchScores).length > 0) {
         Object.entries(session.matchScores).forEach(([tKey, pts]) => {
-          const matchedId = findTeamId(tKey);
+          const teamInScores = (session.scores && session.scores[tKey]) ? session.scores[tKey] : null;
+          const teamName = teamInScores ? teamInScores.name : null;
+          const matchedId = findTeamId(tKey) || findTeamId(teamName);
           if (matchedId && digitalScores[matchedId]) {
             digitalScores[matchedId].pinangScore += (Number(pts) || 0);
+            scoresApplied = true;
           }
         });
-        if (session.winner && session.winner.name) {
-          const winId = findTeamId(session.winner.id) || findTeamId(session.winner.name);
-          if (winId && digitalScores[winId]) {
-            digitalScores[winId].pinangWins += 1;
+      }
+
+      // 2. Fallback: jika matchScores tidak ada/kosong, periksa session.scores
+      if (!scoresApplied && session.scores && typeof session.scores === 'object') {
+        Object.entries(session.scores).forEach(([tKey, teamData]) => {
+          const matchedId = findTeamId(tKey) || findTeamId(teamData.name);
+          const pts = teamData.finalMatchScore !== undefined ? teamData.finalMatchScore : teamData.score;
+          if (matchedId && digitalScores[matchedId] && typeof pts === 'number') {
+            digitalScores[matchedId].pinangScore += pts;
+            scoresApplied = true;
           }
-        }
-      } else {
-        if (session.winner && session.winner.name) {
-          const matchedId = findTeamId(session.winner.id) || findTeamId(session.winner.name);
-          if (matchedId && digitalScores[matchedId]) {
-            digitalScores[matchedId].pinangWins += 1;
-            digitalScores[matchedId].pinangScore += (this.digitalSettings.pinangPointsPerWin || 300);
+        });
+      }
+
+      // 3. Catat kemenangan (win count) & fallback poin pemenang jika belum teraplikasi
+      if (session.winner && (session.winner.id || session.winner.name)) {
+        const winId = findTeamId(session.winner.id) || findTeamId(session.winner.name);
+        if (winId && digitalScores[winId]) {
+          digitalScores[winId].pinangWins += 1;
+          if (!scoresApplied) {
+            digitalScores[winId].pinangScore += (this.digitalSettings.pinangPointsPerWin || 300);
           }
         }
       }
@@ -631,11 +655,11 @@ class SuperAdminEngine {
     // 2. Poin dari Tarik Tambang
     const tugHistory = tugEngine.history || [];
     tugHistory.forEach(session => {
-      if (session.winner && session.winner.name) {
-        const matchedId = findTeamId(session.winner.name);
+      if (session.winner && (session.winner.id || session.winner.name)) {
+        const matchedId = findTeamId(session.winner.id) || findTeamId(session.winner.name);
         if (matchedId && digitalScores[matchedId]) {
           digitalScores[matchedId].tugWins += 1;
-          digitalScores[matchedId].tugScore += this.digitalSettings.tugPointsPerWin;
+          digitalScores[matchedId].tugScore += (this.digitalSettings.tugPointsPerWin || 200);
         }
       }
     });
