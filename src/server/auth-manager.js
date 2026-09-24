@@ -53,31 +53,39 @@ class AuthManager {
   }
 
   loadAdminUsers() {
-    if (firebaseService.isAvailable()) {
-      firebaseService.loadDoc('authorized_admins').then(data => {
-        if (data) {
-          if (Array.isArray(data.users)) {
-            this.adminUsers = data.users;
-            // Pastikan admin utama selalu ada
-            for (const perm of PERMANENT_SUPER_ADMINS) {
-              const foundIdx = this.adminUsers.findIndex(u => u.email.toLowerCase() === perm.email.toLowerCase());
-              if (foundIdx === -1) {
-                this.adminUsers.push({ email: perm.email, role: 'SUPER_ADMIN', name: perm.name, isOwner: true });
-              } else {
-                this.adminUsers[foundIdx].role = 'SUPER_ADMIN';
-                this.adminUsers[foundIdx].isOwner = true;
-              }
+    this.reloadFromFirebase().catch(err => {
+      console.warn('[AuthManager] Initial Firebase reload warning:', err.message);
+    });
+  }
+
+  async reloadFromFirebase() {
+    if (!firebaseService.isAvailable()) return false;
+    try {
+      const data = await firebaseService.loadDoc('authorized_admins');
+      if (data) {
+        if (Array.isArray(data.users)) {
+          this.adminUsers = data.users;
+          // Pastikan admin utama selalu ada
+          for (const perm of PERMANENT_SUPER_ADMINS) {
+            const foundIdx = this.adminUsers.findIndex(u => u.email.toLowerCase() === perm.email.toLowerCase());
+            if (foundIdx === -1) {
+              this.adminUsers.push({ email: perm.email, role: 'SUPER_ADMIN', name: perm.name, isOwner: true });
+            } else {
+              this.adminUsers[foundIdx].role = 'SUPER_ADMIN';
+              this.adminUsers[foundIdx].isOwner = true;
             }
           }
-          if (Array.isArray(data.pendingRequests)) {
-            this.pendingRequests = data.pendingRequests;
-          }
-          this.saveLocalDisk();
-          this.saveAdminUsers();
         }
-      }).catch(err => {
-        console.error('[AuthManager] Gagal load admins dari Firestore:', err.message);
-      });
+        if (Array.isArray(data.pendingRequests)) {
+          this.pendingRequests = data.pendingRequests;
+        }
+        this.saveLocalDisk();
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('[AuthManager] Gagal load admins dari Firestore:', err.message);
+      return false;
     }
   }
 

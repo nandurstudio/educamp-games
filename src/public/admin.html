@@ -6,6 +6,7 @@
   <title>Admin Game Master - Educamp Panjat Pinang</title>
   <link id="app-favicon" rel="icon" type="image/png" href="/images/Logo%20Educamp%202026.png">
   <link rel="stylesheet" href="/css/fonts.css">
+  <link rel="stylesheet" href="/css/nav.css">
   <link rel="stylesheet" href="/css/footer.css">
   <script src="/js/version.js" defer></script>
   <style>
@@ -44,35 +45,44 @@
 <body>
 
   <!-- Universal Admin Navigation Bar -->
-  <nav style="background: #0d1527; border-bottom: 1px solid #1e293b; padding: 6px 16px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px;">
-    <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; color: #f87171;">
-      <img id="admin-nav-logo" src="/images/Logo%20Educamp%202026.png" alt="Logo" style="height: 24px; object-fit: contain;">
+  <nav class="universal-nav">
+    <div class="nav-brand" style="color: #f87171;">
+      <img id="admin-nav-logo" src="/images/Logo%20Educamp%202026.png" alt="Logo" class="nav-logo">
       <span>🎋</span>
       <span>PANJAT PINANG ADMIN</span>
     </div>
-    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-      <a href="/super-admin.html" style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none; color: #fff; background: #4f46e5;">
+    <div class="nav-links-cluster">
+      <a href="/super-admin.html" class="nav-link-btn" style="color: #fff; background: #4f46e5;">
         👑 Super Admin
       </a>
-      <a href="/leaderboard.html" target="_blank" style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 800; text-decoration: none; color: #000; background: linear-gradient(135deg, #f59e0b, #d97706);">
+      <a href="/leaderboard.html" target="_blank" class="nav-link-btn btn-gold">
         🏆 Layar Grand Leaderboard ↗
       </a>
-      <a href="/admin.html" style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none; color: #fff; background: #e74c3c;">
+      <a href="/admin.html" class="nav-link-btn active" style="background: #e74c3c; color: #fff;">
         🎋 Admin Pinang
       </a>
-      <a href="/tug-admin.html" style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none; color: #94a3b8; background: #17253d; border: 1px solid #1e293b;">
+      <a href="/tug-admin.html" class="nav-link-btn">
         🪢 Admin Tarik Tambang
       </a>
-      <a href="/arena.html" target="_blank" style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none; color: #94a3b8; background: #17253d; border: 1px solid #1e293b;">
+      <a href="/doorprize-admin.html" class="nav-link-btn">
+        🎁 Admin Doorprize
+      </a>
+      <a href="/arena.html" target="_blank" class="nav-link-btn">
         🌴 Arena Pinang ↗
       </a>
-      <a href="/tug-arena.html" target="_blank" style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none; color: #94a3b8; background: #17253d; border: 1px solid #1e293b;">
+      <a href="/tug-arena.html" target="_blank" class="nav-link-btn">
         🪢 Arena Tarik Tambang ↗
       </a>
-      <a href="/index.html" style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none; color: #94a3b8; background: #17253d; border: 1px solid #1e293b;">
+      <a href="/index.html" class="nav-link-btn">
         🏠 Hub Utama
       </a>
     </div>
+
+    <!-- Mobile & Tablet Menu Toggle Button -->
+    <button class="nav-menu-toggle" id="btn-open-side-panel" onclick="openSidePanel()" aria-label="Buka Menu Navigasi">
+      <span class="nav-menu-icon">☰</span>
+      <span>MENU</span>
+    </button>
   </nav>
 
 <div class="container">
@@ -721,6 +731,7 @@
     window.location.href = '/api/backup/export';
   }
 </script>
+<script src="/js/nav.js"></script>
 <script src="/js/auth-guard.js"></script>
 <script>
   window.addEventListener('DOMContentLoaded', () => {

@@ -181,3 +181,55 @@
   pointer-events: none;
   z-index: 99999;
 }
+
+/* Multi Candidates Card in Arena Rolling Stage */
+.candidate-card-batch {
+  background: rgba(11, 19, 41, 0.9);
+  border: 2px solid var(--gold-primary);
+  border-radius: 14px;
+  padding: 12px 14px;
+  text-align: center;
+  position: relative;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.candidate-card-batch .candidate-idx {
+  display: inline-block;
+  font-family: var(--font-number, monospace);
+  font-size: 11px;
+  font-weight: 800;
+  color: #f1c40f;
+  background: rgba(241, 196, 15, 0.15);
+  border: 1px solid #f1c40f;
+  padding: 2px 8px;
+  border-radius: 6px;
+  margin-bottom: 6px;
+}
+
+.candidate-card-batch .candidate-nik {
+  font-family: var(--font-number, monospace);
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--accent-cyan);
+}
+
+.candidate-card-batch .candidate-name {
+  font-family: var(--font-heading, sans-serif);
+  font-size: 17px;
+  font-weight: 900;
+  color: #ffffff;
+  text-transform: uppercase;
+  margin: 4px 0 2px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.candidate-card-batch .candidate-dept {
+  font-size: 11px;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

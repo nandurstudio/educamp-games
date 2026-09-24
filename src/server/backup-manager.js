@@ -5,6 +5,7 @@ const tugEngine = require('./tug-engine');
 const superAdminEngine = require('./super-admin-engine');
 const questionBank = require('./question-bank');
 const commitmentEngine = require('./commitment-engine');
+const doorprizeEngine = require('./doorprize-engine');
 const firebaseService = require('./firebase-service');
 
 class BackupManager {
@@ -18,6 +19,7 @@ class BackupManager {
     const tarikTambangData = tugEngine.getStorageData();
     const questionsData = questionBank.getStorageData();
     const commitmentData = commitmentEngine.getStorageData();
+    const doorprizeData = doorprizeEngine.exportData();
 
     const masterTeamsCount = Object.keys(superAdminData.masterTeams || {}).length;
     const customGamesCount = (superAdminData.customGames || []).length;
@@ -25,6 +27,7 @@ class BackupManager {
     const tugHistoryCount = (tarikTambangData.history || []).length;
     const totalQuestions = (questionsData.questions || []).length;
     const totalCommitments = Object.keys(commitmentData.commitments || {}).length;
+    const doorprizeParticipantsCount = (doorprizeData.participants || []).length;
 
     return {
       format: 'EDUCAMP_GAME_BACKUP',
@@ -43,6 +46,7 @@ class BackupManager {
         tugHistoryCount,
         totalQuestions,
         totalCommitments,
+        doorprizeParticipantsCount,
         questionSource: questionsData.source || 'DEFAULT'
       },
       data: {
@@ -50,7 +54,8 @@ class BackupManager {
         panjatPinang: panjatPinangData,
         tarikTambang: tarikTambangData,
         questions: questionsData,
-        commitment: commitmentData
+        commitment: commitmentData,
+        doorprize: doorprizeData
       }
     };
   }
@@ -64,13 +69,15 @@ class BackupManager {
     const tarikTambangData = tugEngine.getStorageData();
     const questionsData = questionBank.getStorageData();
     const commitmentData = commitmentEngine.getStorageData();
+    const doorprizeData = doorprizeEngine.exportData();
 
     return {
       storageFiles: {
         superAdmin: fs.existsSync(path.join(__dirname, '../../data/superadmin-storage.json')),
         gameStorage: fs.existsSync(path.join(__dirname, '../../data/game-storage.json')),
         tugStorage: fs.existsSync(path.join(__dirname, '../../data/tug-storage.json')),
-        commitmentStorage: fs.existsSync(path.join(__dirname, '../../data/commitment-storage.json'))
+        commitmentStorage: fs.existsSync(path.join(__dirname, '../../data/commitment-storage.json')),
+        doorprizeStorage: fs.existsSync(path.join(__dirname, '../../data/doorprize-storage.json'))
       },
       firebase: {
         connected: firebaseService.isAvailable(),
@@ -83,7 +90,8 @@ class BackupManager {
         pinangHistory: (panjatPinangData.history || []).length,
         tugHistory: (tarikTambangData.history || []).length,
         questions: (questionsData.questions || []).length,
-        commitments: Object.keys(commitmentData.commitments || {}).length
+        commitments: Object.keys(commitmentData.commitments || {}).length,
+        doorprizeParticipants: (doorprizeData.participants || []).length
       },
       questionSource: questionsData.source || 'DEFAULT',
       lastExportSample: new Date().toISOString()
@@ -108,7 +116,8 @@ class BackupManager {
       restorePinang: options.restorePinang !== false,
       restoreTug: options.restoreTug !== false,
       restoreQuestions: options.restoreQuestions !== false,
-      restoreHistory: options.restoreHistory !== false
+      restoreHistory: options.restoreHistory !== false,
+      restoreDoorprize: options.restoreDoorprize !== false
     };
 
     const restoredItems = [];
@@ -147,6 +156,14 @@ class BackupManager {
       commitmentEngine.restoreData(backupData.commitment);
       const cCount = Object.keys(backupData.commitment.commitments || {}).length;
       restoredItems.push(`Getting Commitment (${cCount} komitmen)`);
+    }
+
+    // 6. Restore Doorprize
+    if (opts.restoreDoorprize && backupData.doorprize) {
+      doorprizeEngine.applyData(backupData.doorprize);
+      doorprizeEngine.saveStorage();
+      const pCount = (backupData.doorprize.participants || []).length;
+      restoredItems.push(`Doorprize (${pCount} peserta)`);
     }
 
     if (restoredItems.length === 0) {

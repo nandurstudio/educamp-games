@@ -395,8 +395,8 @@
         <button type="button" class="person-btn" data-person="Fajar Fauzan" disabled>
           Fajar Fauzan
         </button>
-        <button type="button" class="person-btn" data-person="Yuswa Slamet" disabled>
-          Yuswa Slamet
+        <button type="button" class="person-btn" data-person="Dyanza Aria" disabled>
+          Dyanza Aria
         </button>
         <button type="button" class="person-btn" data-person="Verdiana" disabled>
           Verdiana
@@ -418,7 +418,7 @@
       'commitment-1', 'commitment-2', 'commitment-3',
       'commitment-4', 'commitment-5', 'commitment-6'
     ];
-    const ALL_PERSONS = ['Andy Chendra', 'Fajar Fauzan', 'Yuswa Slamet', 'Verdiana'];
+    const ALL_PERSONS = ['Andy Chendra', 'Fajar Fauzan', 'Dyanza Aria', 'Verdiana'];
 
     const bgMusic = document.getElementById('bg-music');
     const overlay = document.getElementById('celebration-overlay');
@@ -559,7 +559,7 @@
     function applyState(state) {
       if (!state || typeof state !== 'object') return;
       const savedCommitments = state.commitments || {};
-      const selectedPersons = state.selectedPersons || [];
+      const selectedPersons = (state.selectedPersons || []).map(p => p === 'Yuswa Slamet' ? 'Dyanza Aria' : p);
 
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(savedCommitments));
@@ -576,7 +576,7 @@
         const rawC = localStorage.getItem(STORAGE_KEY);
         if (rawC) savedCommitments = JSON.parse(rawC);
         const rawP = localStorage.getItem(PERSONS_STORAGE_KEY);
-        if (rawP) selectedPersons = JSON.parse(rawP);
+        if (rawP) selectedPersons = JSON.parse(rawP).map(p => p === 'Yuswa Slamet' ? 'Dyanza Aria' : p);
       } catch (e) {}
       renderUI(savedCommitments, selectedPersons, false);
     }

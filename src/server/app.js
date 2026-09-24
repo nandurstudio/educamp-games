@@ -848,6 +848,62 @@ app.post('/api/backup/restore', (req, res) => {
   }
 });
 
+// === SYSTEM: CLOUD FIRESTORE DIRECT RELOAD & SYNC ===
+app.post('/api/system/reload-from-firebase', async (req, res) => {
+  try {
+    console.log('[System Reload] User requested manual reload from Cloud Firestore...');
+    const results = await Promise.allSettled([
+      doorprizeEngine.reloadFromFirebase(),
+      superAdminEngine.reloadFromFirebase(),
+      commitmentEngine.reloadFromFirebase(),
+      gameEngine.reloadFromFirebase(),
+      tugEngine.reloadFromFirebase(),
+      authManager.reloadFromFirebase()
+    ]);
+
+    // Broadcast update state serentak ke semua client
+    io.emit('DOORPRIZE_STATE_UPDATE', doorprizeEngine.getState());
+    io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
+    io.emit('MASTER_TEAMS_UPDATE', superAdminEngine.getMasterTeams());
+    io.emit('CUSTOM_GAMES_UPDATE', superAdminEngine.getCustomGames());
+    io.emit('COMMITMENT_STATE_UPDATE', commitmentEngine.getPublicState());
+    io.emit('STATE_UPDATE', gameEngine.getPublicState());
+    io.emit('TUG_STATE_UPDATE', tugEngine.getPublicState());
+
+    res.json({
+      success: true,
+      message: 'Berhasil memuat ulang seluruh data terbaru dari Cloud Firestore!',
+      timestamp: new Date().toISOString(),
+      counts: {
+        doorprizeParticipants: doorprizeEngine.participants.length,
+        doorprizePrizes: doorprizeEngine.prizes.length,
+        doorprizeWinners: doorprizeEngine.winners.length,
+        masterTeams: Object.keys(superAdminEngine.masterTeams || {}).length,
+        customGames: superAdminEngine.customGames.length,
+        commitments: Object.keys(commitmentEngine.commitments || {}).length
+      }
+    });
+  } catch (err) {
+    console.error('[System Reload Error]', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/system/firebase-status', (req, res) => {
+  res.json({
+    available: firebaseService.isAvailable(),
+    config: firebaseService.getConfig(),
+    counts: {
+      doorprizeParticipants: doorprizeEngine.participants.length,
+      doorprizePrizes: doorprizeEngine.prizes.length,
+      doorprizeWinners: doorprizeEngine.winners.length,
+      masterTeams: Object.keys(superAdminEngine.masterTeams || {}).length,
+      customGames: superAdminEngine.customGames.length,
+      commitments: Object.keys(commitmentEngine.commitments || {}).length
+    }
+  });
+});
+
 // === REST API GETTING COMMITMENT (CLOUD FIRESTORE & WEBSOCKET PERSISTENCE) ===
 
 // 17. Ambil state komitmen saat ini
@@ -952,6 +1008,77 @@ app.get('/api/doorprize/participants', (req, res) => {
     res.json({ participants: doorprizeEngine.getParticipants(filter, search) });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/doorprize/participants/:id', (req, res) => {
+  try {
+    const p = doorprizeEngine.getParticipantById(req.params.id);
+    if (!p) return res.status(404).json({ error: 'Peserta tidak ditemukan' });
+    res.json({ success: true, participant: p });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/doorprize/participants', (req, res) => {
+  try {
+    const result = doorprizeEngine.saveParticipant(req.body);
+    io.emit('DOORPRIZE_STATE_UPDATE', result.state);
+    res.json({ success: true, participant: result.participant, state: result.state });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.put('/api/doorprize/participants/:id', (req, res) => {
+  try {
+    const result = doorprizeEngine.saveParticipant({ ...req.body, id: req.params.id });
+    io.emit('DOORPRIZE_STATE_UPDATE', result.state);
+    res.json({ success: true, participant: result.participant, state: result.state });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/doorprize/participants/update/:id', (req, res) => {
+  try {
+    const result = doorprizeEngine.saveParticipant({ ...req.body, id: req.params.id });
+    io.emit('DOORPRIZE_STATE_UPDATE', result.state);
+    res.json({ success: true, participant: result.participant, state: result.state });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.delete('/api/doorprize/participants/:id', (req, res) => {
+  try {
+    const result = doorprizeEngine.deleteParticipant(req.params.id);
+    io.emit('DOORPRIZE_STATE_UPDATE', result.state);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/doorprize/participants/:id/toggle-active', (req, res) => {
+  try {
+    const result = doorprizeEngine.toggleParticipantActive(req.params.id);
+    io.emit('DOORPRIZE_STATE_UPDATE', result.state);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/doorprize/participants/clear', (req, res) => {
+  try {
+    const { eventId } = req.body || {};
+    const state = doorprizeEngine.clearParticipants(eventId);
+    io.emit('DOORPRIZE_STATE_UPDATE', state);
+    res.json({ success: true, message: 'Seluruh data peserta berhasil dikosongkan', state });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 
@@ -1091,6 +1218,11 @@ app.post('/api/doorprize/draw', (req, res) => {
       prize: result.prize,
       winners: result.candidates,
       candidates: result.candidates,
+      count: result.candidates.length,
+      requestedCount: result.requestedCount,
+      drawCount: result.drawCount,
+      insufficientPool: result.insufficientPool,
+      shortage: result.shortage,
       isPending: true,
       isReplacement: result.isReplacement,
       replaceWinnerId: result.replaceWinnerId,
@@ -1110,6 +1242,7 @@ app.post('/api/doorprize/confirm', (req, res) => {
     const result = doorprizeEngine.confirmPendingDraw(replaceWinnerId);
     io.emit('DOORPRIZE_WINNER_CONFIRMED', {
       winners: result.winners,
+      count: result.winners.length,
       state: result.state,
       timestamp: new Date().toISOString()
     });
@@ -1486,6 +1619,11 @@ io.on('connection', (socket) => {
         prize: result.prize,
         winners: result.candidates,
         candidates: result.candidates,
+        count: result.candidates.length,
+        requestedCount: result.requestedCount,
+        drawCount: result.drawCount,
+        insufficientPool: result.insufficientPool,
+        shortage: result.shortage,
         isPending: true,
         isReplacement: result.isReplacement,
         replaceWinnerId: result.replaceWinnerId,
@@ -1503,6 +1641,7 @@ io.on('connection', (socket) => {
       const result = doorprizeEngine.confirmPendingDraw(data.replaceWinnerId || null);
       io.emit('DOORPRIZE_WINNER_CONFIRMED', {
         winners: result.winners,
+        count: result.winners.length,
         state: result.state,
         timestamp: new Date().toISOString()
       });
@@ -1541,7 +1680,7 @@ io.on('connection', (socket) => {
   });
 });
 
-server.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, '0.0.0.0', async () => {
   console.log(`====================================================`);
   console.log(`🌴 Educamp Game Hub Server Ready`);
   console.log(`🚀 Port: ${PORT}`);
@@ -1558,4 +1697,20 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`🎁 Doorprize Arena      : http://localhost:${PORT}/doorprize-arena.html`);
   console.log(`⚙️  Doorprize Admin      : http://localhost:${PORT}/doorprize-admin.html`);
   console.log(`====================================================`);
+
+  // Asynchronous sync dari Cloud Firestore saat startup
+  try {
+    console.log('[Boot Sync] Loading persistent state directly from Cloud Firestore...');
+    await Promise.allSettled([
+      doorprizeEngine.reloadFromFirebase(),
+      superAdminEngine.reloadFromFirebase(),
+      commitmentEngine.reloadFromFirebase(),
+      gameEngine.reloadFromFirebase(),
+      tugEngine.reloadFromFirebase(),
+      authManager.reloadFromFirebase()
+    ]);
+    console.log(`[Boot Sync] Cloud Firestore sync complete: ${doorprizeEngine.participants.length} peserta doorprize terdaftar.`);
+  } catch (err) {
+    console.warn('[Boot Sync Warning]', err.message);
+  }
 });

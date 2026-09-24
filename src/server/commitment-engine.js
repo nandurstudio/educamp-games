@@ -14,7 +14,7 @@ const VALID_KEYWORDS = {
   'commitment-6': 'Quality Digital Transformation'
 };
 
-const ALL_PERSONS = ['Andy Chendra', 'Fajar Fauzan', 'Yuswa Slamet', 'Verdiana'];
+const ALL_PERSONS = ['Andy Chendra', 'Fajar Fauzan', 'Dyanza Aria', 'Verdiana'];
 
 class CommitmentEngine {
   constructor() {
@@ -78,7 +78,9 @@ class CommitmentEngine {
   applyData(data) {
     if (!data || typeof data !== 'object') return;
     this.commitments = data.commitments && typeof data.commitments === 'object' ? data.commitments : {};
-    this.selectedPersons = Array.isArray(data.selectedPersons) ? data.selectedPersons : [];
+    this.selectedPersons = Array.isArray(data.selectedPersons)
+      ? data.selectedPersons.map(p => p === 'Yuswa Slamet' ? 'Dyanza Aria' : p)
+      : [];
     this.celebrationTriggered = !!data.celebrationTriggered;
     this.history = Array.isArray(data.history) ? data.history : [];
     this.updatedAt = data.updatedAt || new Date().toISOString();
