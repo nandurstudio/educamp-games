@@ -1,0 +1,5064 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="referrer" content="no-referrer">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
+  <title>Timer & Live Chat Standalone (vMix Ready) - Educamp 2026</title>
+  <link rel="icon" type="image/png" href="/images/Logo%20Educamp%202026.png">
+  <link rel="stylesheet" href="/css/fonts.css">
+  <link rel="stylesheet" href="/css/footer.css">
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/version.js" defer></script>
+
+  <!-- Firebase SDKs for Google Auth -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+
+  <style>
+    :root {
+      /* DEFAULT DARK MODE (Midnight Studio) */
+      --bg-dark: #070d1e;
+      --bg-body-grad: radial-gradient(circle at 50% 10%, rgba(30, 58, 138, 0.25), transparent 60%);
+      --bg-card: rgba(15, 23, 42, 0.94);
+      --bg-card-border: rgba(51, 65, 85, 0.7);
+      --bg-surface: rgba(30, 41, 59, 0.5);
+      --bg-surface-hover: rgba(56, 189, 248, 0.12);
+      --bg-input: rgba(15, 23, 42, 0.85);
+      --nav-bg: rgba(11, 19, 41, 0.95);
+      --accent-gold: #f59e0b;
+      --accent-cyan: #38bdf8;
+      --accent-red: #ef4444;
+      --accent-green: #22c55e;
+      --text-main: #f8fafc;
+      --text-sub: #e2e8f0;
+      --text-muted: #94a3b8;
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --chat-font-size: 15px;
+    }
+
+    /* LIGHT MODE (Clean Crisp Studio / Daylight High-Readability) */
+    [data-theme="light"] {
+      --bg-dark: #f1f5f9;
+      --bg-body-grad: radial-gradient(circle at 50% 0%, rgba(224, 242, 254, 0.7), transparent 65%);
+      --bg-card: #ffffff;
+      --bg-card-border: #cbd5e1;
+      --bg-surface: #f8fafc;
+      --bg-surface-hover: #e0f2fe;
+      --bg-input: #ffffff;
+      --nav-bg: rgba(255, 255, 255, 0.95);
+      --accent-gold: #d97706;
+      --accent-cyan: #0284c7;
+      --accent-red: #dc2626;
+      --accent-green: #16a34a;
+      --text-main: #0f172a;
+      --text-sub: #1e293b;
+      --text-muted: #64748b;
+      --border-subtle: rgba(0, 0, 0, 0.08);
+    }
+
+    /* HIGH-CONTRAST OLED DARK (Pitch Black for Outdoor/Dark Stages) */
+    [data-theme="oled"] {
+      --bg-dark: #000000;
+      --bg-body-grad: none;
+      --bg-card: #0a0a0a;
+      --bg-card-border: #27272a;
+      --bg-surface: #121212;
+      --bg-surface-hover: rgba(56, 189, 248, 0.15);
+      --bg-input: #000000;
+      --nav-bg: #000000;
+      --text-main: #ffffff;
+      --text-sub: #f4f4f5;
+      --text-muted: #a1a1aa;
+      --border-subtle: rgba(255, 255, 255, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: var(--font-body, system-ui, -apple-system, sans-serif);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    html, body {
+      height: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      background: var(--bg-dark);
+      background-image: var(--bg-body-grad);
+      color: var(--text-main);
+      transition: background-color 0.25s ease, color 0.25s ease;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Top Navigation Bar */
+    .top-nav {
+      background: rgba(11, 19, 41, 0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--bg-card-border);
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-shrink: 0;
+      z-index: 100;
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+      color: inherit;
+      min-width: 0;
+    }
+
+    .nav-brand img {
+      height: 30px;
+      object-fit: contain;
+      flex-shrink: 0;
+    }
+
+    .nav-title {
+      font-family: var(--font-heading, sans-serif);
+      font-weight: 800;
+      font-size: 15px;
+      background: linear-gradient(135deg, #f59e0b, #fbbf24);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .nav-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    /* Event Badge & Selector Button */
+    .event-selector-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      color: #e2e8f0;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      max-width: 170px;
+    }
+
+    .event-selector-btn:hover {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: var(--accent-cyan);
+    }
+
+    .event-selector-btn .event-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      box-shadow: 0 0 8px var(--accent-cyan);
+      flex-shrink: 0;
+    }
+
+    #current-event-label {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Latency Indicator */
+    .sync-badge {
+      font-family: 'Courier New', monospace;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #34d399;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      white-space: nowrap;
+    }
+
+    .sync-badge .dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: #34d399;
+      animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+    }
+
+    @keyframes ping {
+      75%, 100% { transform: scale(2); opacity: 0; }
+    }
+
+    /* Theme Switcher Button & Dropdown */
+    .theme-switcher-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--bg-surface);
+      border: 1px solid var(--bg-card-border);
+      color: var(--text-main);
+      padding: 4px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .theme-switcher-btn:hover {
+      background: var(--bg-surface-hover);
+      border-color: var(--accent-cyan);
+    }
+
+    .theme-switcher-btn svg {
+      width: 13px;
+      height: 13px;
+      color: var(--accent-gold);
+    }
+
+    [data-theme="light"] .theme-switcher-btn svg {
+      color: #ea580c;
+    }
+
+    .theme-menu {
+      position: absolute;
+      top: 50px;
+      right: 120px;
+      background: var(--bg-card);
+      border: 1px solid var(--bg-card-border);
+      border-radius: 12px;
+      padding: 6px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      z-index: 120;
+      display: none;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 160px;
+    }
+
+    .theme-menu.active {
+      display: flex;
+    }
+
+    .theme-menu-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-main);
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.15s ease;
+    }
+
+    .theme-menu-item:hover {
+      background: var(--bg-surface-hover);
+      border-color: var(--accent-cyan);
+    }
+
+    .theme-menu-item.active {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+    }
+
+    /* Google Auth Container */
+    .auth-box {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-google-login {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #ffffff;
+      color: #1e293b;
+      border: none;
+      border-radius: 8px;
+      padding: 5px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+      white-space: nowrap;
+    }
+
+    .btn-google-login:hover { background: #f1f5f9; }
+
+    .user-profile {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid var(--bg-card-border);
+      padding: 3px 8px 3px 5px;
+      border-radius: 999px;
+      font-size: 11px;
+    }
+
+    .user-profile img {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+
+    .user-name-label {
+      max-width: 90px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: #e2e8f0;
+    }
+
+    .admin-badge-indicator {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: #000;
+      font-size: 9px;
+      font-weight: 900;
+      padding: 1px 5px;
+      border-radius: 4px;
+      margin-left: 2px;
+    }
+
+    .btn-logout {
+      background: transparent;
+      border: none;
+      color: var(--accent-red);
+      font-size: 12px;
+      cursor: pointer;
+      margin-left: 2px;
+    }
+
+    /* ========================================================= */
+    /* 🖥️ STUDIO SPLIT 2 KOLOM (DRAGGABLE & DYNAMICALLY RESPONSIVE) */
+    /* ========================================================= */
+    .studio-workspace {
+      flex: 1;
+      display: grid;
+      grid-template-columns: minmax(320px, var(--split-left, 1.4fr)) 8px minmax(300px, 1fr);
+      gap: 0;
+      padding: 10px 18px 8px 18px;
+      max-width: 1720px;
+      width: 100%;
+      margin: 0 auto;
+      min-height: 0;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .studio-workspace.is-resizing {
+      user-select: none;
+      cursor: col-resize !important;
+    }
+
+    /* Gutter Resizer Divider */
+    .gutter-resizer {
+      width: 8px;
+      cursor: col-resize;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      background: transparent;
+      transition: background 0.2s ease;
+      z-index: 20;
+    }
+
+    .gutter-resizer::after {
+      content: '';
+      width: 3px;
+      height: 48px;
+      background: #334155;
+      border-radius: 999px;
+      transition: all 0.2s ease;
+    }
+
+    .gutter-resizer:hover::after,
+    .studio-workspace.is-resizing .gutter-resizer::after {
+      background: var(--accent-cyan);
+      box-shadow: 0 0 10px var(--accent-cyan);
+      height: 80px;
+    }
+
+    .gutter-resizer:hover,
+    .studio-workspace.is-resizing .gutter-resizer {
+      background: rgba(56, 189, 248, 0.08);
+    }
+
+    /* KOLOM KIRI (FOKUS UTAMA TIMER RAKSASA + RUNDOWN FULL-HEIGHT) */
+    .timer-stage-column {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-height: 0;
+      height: 100%;
+      overflow: hidden;
+      padding-right: 6px;
+    }
+
+    /* Hero Timer Card Raksasa */
+    .timer-hero-card {
+      background: var(--bg-card);
+      border: 1px solid var(--bg-card-border);
+      border-radius: 18px;
+      padding: 12px 20px 10px 20px;
+      position: relative;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      cursor: context-menu;
+      flex-shrink: 0;
+      container-type: inline-size;
+      container-name: timerhero;
+      width: 100%;
+    }
+
+    .timer-header-tools {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .timer-preset-tags {
+      display: flex;
+      gap: 3px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .preset-pill {
+      background: rgba(30, 41, 59, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #94a3b8;
+      padding: 2px 7px;
+      border-radius: 5px;
+      font-size: 10px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+      line-height: 1.2;
+    }
+
+    .preset-pill:hover, .preset-pill.active {
+      background: rgba(245, 158, 11, 0.2);
+      border-color: var(--accent-gold);
+      color: #fef08a;
+    }
+
+    .vmix-pill {
+      background: rgba(59, 130, 246, 0.15);
+      border: 1px solid rgba(59, 130, 246, 0.35);
+      color: #60a5fa;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      text-decoration: none;
+      white-space: nowrap;
+      line-height: 1.2;
+    }
+
+    .vmix-pill:hover {
+      background: rgba(59, 130, 246, 0.3);
+      color: #fff;
+    }
+
+    /* Giant Countdown Digits (Fluid Container-Responsive & Sangat Besar) */
+    .timer-display {
+      font-family: var(--font-number, 'Courier New', monospace);
+      font-size: clamp(60px, 22cqi, 180px);
+      font-weight: 900;
+      letter-spacing: clamp(1px, 0.5cqi, 4px);
+      line-height: 0.95;
+      margin: 6px 0;
+      text-shadow: 0 0 35px rgba(56, 189, 248, 0.35);
+      transition: color 0.2s, text-shadow 0.2s, font-size 0.2s ease;
+      white-space: nowrap;
+      text-align: center;
+      width: 100%;
+    }
+
+    .timer-display.ready { color: #38bdf8; }
+    .timer-display.running {
+      color: #22c55e;
+      text-shadow: 0 0 45px rgba(34, 197, 94, 0.55);
+    }
+    .timer-display.paused {
+      color: #f59e0b;
+      text-shadow: 0 0 40px rgba(245, 158, 11, 0.5);
+    }
+    .timer-display.over {
+      color: #ef4444;
+      text-shadow: 0 0 50px rgba(239, 68, 68, 0.7);
+    }
+
+    .timer-display.blinking-alert {
+      color: #ef4444 !important;
+      animation: alertBlink 0.6s infinite alternate cubic-bezier(0.4, 0, 0.6, 1);
+    }
+
+    @keyframes alertBlink {
+      0% {
+        opacity: 1;
+        transform: scale(1);
+        text-shadow: 0 0 60px rgba(239, 68, 68, 0.95);
+      }
+      100% {
+        opacity: 0.25;
+        transform: scale(1.02);
+        text-shadow: 0 0 15px rgba(239, 68, 68, 0.2);
+      }
+    }
+
+    .timer-hint-icon {
+      position: absolute;
+      top: 10px;
+      left: 12px;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      color: #f59e0b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: help;
+      transition: all 0.2s ease;
+      z-index: 5;
+    }
+
+    .timer-hint-icon:hover {
+      background: rgba(245, 158, 11, 0.25);
+      border-color: #fbbf24;
+      color: #fef08a;
+      box-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
+      transform: scale(1.1);
+    }
+
+    .timer-hint-icon svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    .timer-hint-tooltip {
+      position: absolute;
+      top: 32px;
+      left: 0;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      color: #f1f5f9;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 6px 10px;
+      border-radius: 8px;
+      white-space: nowrap;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-4px);
+      transition: all 0.2s ease;
+      z-index: 20;
+    }
+
+    .timer-hint-icon:hover .timer-hint-tooltip {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+
+    /* Ultra-Compact Segmented Button Group (Sederhana, Bersih, Ramping Tanpa Warna Mencolok) */
+    .timer-controls-bar {
+      display: inline-flex;
+      align-items: center;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(51, 65, 85, 0.8);
+      border-radius: 8px;
+      padding: 2px;
+      margin-top: 8px;
+      gap: 1px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    }
+
+    .btn-action {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      border: 1px solid transparent;
+      background: transparent;
+      color: #cbd5e1;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .btn-action svg {
+      width: 12px;
+      height: 12px;
+      flex-shrink: 0;
+      opacity: 0.85;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+    }
+
+    .btn-action:hover {
+      background: rgba(51, 65, 85, 0.6);
+      color: #f8fafc;
+      border-color: rgba(100, 116, 139, 0.4);
+    }
+
+    .btn-action:hover svg {
+      opacity: 1;
+      transform: scale(1.1);
+    }
+
+    .btn-action:active {
+      transform: scale(0.96);
+      background: rgba(51, 65, 85, 0.9);
+    }
+
+    .btn-start:hover {
+      color: #4ade80;
+      border-color: rgba(74, 222, 128, 0.4);
+    }
+
+    .btn-pause:hover {
+      color: #fbbf24;
+      border-color: rgba(251, 191, 36, 0.4);
+    }
+
+    /* Mini Tracker: Rundown vs Actual Realtime Bar */
+    .rundown-vs-actual-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(8px);
+      padding: 4px 12px;
+      border-radius: 999px;
+      margin-top: 6px;
+      font-size: 11px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+      transition: all 0.2s ease;
+    }
+
+    .rundown-vs-actual-badge:hover {
+      border-color: rgba(56, 189, 248, 0.4);
+      background: rgba(15, 23, 42, 0.9);
+    }
+
+    .rva-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      white-space: nowrap;
+    }
+
+    .rva-item.active-session {
+      max-width: 170px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: #f1f5f9;
+      font-weight: 700;
+    }
+
+    .rva-label {
+      color: var(--text-muted);
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    .rva-val {
+      font-family: var(--font-number, monospace);
+      font-weight: 700;
+      color: #94a3b8;
+    }
+
+    .rva-val.plan { color: #38bdf8; }
+    .rva-val.actual { color: #22c55e; }
+
+    .rva-diff-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 1px 7px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 800;
+      font-family: var(--font-number, monospace);
+      letter-spacing: 0.3px;
+    }
+
+    .rva-diff-badge.ontime {
+      background: rgba(34, 197, 94, 0.15);
+      color: #4ade80;
+      border: 1px solid rgba(34, 197, 94, 0.35);
+    }
+
+    .rva-diff-badge.over {
+      background: rgba(239, 68, 68, 0.18);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.4);
+    }
+
+    .rva-diff-badge.early {
+      background: rgba(56, 189, 248, 0.15);
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.35);
+    }
+
+    .rva-pulse-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 6px #22c55e;
+      animation: rvaDotPulse 1.5s infinite;
+    }
+
+    @keyframes rvaDotPulse {
+      0% { opacity: 0.4; transform: scale(0.9); }
+      50% { opacity: 1; transform: scale(1.2); }
+      100% { opacity: 0.4; transform: scale(0.9); }
+    }
+
+    .rundown-row.is-current-playing {
+      border-color: #38bdf8 !important;
+      background: rgba(56, 189, 248, 0.15) !important;
+      box-shadow: inset 0 0 0 1px #38bdf8;
+    }
+
+    .rundown-row.is-current-playing .rundown-time-badge {
+      color: #38bdf8 !important;
+      font-weight: 800;
+    }
+
+    /* Rundown Card dengan Penuh Sampai Bawah Secara Dinamis */
+    .stage-rundown-card {
+      background: var(--bg-card);
+      border: 1px solid var(--bg-card-border);
+      border-radius: 18px;
+      padding: 12px 14px 10px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+      min-height: 0;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .rundown-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 6px;
+      flex-shrink: 0;
+      gap: 6px;
+    }
+
+    .rundown-title-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .rundown-title {
+      font-size: 12px;
+      font-weight: 800;
+      color: #cbd5e1;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .rundown-tabs {
+      display: flex;
+      gap: 3px;
+      background: rgba(30, 41, 59, 0.8);
+      padding: 2px;
+      border-radius: 7px;
+      border: 1px solid var(--bg-card-border);
+    }
+
+    .btn-tab {
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      padding: 3px 8px;
+      border-radius: 5px;
+      font-size: 10px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn-tab.active {
+      background: #38bdf8;
+      color: #041122;
+    }
+
+    .rundown-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-add-session {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      color: #38bdf8;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .btn-add-session:hover {
+      background: rgba(56, 189, 248, 0.25);
+      border-color: #38bdf8;
+      color: #fff;
+    }
+
+    /* Rundown Items List - Penuh Dinamis Sampai Bawah */
+    .rundown-list-container {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      flex: 1;
+      min-height: 0;
+      max-height: none !important;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .rundown-list-container::-webkit-scrollbar { width: 5px; }
+    .rundown-list-container::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+
+    .rundown-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      background: rgba(30, 41, 59, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 6px 10px;
+      cursor: pointer;
+      transition: all 0.15s;
+      position: relative;
+    }
+
+    .rundown-row:hover {
+      background: rgba(56, 189, 248, 0.12);
+      border-color: rgba(56, 189, 248, 0.4);
+    }
+
+    .rundown-row.is-highlight {
+      background: rgba(245, 158, 11, 0.14);
+      border-color: rgba(245, 158, 11, 0.35);
+    }
+
+    .rundown-meta-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .rundown-time-badge {
+      font-family: var(--font-number, monospace);
+      font-size: 11px;
+      color: #94a3b8;
+      white-space: nowrap;
+      min-width: 74px;
+    }
+
+    .rundown-activity {
+      font-size: 12px;
+      font-weight: 700;
+      color: #f1f5f9;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex: 1;
+    }
+
+    .rundown-pic {
+      font-size: 11px;
+      color: #64748b;
+      margin-left: 5px;
+      font-weight: normal;
+    }
+
+    .rundown-meta-right {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex-shrink: 0;
+    }
+
+    .rundown-dur-pill {
+      font-family: var(--font-number, monospace);
+      font-size: 11px;
+      font-weight: 800;
+      padding: 2px 7px;
+      border-radius: 5px;
+      background: rgba(56, 189, 248, 0.15);
+      color: #38bdf8;
+      white-space: nowrap;
+    }
+
+    .rundown-dur-pill.yellow {
+      background: rgba(245, 158, 11, 0.2);
+      color: #fbbf24;
+    }
+
+    .rundown-item-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      opacity: 0.25;
+      transition: opacity 0.15s ease;
+    }
+
+    .rundown-row:hover .rundown-item-actions {
+      opacity: 1;
+    }
+
+    .btn-rundown-action {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #94a3b8;
+      width: 22px;
+      height: 22px;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 10px;
+      transition: all 0.15s ease;
+      padding: 0;
+    }
+
+    .btn-rundown-action:hover {
+      background: #334155;
+      color: #fff;
+      border-color: #64748b;
+    }
+
+    .btn-rundown-action.btn-del:hover {
+      background: rgba(239, 68, 68, 0.2);
+      color: #f87171;
+      border-color: rgba(239, 68, 68, 0.5);
+    }
+
+    /* KOLOM KANAN (40%): LIVE CHAT FULL-HEIGHT */
+    .chat-section-card {
+      background: var(--bg-card);
+      border: 1px solid var(--bg-card-border);
+      border-radius: 20px;
+      padding: 12px 16px 10px 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      min-height: 0;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .chat-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 8px;
+      margin-bottom: 8px;
+      flex-shrink: 0;
+      gap: 8px;
+    }
+
+    .chat-title-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .chat-title {
+      font-family: var(--font-heading, sans-serif);
+      font-size: 15px;
+      font-weight: 800;
+      color: #f1f5f9;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .chat-title svg {
+      width: 17px;
+      height: 17px;
+      color: var(--accent-cyan);
+    }
+
+    .chat-event-name-tag {
+      font-size: 11px;
+      color: var(--accent-cyan);
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 150px;
+    }
+
+    /* Font Resizer Controls */
+    .font-resizer-bar {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      background: rgba(30, 41, 59, 0.85);
+      border: 1px solid var(--bg-card-border);
+      border-radius: 8px;
+      padding: 2px 5px;
+      flex-shrink: 0;
+    }
+
+    .font-resizer-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-right: 2px;
+      font-weight: 600;
+    }
+
+    .btn-font-scale {
+      background: transparent;
+      border: 1px solid transparent;
+      color: #94a3b8;
+      border-radius: 5px;
+      padding: 2px 6px;
+      font-weight: 800;
+      cursor: pointer;
+      font-size: 10px;
+      transition: all 0.15s;
+    }
+
+    .btn-font-scale:hover, .btn-font-scale.active {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: var(--accent-cyan);
+      color: #38bdf8;
+    }
+
+    /* Message History Container */
+    .chat-messages-container {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding-right: 6px;
+      padding-bottom: 16px;
+      margin-bottom: 8px;
+      min-height: 0;
+      scroll-padding-bottom: 28px;
+    }
+
+    .chat-messages-container::-webkit-scrollbar { width: 5px; }
+    .chat-messages-container::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+
+    /* SEPARATOR TIAP SESI PILLAR TPM */
+    .chat-session-separator {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 12px 0 6px 0;
+      padding: 0 4px;
+      user-select: none;
+    }
+
+    .chat-session-separator::before,
+    .chat-session-separator::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.5), transparent);
+    }
+
+    .separator-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 800;
+      color: #38bdf8;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.15);
+      letter-spacing: 0.5px;
+      transition: all 0.2s ease;
+    }
+
+    .separator-badge svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    .sep-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      margin-left: 4px;
+      padding-left: 4px;
+      border-left: 1px solid rgba(56, 189, 248, 0.25);
+    }
+
+    .btn-sep-action {
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      width: 18px;
+      height: 18px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      transition: all 0.15s ease;
+      padding: 0;
+    }
+
+    .btn-sep-action:hover {
+      background: rgba(56, 189, 248, 0.2);
+      color: #38bdf8;
+    }
+
+    .btn-sep-action.del:hover {
+      background: rgba(239, 68, 68, 0.2);
+      color: #f87171;
+    }
+
+    .chat-message-row {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      padding: 7px 11px;
+      border-radius: 10px;
+      background: rgba(30, 41, 59, 0.55);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      transition: background 0.15s;
+      position: relative;
+    }
+
+    .chat-message-row:hover { background: rgba(30, 41, 59, 0.85); }
+    .chat-message-row.is-own-message { border-left: 3px solid var(--accent-cyan); }
+
+    .msg-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #475569;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 12px;
+      flex-shrink: 0;
+      color: #fff;
+      overflow: hidden;
+    }
+
+    .msg-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .msg-body {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .msg-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      margin-bottom: 2px;
+      font-size: 11px;
+    }
+
+    .msg-meta-left {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .msg-author {
+      font-weight: 700;
+      color: #38bdf8;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .msg-author.operator { color: #f59e0b; }
+
+    .msg-time {
+      color: var(--text-muted);
+      font-size: 10px;
+      white-space: nowrap;
+    }
+
+    .btn-msg-delete {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 14px;
+      padding: 1px 5px;
+      border-radius: 4px;
+      opacity: 0.6;
+      transition: opacity 0.15s, color 0.15s;
+    }
+
+    .btn-msg-delete:hover {
+      opacity: 1;
+      color: var(--accent-red);
+      background: rgba(239, 68, 68, 0.1);
+    }
+
+    .msg-content {
+      font-size: var(--chat-font-size);
+      line-height: 1.45;
+      color: #f1f5f9;
+      word-break: break-word;
+    }
+
+    /* Guest Anonymous Name Bar (Jika belum login) */
+    .guest-name-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 6px;
+      background: var(--bg-surface);
+      border: 1px solid var(--bg-card-border);
+      padding: 5px 10px;
+      border-radius: 8px;
+    }
+
+    .guest-name-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent-gold);
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .guest-name-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text-main);
+      font-size: 12px;
+      font-weight: 600;
+      min-width: 0;
+    }
+
+    .guest-name-input::placeholder { color: var(--text-muted); }
+
+    .guest-badge-notice {
+      font-size: 10px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    /* Cooldown Status & Char Limit Bar */
+    .chat-status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 2px 4px 4px 4px;
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .cooldown-indicator {
+      display: none;
+      align-items: center;
+      gap: 4px;
+      color: #fbbf24;
+      font-weight: 700;
+      font-family: var(--font-number, monospace);
+    }
+
+    .cooldown-indicator.active {
+      display: inline-flex;
+    }
+
+    .char-limit-count {
+      margin-left: auto;
+      font-family: var(--font-number, monospace);
+    }
+
+    .char-limit-count.near-limit {
+      color: #ef4444;
+      font-weight: 700;
+    }
+
+    /* Chat Input Form dengan Icon Kirim & Attachment Tools */
+    .chat-input-form {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      background: rgba(15, 23, 42, 0.98);
+      padding-top: 4px;
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    .chat-input-row {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      width: 100%;
+    }
+
+    .chat-tools-group {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      flex-shrink: 0;
+    }
+
+    .btn-chat-tool {
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid var(--bg-card-border);
+      color: var(--text-muted);
+      width: 32px;
+      height: 34px;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      padding: 0;
+    }
+
+    .btn-chat-tool:hover {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+    }
+
+    .btn-chat-tool svg {
+      width: 15px;
+      height: 15px;
+    }
+
+    .btn-chat-tool:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    .chat-input-field {
+      flex: 1;
+      background: rgba(30, 41, 59, 0.9);
+      border: 1px solid var(--bg-card-border);
+      color: #fff;
+      padding: 8px 12px;
+      border-radius: 10px;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s;
+      min-width: 0;
+    }
+
+    .chat-input-field:focus {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.2);
+    }
+
+    .btn-send-chat {
+      background: var(--accent-cyan);
+      color: #041122;
+      border: none;
+      border-radius: 10px;
+      padding: 0 14px;
+      height: 36px;
+      font-weight: 800;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex-shrink: 0;
+      transition: filter 0.15s, opacity 0.15s;
+    }
+
+    .btn-send-chat:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      filter: grayscale(0.8);
+    }
+
+    .btn-send-chat svg {
+      width: 13px;
+      height: 13px;
+    }
+
+    .btn-send-chat:hover:not(:disabled) { filter: brightness(1.15); }
+
+    /* Media Upload Attachment Preview Bar */
+    .media-attachment-preview {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      background: rgba(30, 41, 59, 0.85);
+      border: 1px solid var(--accent-cyan);
+      border-radius: 8px;
+      padding: 4px 8px;
+      margin-bottom: 4px;
+    }
+
+    .media-attachment-preview.active { display: flex; }
+
+    .media-preview-thumb {
+      width: 36px;
+      height: 36px;
+      border-radius: 6px;
+      object-fit: cover;
+    }
+
+    .media-preview-name {
+      font-size: 11px;
+      color: var(--text-main);
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .btn-remove-media {
+      background: transparent;
+      border: none;
+      color: var(--accent-red);
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      padding: 2px 6px;
+    }
+
+    /* Popup Picker: Emoji & Sticker Box */
+    .chat-picker-panel {
+      position: absolute;
+      bottom: 50px;
+      left: 0;
+      background: var(--bg-card);
+      border: 1px solid var(--bg-card-border);
+      border-radius: 14px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
+      padding: 10px;
+      width: 290px;
+      max-width: calc(100vw - 32px);
+      box-sizing: border-box;
+      max-height: 250px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      overscroll-behavior: contain;
+      z-index: 100;
+      display: none;
+    }
+
+    .chat-picker-panel.active { display: block; }
+
+    .picker-header-title {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .emoji-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 6px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .emoji-grid-item, .emoji-item {
+      font-size: 22px;
+      line-height: 1;
+      padding: 6px 2px;
+      text-align: center;
+      border-radius: 8px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.15s ease;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .emoji-grid-item:hover, .emoji-item:hover {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+      transform: scale(1.22);
+    }
+
+    .sticker-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      width: 100%;
+      box-sizing: border-box;
+      overflow-x: hidden;
+    }
+
+    .sticker-grid-item, .sticker-item {
+      border: 1px solid var(--bg-card-border);
+      border-radius: 10px;
+      padding: 6px 4px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      background: rgba(30, 41, 59, 0.6);
+      width: 100%;
+      box-sizing: border-box;
+      user-select: none;
+    }
+
+    .sticker-grid-item:hover, .sticker-item:hover {
+      border-color: var(--accent-cyan);
+      background: rgba(56, 189, 248, 0.18);
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.35);
+      transform: translateY(-2px);
+    }
+
+    .sticker-grid-item img, .sticker-item img {
+      width: 48px;
+      height: 48px;
+      object-fit: contain;
+      pointer-events: none;
+    }
+
+    .sticker-grid-item span, .sticker-item span {
+      font-size: 9.5px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-align: center;
+      line-height: 1.2;
+      width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    .btn-create-sticker {
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid var(--accent-cyan);
+      color: var(--accent-cyan);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 7px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s ease;
+    }
+
+    .btn-create-sticker:hover {
+      background: var(--accent-cyan);
+      color: #0f172a;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+    }
+
+    /* Message Media Attachments in History */
+    .msg-media-attachment {
+      margin-top: 6px;
+      max-width: 220px;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    .msg-media-attachment img {
+      width: 100%;
+      height: auto;
+      display: block;
+      cursor: pointer;
+    }
+
+    .msg-sticker-wrapper {
+      margin-top: 4px;
+      display: inline-flex;
+    }
+
+    .msg-sticker-attachment {
+      width: 64px;
+      height: 64px;
+      max-width: 64px;
+      max-height: 64px;
+      object-fit: contain;
+      filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.4));
+      transition: transform 0.2s ease;
+    }
+
+    .msg-sticker-attachment:hover {
+      transform: scale(1.1);
+    }
+
+    /* Custom Right-Click Context Menu */
+    .context-menu {
+      position: fixed;
+      z-index: 1000;
+      background: #0f172a;
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      border-radius: 12px;
+      padding: 6px;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(10px);
+      min-width: 190px;
+      display: none;
+    }
+
+    .context-menu.active { display: block; }
+    .context-title {
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      padding: 6px 10px 4px 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      margin-bottom: 4px;
+    }
+    .context-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #e2e8f0;
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    .context-item:hover {
+      background: rgba(56, 189, 248, 0.18);
+      color: var(--accent-cyan);
+    }
+    .context-item.divider {
+      height: 1px;
+      background: rgba(255, 255, 255, 0.08);
+      margin: 4px 0;
+      padding: 0;
+    }
+
+    /* Modal Elegan: Manajemen Acara (Multi-Event) & Durasi Kustom */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.78);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+      padding: 16px;
+    }
+
+    .modal-overlay.active { opacity: 1; pointer-events: auto; }
+    
+    .modal-card {
+      background: #0f172a;
+      border: 1px solid var(--bg-card-border);
+      border-radius: 18px;
+      max-width: 520px;
+      width: 100%;
+      padding: 22px;
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.7);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 12px;
+    }
+
+    .modal-title {
+      font-size: 16px;
+      font-weight: 800;
+      color: #f8fafc;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .modal-close-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 22px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 6px;
+    }
+    .modal-close-btn:hover { color: #fff; background: rgba(255, 255, 255, 0.1); }
+
+    /* Event List di Modal (Rapih & Proporsional) */
+    .event-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 220px;
+      overflow-y: auto;
+      padding-right: 2px;
+    }
+
+    .event-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid var(--bg-card-border);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .event-item:hover, .event-item.active {
+      border-color: var(--accent-cyan);
+      background: rgba(56, 189, 248, 0.12);
+    }
+
+    .event-item-info {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      min-width: 0;
+    }
+
+    .event-item-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #f8fafc;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .event-item-meta {
+      font-size: 11px;
+      color: #94a3b8;
+    }
+
+    /* Tombol Pilih Acara (Kecil, Kompak, Berjarak Rapi) */
+    .btn-select-event {
+      background: #2563eb;
+      color: #ffffff;
+      border: none;
+      border-radius: 8px;
+      padding: 6px 14px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      flex-shrink: 0;
+      margin-left: 12px;
+      transition: all 0.15s;
+    }
+
+    .btn-select-event:hover { background: #1d4ed8; }
+    .event-item.active .btn-select-event {
+      background: #059669;
+      color: #ffffff;
+    }
+
+    .new-event-form {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-top: 12px;
+    }
+
+    .input-group-row { display: flex; gap: 8px; }
+    .input-text {
+      flex: 1;
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #fff;
+      padding: 9px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      outline: none;
+    }
+    .input-text:focus { border-color: var(--accent-cyan); }
+
+    .btn-create-event {
+      background: #10b981;
+      color: #fff;
+      border: none;
+      padding: 9px 16px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: filter 0.15s;
+    }
+    .btn-create-event:hover { filter: brightness(1.15); }
+
+    /* User Management Button in Navbar */
+    .user-mgmt-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(147, 51, 234, 0.15);
+      border: 1px solid rgba(168, 85, 247, 0.4);
+      color: #c084fc;
+      padding: 5px 10px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .user-mgmt-btn:hover {
+      background: rgba(147, 51, 234, 0.3);
+      border-color: #a855f7;
+      color: #fff;
+    }
+
+    .user-mgmt-btn svg {
+      width: 13px;
+      height: 13px;
+      fill: currentColor;
+    }
+
+    /* User Management Modal Styles */
+    .user-mgmt-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 250px;
+      overflow-y: auto;
+      padding-right: 2px;
+    }
+
+    .user-mgmt-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 12px;
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      transition: all 0.15s ease;
+    }
+
+    .user-mgmt-item:hover {
+      background: rgba(30, 41, 59, 0.9);
+      border-color: rgba(168, 85, 247, 0.4);
+    }
+
+    .user-mgmt-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .user-mgmt-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #7c3aed;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .user-mgmt-details {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      min-width: 0;
+    }
+
+    .user-mgmt-name {
+      font-size: 12px;
+      font-weight: 700;
+      color: #f8fafc;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .user-mgmt-email {
+      font-size: 11px;
+      color: #94a3b8;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .user-mgmt-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .role-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.3px;
+    }
+
+    .role-badge.super {
+      background: rgba(239, 68, 68, 0.2);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.4);
+    }
+
+    .role-badge.admin {
+      background: rgba(147, 51, 234, 0.2);
+      color: #c084fc;
+      border: 1px solid rgba(147, 51, 234, 0.4);
+    }
+
+    .btn-revoke-user {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #f87171;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .btn-revoke-user:hover {
+      background: rgba(239, 68, 68, 0.3);
+      color: #fff;
+    }
+
+    /* Lock Overlay for Restricted Timer & Rundown Controls */
+    .controls-locked {
+      opacity: 0.45 !important;
+      pointer-events: none !important;
+      cursor: not-allowed !important;
+      position: relative;
+    }
+
+    .timer-lock-notice {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      color: #fca5a5;
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-size: 11px;
+      margin-top: 6px;
+    }
+
+    .timer-lock-notice.active { display: inline-flex; }
+
+    .mobile-preset-btn { display: none; }
+
+    /* ========================================================= */
+    /* 📱 MOBILE RESPONSIVE ADAPTATIONS (< 920px)                */
+    /* ========================================================= */
+    @media (max-width: 920px) {
+      .studio-workspace {
+        display: flex;
+        flex-direction: column;
+        padding: 8px 8px 0 8px;
+        gap: 8px;
+        overflow: hidden;
+      }
+
+      .timer-stage-column {
+        flex-shrink: 0;
+        overflow: visible;
+        gap: 8px;
+      }
+
+      .stage-rundown-card { display: none !important; }
+
+      .timer-hero-card {
+        padding: 10px 14px;
+        border-radius: 14px;
+      }
+
+      .timer-preset-tags { display: none !important; }
+      .mobile-preset-btn {
+        display: inline-flex !important;
+        align-items: center;
+        gap: 5px;
+        background: rgba(30, 41, 59, 0.9);
+        border: 1px solid rgba(245, 158, 11, 0.4);
+        color: #fef08a;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .timer-display {
+        font-size: clamp(44px, 15vw, 70px);
+        margin: 6px 0;
+      }
+
+      .timer-hint { display: none; }
+
+      .timer-controls-bar {
+        margin-top: 6px;
+        gap: 6px;
+        max-width: 100%;
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+      }
+
+      .btn-action {
+        padding: 8px 6px;
+        font-size: 12px;
+      }
+
+      .chat-section-card {
+        flex: 1;
+        border-radius: 16px 16px 0 0;
+        padding: 8px 10px 4px 10px;
+      }
+
+      .chat-header {
+        padding-bottom: 6px;
+        margin-bottom: 6px;
+      }
+
+      .chat-title { font-size: 13px; }
+      .chat-event-name-tag {
+        font-size: 10px;
+        padding: 1px 6px;
+        max-width: 100px;
+      }
+
+      .font-resizer-label { display: none; }
+      .btn-font-scale { padding: 2px 5px; font-size: 9px; }
+
+      .chat-input-form {
+        padding-bottom: calc(4px + env(safe-area-inset-bottom));
+      }
+
+      .chat-input-field {
+        padding: 9px 12px;
+        font-size: 13px;
+      }
+
+      .btn-send-chat {
+        padding: 0 12px;
+        font-size: 12px;
+      }
+
+      #app-sticky-footer { display: none !important; }
+    }
+
+    /* === ANTI-DISTRACTION (FOCUS MODE) STYLES === */
+    .btn-focus-mode {
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid var(--bg-card-border);
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 5px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.2s ease;
+      user-select: none;
+    }
+
+    .btn-focus-mode:hover {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+    }
+
+    .btn-focus-mode.active {
+      background: rgba(239, 68, 68, 0.2);
+      border-color: #ef4444;
+      color: #fca5a5;
+      box-shadow: 0 0 10px rgba(239, 68, 68, 0.35);
+    }
+
+    /* Ketika Focus Mode Aktif: Tutup Rundown, Masking Media & Sembunyikan Footer */
+    body.focus-mode-active .stage-rundown-card {
+      display: none !important;
+    }
+
+    body.focus-mode-active .timer-stage-column {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-height: 0;
+    }
+
+    body.focus-mode-active .timer-hero-card {
+      padding: 32px 24px !important;
+      min-height: 400px;
+    }
+
+    body.focus-mode-active .timer-display {
+      font-size: clamp(80px, 28cqi, 260px) !important;
+      letter-spacing: clamp(2px, 0.8cqi, 8px) !important;
+    }
+
+    body.focus-mode-active #app-sticky-footer,
+    body.focus-mode-active .timer-header-tools {
+      display: none !important;
+    }
+
+    /* Media Masking: Tutup gambar / sticker saat anti-distraksi aktif */
+    body.focus-mode-active .msg-media-attachment,
+    body.focus-mode-active .msg-sticker-wrapper {
+      position: relative;
+      cursor: pointer;
+    }
+
+    body.focus-mode-active .msg-media-attachment img,
+    body.focus-mode-active .msg-sticker-wrapper img {
+      filter: blur(20px) grayscale(0.9);
+      opacity: 0.15;
+      pointer-events: none;
+      transition: filter 0.3s ease, opacity 0.3s ease;
+    }
+
+    body.focus-mode-active .msg-media-attachment::after,
+    body.focus-mode-active .msg-sticker-wrapper::after {
+      content: '👁️‍🗨️ Fokus Mode';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(15, 23, 42, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #94a3b8;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      white-space: nowrap;
+      pointer-events: none;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    }
+
+    /* Izinkan klik untuk unmask sementara */
+    body.focus-mode-active .msg-media-attachment.revealed img,
+    body.focus-mode-active .msg-sticker-wrapper.revealed img {
+      filter: none;
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    body.focus-mode-active .msg-media-attachment.revealed::after,
+    body.focus-mode-active .msg-sticker-wrapper.revealed::after {
+      display: none;
+    }
+
+    /* === NEW CHAT BADGE & HIGHLIGHT STYLES (Ultra-Large Font A+++ / 36px) === */
+    .chat-message-row.is-new-chat {
+      border: 2px solid rgba(56, 189, 248, 0.9) !important;
+      background: linear-gradient(135deg, rgba(14, 165, 233, 0.28), rgba(2, 132, 199, 0.35)) !important;
+      box-shadow: 0 0 25px rgba(56, 189, 248, 0.55), inset 0 0 15px rgba(56, 189, 248, 0.2);
+      padding: 14px 18px !important;
+      transform: scale(1.025);
+      transform-origin: center left;
+      z-index: 10;
+      animation: pulseNewChat 2s infinite ease-in-out;
+      border-radius: 12px !important;
+    }
+
+    .chat-message-row.is-new-chat .msg-content {
+      font-size: 36px !important;
+      font-weight: 800 !important;
+      color: #ffffff !important;
+      line-height: 1.35 !important;
+      text-shadow: 0 0 16px rgba(56, 189, 248, 0.5);
+      letter-spacing: 0.3px;
+    }
+
+    .chat-message-row.is-new-chat .msg-author {
+      font-size: 14px !important;
+      color: #7dd3fc !important;
+      font-weight: 800 !important;
+    }
+
+    @keyframes pulseNewChat {
+      0%, 100% { box-shadow: 0 0 12px rgba(56, 189, 248, 0.3); }
+      50% { box-shadow: 0 0 24px rgba(56, 189, 248, 0.65); border-color: #38bdf8 !important; }
+    }
+
+    .badge-new-chat {
+      background: linear-gradient(135deg, #0ea5e9, #38bdf8);
+      color: #041122;
+      font-size: 10.5px;
+      font-weight: 900;
+      letter-spacing: 0.8px;
+      padding: 2px 7px;
+      border-radius: 5px;
+      display: inline-flex;
+      align-items: center;
+      margin-left: 6px;
+      box-shadow: 0 2px 8px rgba(56, 189, 248, 0.5);
+      animation: bounceNew 0.35s ease;
+    }
+
+    @keyframes bounceNew {
+      0% { transform: scale(0.6); opacity: 0; }
+      70% { transform: scale(1.15); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navigation Bar -->
+  <nav class="top-nav">
+    <a href="/index.html" class="nav-brand" title="Kembali ke Super-App Lobby">
+      <img src="/images/Logo%20Educamp%202026.png" alt="Educamp 2026">
+      <div class="nav-title" style="display: flex; align-items: center; gap: 6px;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" style="color: #f59e0b;"><path d="M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61l1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42C16.07 4.74 14.12 4 12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9 9-4.03 9-9c0-2.12-.74-4.07-1.97-5.61zM12 20c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>
+        <span>TIMER & LIVE CHAT</span>
+      </div>
+    </a>
+
+    <div class="nav-meta">
+      <!-- Active Event Pill -->
+      <button class="event-selector-btn" id="btn-open-event-modal" title="Pilih atau Buat Acara Baru">
+        <span class="event-dot"></span>
+        <span id="current-event-label">Acara...</span>
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
+      </button>
+
+      <!-- Sync Latency Status -->
+      <div class="sync-badge" title="High-Precision NTP Sync (0ms latency)">
+        <span class="dot"></span>
+        <span id="sync-latency-label">0ms</span>
+      </div>
+
+      <!-- User Management Access Button (Super Admin Only) -->
+      <button class="user-mgmt-btn" id="btn-open-user-mgmt" style="display: none;" title="Kelola Hak Akses Pengguna (Super Admin)">
+        <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+        <span>Kelola Akses</span>
+      </button>
+
+      <!-- Anti-Distraction (Focus Mode) Toggle Button -->
+      <button class="btn-focus-mode" id="btn-focus-mode" title="Mode Anti-Distraksi: Sembunyikan rundown, masking media, fokus penuh timer & chat">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+        <span id="focus-mode-label">Fokus</span>
+      </button>
+
+      <!-- Theme Switcher Button & Dropdown -->
+      <button class="theme-switcher-btn" id="btn-theme-switcher" title="Ganti Mode / Background (Terang, Gelap, OLED)">
+        <svg viewBox="0 0 24 24" fill="currentColor" id="theme-icon-indicator"><path d="M12 3a9 9 0 109 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 01-4.4 2.26 5.403 5.403 0 01-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
+        <span id="theme-label-indicator">Dark</span>
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
+      </button>
+
+      <div class="theme-menu" id="theme-dropdown-menu">
+        <div class="theme-menu-item active" data-theme="dark">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="color: #38bdf8;"><path d="M12 3a9 9 0 109 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 01-4.4 2.26 5.403 5.403 0 01-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
+          <span>Dark Studio</span>
+        </div>
+        <div class="theme-menu-item" data-theme="light">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="color: #f59e0b;"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0s-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0s-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41s-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41s-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg>
+          <span>Light Mode</span>
+        </div>
+        <div class="theme-menu-item" data-theme="oled">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="color: #94a3b8;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/></svg>
+          <span>Pitch OLED</span>
+        </div>
+      </div>
+
+      <!-- Google Auth Container -->
+      <div class="auth-box" id="auth-box">
+        <button class="btn-google-login" id="btn-google-login">
+          <svg width="12" height="12" viewBox="0 0 24 24"><path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.7 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.3 9 5 12 5z"/><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.6h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.9z"/><path fill="#FBBC05" d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3s.2-1.6.4-2.3L1.9 7.3C.7 9.7 0 12.3 0 15s.7 5.3 1.9 7.7l3.7-2.9z"/><path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.3-6.4-5.2L1.9 16C3.7 19.7 7.5 23 12 23z"/></svg>
+          Login
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Studio Split Workspace 2 Kolom (Desktop 60:40) -->
+  <main class="studio-workspace">
+    
+    <!-- KOLOM KIRI (60%): FOKUS UTAMA TIMER RAKSASA + RUNDOWN DENGAN TABS DAY 1 & DAY 2 -->
+    <div class="timer-stage-column">
+      
+      <!-- Top Hero: Giant Stage Timer -->
+      <section class="timer-hero-card" id="timer-card" title="Klik kanan di sini untuk opsi preset (30s, 1m, 5m, 10m, 15m, custom)">
+        
+        <div class="timer-header-tools">
+          <!-- Preset pills for desktop quick click -->
+          <div class="timer-preset-tags">
+            <span class="preset-pill" data-sec="30">30s</span>
+            <span class="preset-pill" data-sec="60">1m</span>
+            <span class="preset-pill" data-sec="300">5m</span>
+            <span class="preset-pill" data-sec="420">7m</span>
+            <span class="preset-pill" data-sec="600">10m</span>
+            <span class="preset-pill" data-sec="900">15m</span>
+            <span class="preset-pill" data-sec="1800">30m</span>
+            <span class="preset-pill" id="btn-custom-duration">Custom...</span>
+          </div>
+
+          <!-- Tombol Mobile Context Trigger untuk Preset Timer -->
+          <button class="mobile-preset-btn" id="btn-mobile-preset" title="Pilih preset waktu">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>
+            <span>Preset Waktu</span>
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
+          </button>
+
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <!-- Standalone Windows EXE Desktop Overlay Link -->
+            <a href="/TimerOverlay.exe" download="TimerOverlay.exe" class="vmix-pill python-pill" title="Unduh Standalone Windows (.EXE) Borderless Transparent App (Langsung Run tanpa install Python!)">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>
+              <span>Overlay (EXE)</span>
+            </a>
+
+            <!-- vMix Transparent Browser Source Link -->
+            <a href="/timer-overlay.html" target="_blank" class="vmix-pill" title="Buka Browser Source Transparan untuk vMix / OBS">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+              <span>vMix Overlay Source</span>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>
+            </a>
+          </div>
+        </div>
+
+        <!-- Giant Digits (Fokus Utama Megah) -->
+        <div class="timer-display ready" id="timer-display">05:00</div>
+
+        <!-- Floating Lightbulb Tooltip for Quick / Context Duration Hint -->
+        <div class="timer-hint-icon" id="timer-hint-btn" title="Klik kanan di area timer untuk durasi kustom">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7zm2.85 11.1l-.85.6V16h-4v-2.3l-.85-.6C7.8 12.16 7 10.63 7 9c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.63-.8 3.16-2.15 4.1z"/></svg>
+          <div class="timer-hint-tooltip">💡 Tips: Klik kanan pada area timer untuk memilih durasi cepat atau kustom</div>
+        </div>
+
+        <!-- Realtime Rundown vs Actual Mini Tracker & Overall Percentage -->
+        <div class="rundown-vs-actual-badge" id="rva-tracker-badge" title="Perbandingan Waktu Rundown Plan vs Realtime Actual">
+          <div class="rva-pulse-dot"></div>
+          <div class="rva-item active-session" id="rva-session-name">Sesi: Siap</div>
+          <div class="rva-item">
+            <span class="rva-label">Plan:</span>
+            <span class="rva-val plan" id="rva-plan-val">05:00</span>
+          </div>
+          <div class="rva-item">
+            <span class="rva-label">Actual:</span>
+            <span class="rva-val actual" id="rva-actual-val">00:00</span>
+          </div>
+          <div class="rva-item" id="rva-overall-item" title="Progress keseluruhan total rundown acara">
+            <span class="rva-label">Overall:</span>
+            <span class="rva-val" id="rva-overall-pct" style="color: #fef08a;">0%</span>
+          </div>
+          <div class="rva-diff-badge ontime" id="rva-diff-badge">
+            <span id="rva-diff-text">READY</span>
+          </div>
+        </div>
+
+        <!-- Compact Icon Action Controls (Tanpa Emoji) -->
+        <div class="timer-controls-bar" id="timer-controls-bar">
+          <button class="btn-action btn-start" id="btn-timer-start" title="Mulai Timer">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            <span>Mulai</span>
+          </button>
+          <button class="btn-action btn-pause" id="btn-timer-pause" title="Jeda Timer">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+            <span>Jeda</span>
+          </button>
+          <button class="btn-action btn-reset" id="btn-timer-reset" title="Reset Timer">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+            <span>Reset</span>
+          </button>
+        </div>
+
+        <!-- Timer Permission Lock Notice -->
+        <div class="timer-lock-notice" id="timer-lock-notice">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+          <span>Kontrol timer dikunci: Hanya akun terotorisasi yang dapat mengontrol timer & rundown.</span>
+        </div>
+
+      </section>
+
+      <!-- Sesi & Rundown Acara Cepat (Mengisi Space Desktop Kiri Bawah) -->
+      <section class="stage-rundown-card">
+        <div class="rundown-header">
+          <div class="rundown-title-group">
+            <div class="rundown-title">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" style="color: #38bdf8;"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>
+              <span>Rundown Health Check</span>
+            </div>
+            <!-- Tabs Filter Day 1 & Day 2 -->
+            <div class="rundown-tabs">
+              <button class="btn-tab active" id="tab-day1">Day 1</button>
+              <button class="btn-tab" id="tab-day2">Day 2</button>
+            </div>
+          </div>
+          <div class="rundown-header-actions">
+            <button class="btn-add-session" id="btn-add-rundown-item" title="Tambah sesi baru ke rundown">
+              <span>+ Tambah Sesi</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Dynamic List of Sessions -->
+        <div class="rundown-list-container" id="rundown-list">
+          <!-- Rendered dynamically from official rundown tables -->
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Draggable Dynamic Resizer Gutter Divider -->
+    <div class="gutter-resizer" id="gutter-resizer" title="Geser ke kiri / kanan untuk mengubah lebar kolom secara dinamis"></div>
+
+    <!-- KOLOM KANAN (LIVE CHAT FULL-HEIGHT DENGAN SEPARATOR PILLAR) -->
+    <section class="chat-section-card">
+      <div class="chat-header">
+        <div class="chat-title-group">
+          <div class="chat-title">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>
+            <span>Live Chat</span>
+          </div>
+          <span class="chat-event-name-tag" id="chat-header-event">Event...</span>
+        </div>
+
+        <!-- Scalable Font Controls -->
+        <div class="font-resizer-bar">
+          <span class="font-resizer-label">Font:</span>
+          <button class="btn-font-scale" data-size="13px">A-</button>
+          <button class="btn-font-scale active" data-size="15px">A</button>
+          <button class="btn-font-scale" data-size="20px">A+</button>
+          <button class="btn-font-scale" data-size="28px">A++</button>
+          <button class="btn-font-scale" data-size="36px">A+++</button>
+        </div>
+      </div>
+
+      <!-- Message History Container -->
+      <div class="chat-messages-container" id="chat-messages">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <!-- Guest Name Row (Wajib diisi jika belum login) -->
+      <div class="guest-name-bar" id="guest-name-bar">
+        <span class="guest-name-label">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+          Nama:
+        </span>
+        <input type="text" class="guest-name-input" id="guest-name-input" placeholder="Masukkan nama Anda sebelum mengirim pesan..." maxlength="40">
+        <span class="guest-badge-notice" id="guest-badge-notice">Cooldown 15s • Max 150 char</span>
+      </div>
+
+      <!-- Media Attachment Preview Container -->
+      <div class="media-attachment-preview" id="media-attachment-preview">
+        <img src="" id="media-preview-img" class="media-preview-thumb" alt="Preview Media">
+        <span class="media-preview-name" id="media-preview-name">file.png</span>
+        <button type="button" class="btn-remove-media" id="btn-remove-media" title="Hapus lampiran">&times;</button>
+      </div>
+
+      <!-- Emoji Picker Panel -->
+      <div class="chat-picker-panel" id="emoji-picker-panel">
+        <div class="picker-header-title">
+          <span>Pilih Emoji</span>
+          <button type="button" class="btn-sep-action" id="btn-close-emoji-picker">&times;</button>
+        </div>
+        <div class="emoji-grid" id="emoji-grid-container">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <!-- Sticker Picker Panel -->
+      <div class="chat-picker-panel" id="sticker-picker-panel">
+        <div class="picker-header-title">
+          <span>Pilih Sticker</span>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <button type="button" class="btn-create-sticker" id="btn-create-sticker" title="Bikin Sticker Sendiri (PNG / GIF)">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+              <span>+ Buat Sticker</span>
+            </button>
+            <button type="button" class="btn-sep-action" id="btn-close-sticker-picker">&times;</button>
+          </div>
+        </div>
+        <div class="sticker-grid" id="sticker-grid-container">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <!-- Hidden File Input for Media Upload (Images) -->
+      <input type="file" id="chat-file-input" accept="image/*" style="display: none;">
+      <!-- Hidden File Input for Custom Sticker (GIF & PNG Only, auto resize) -->
+      <input type="file" id="sticker-file-input" accept="image/png, image/gif" style="display: none;">
+
+      <!-- Chat Input Form dengan Icon Kirim & Tool Buttons -->
+      <form class="chat-input-form" id="chat-form">
+        <div class="chat-input-row">
+          <!-- Login-Only Attachment Tools -->
+          <div class="chat-tools-group" id="chat-tools-group">
+            <button type="button" class="btn-chat-tool" id="btn-open-emoji" title="Tambah Emoji (Login Required)">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg>
+            </button>
+            <button type="button" class="btn-chat-tool" id="btn-open-sticker" title="Kirim Sticker (Login Required)">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+            </button>
+            <button type="button" class="btn-chat-tool" id="btn-open-media" title="Lampirkan Media/Gambar (Login Required)">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+            </button>
+          </div>
+
+          <input type="text" class="chat-input-field" id="chat-input" placeholder="Tulis pertanyaan atau tanggapan sesi..." maxlength="150" autocomplete="off">
+          <button type="submit" class="btn-send-chat" id="btn-send-chat" title="Kirim Pesan">
+            <span id="btn-send-label">Kirim</span>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          </button>
+        </div>
+
+        <div class="chat-status-bar">
+          <div class="cooldown-indicator" id="cooldown-indicator">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.2 3.2.8-1.3-4.5-2.7V7z"/></svg>
+            <span>Tunggu <strong id="cooldown-seconds">15</strong>s</span>
+          </div>
+          <span class="char-limit-count" id="char-limit-count">0/150</span>
+        </div>
+      </form>
+    </section>
+
+  </main>
+
+  <!-- Right Click Context Menu (Preset Timer) -->
+  <div class="context-menu" id="timer-context-menu">
+    <div class="context-title">Preset Durasi Timer</div>
+    <div class="context-item" data-sec="30"><span>30 Detik</span> <small>30s</small></div>
+    <div class="context-item" data-sec="60"><span>1 Menit</span> <small>1m</small></div>
+    <div class="context-item" data-sec="300"><span>5 Menit (Speech/Opening)</span> <small>5m</small></div>
+    <div class="context-item" data-sec="420"><span>7 Menit (Quick Win)</span> <small>7m</small></div>
+    <div class="context-item" data-sec="600"><span>10 Menit (Break)</span> <small>10m</small></div>
+    <div class="context-item" data-sec="900"><span>15 Menit (Chapter Presentation)</span> <small>15m</small></div>
+    <div class="context-item" data-sec="1800"><span>30 Menit (Q&A Session)</span> <small>30m</small></div>
+    <div class="context-item divider"></div>
+    <div class="context-item" id="ctx-custom" style="display: flex; align-items: center; gap: 6px;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="color: #38bdf8;"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+      <span>Durasi Kustom...</span>
+    </div>
+  </div>
+
+  <!-- Modal Elegan: User Management (Hak Akses Timer & Rundown - Super Admin Only) -->
+  <div class="modal-overlay" id="user-mgmt-modal">
+    <div class="modal-card" style="max-width: 500px;">
+      <div class="modal-header">
+        <h3 class="modal-title" style="color: #c084fc;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+          <span>Kelola Hak Akses Pengguna</span>
+        </h3>
+        <button class="modal-close-btn" id="btn-close-user-mgmt">&times;</button>
+      </div>
+
+      <div style="font-size: 11px; color: #94a3b8; line-height: 1.4;">
+        Hanya pengguna dalam daftar ini yang diizinkan untuk <strong>mengontrol timer, menambah sesi, dan memilih sesi</strong> rundown.
+      </div>
+
+      <!-- Konfigurasi Durasi Highlight Chat NEW (Admin Setting) -->
+      <div style="background: rgba(14, 165, 233, 0.1); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+        <div>
+          <strong style="font-size: 11px; color: #7dd3fc; display: block;">Durasi Highlight Chat 'NEW'</strong>
+          <span style="font-size: 10px; color: #94a3b8;">Berapa lama bubble chat membesar (A+++) sebelum kembali normal</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <input type="number" id="cfg-highlight-duration" min="5" max="300" step="5" value="30" style="width: 58px; background: rgba(30, 41, 59, 0.9); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 6px; color: #fff; text-align: center; font-size: 12px; font-weight: 700; padding: 4px;">
+          <span style="font-size: 11px; color: #cbd5e1; font-weight: 700;">detik</span>
+        </div>
+      </div>
+
+      <!-- User List Container -->
+      <div class="user-mgmt-list" id="user-mgmt-list">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <!-- Add New User Form -->
+      <div class="new-event-form">
+        <div style="font-size: 11px; font-weight: 700; color: #c084fc;">+ Tambah User Terotorisasi Baru</div>
+        <div class="input-group-row">
+          <input type="email" class="input-text" id="new-user-email" placeholder="Email Google (cth: user@gmail.com)" required>
+          <input type="text" class="input-text" id="new-user-name" placeholder="Nama / PIC" style="max-width: 140px;">
+          <button class="btn-create-event" id="btn-submit-new-user" style="background: #9333ea;">Beri Akses</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Elegan: Manajemen Acara (Multi-Event) -->
+  <div class="modal-overlay" id="event-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="color: #38bdf8;"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg>
+          <span>Manajemen Acara (Multi-Event)</span>
+        </h3>
+        <button class="modal-close-btn" id="btn-close-event-modal">&times;</button>
+      </div>
+
+      <div class="event-list" id="modal-event-list">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <div class="new-event-form">
+        <div style="font-size: 11px; font-weight: 700; color: #94a3b8;">+ Buat Acara Baru</div>
+        <div class="input-group-row">
+          <input type="text" class="input-text" id="new-event-name" placeholder="Nama Acara (cth: TPM Assessment)">
+          <input type="date" class="input-text" id="new-event-date" style="max-width: 140px;">
+          <button class="btn-create-event" id="btn-submit-new-event">Simpan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Elegan: Input Durasi Kustom (Menggantikan window.prompt jelek) -->
+  <div class="modal-overlay" id="custom-duration-modal">
+    <div class="modal-card" style="max-width: 380px;">
+      <div class="modal-header">
+        <h3 class="modal-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="color: #f59e0b;"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+          <span>Atur Durasi Kustom</span>
+        </h3>
+        <button class="modal-close-btn" id="btn-close-duration-modal">&times;</button>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <p style="font-size: 12px; color: #94a3b8; line-height: 1.4;">
+          Masukkan durasi waktu dalam menit atau detik (contoh: <strong style="color: #38bdf8;">7m</strong>, <strong style="color: #38bdf8;">15m</strong>, atau <strong style="color: #38bdf8;">45s</strong>):
+        </p>
+        <input type="text" class="input-text" id="custom-duration-input" placeholder="Contoh: 7m atau 45s" style="font-size: 14px; padding: 10px 14px;">
+        <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px;">
+          <button class="btn-action btn-reset" id="btn-cancel-custom-duration" style="flex: 0; padding: 8px 14px;">Batal</button>
+          <button class="btn-action btn-start" id="btn-confirm-custom-duration" style="flex: 0; padding: 8px 18px;">Terapkan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Elegan: Tambah / Edit Sesi Rundown -->
+  <div class="modal-overlay" id="rundown-item-modal">
+    <div class="modal-card" style="max-width: 440px;">
+      <div class="modal-header">
+        <h3 class="modal-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="color: #38bdf8;"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg>
+          <span id="rundown-modal-title">Edit Sesi Rundown</span>
+        </h3>
+        <button class="modal-close-btn" id="btn-close-rundown-modal">&times;</button>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <input type="hidden" id="rundown-item-id">
+        <div>
+          <label style="font-size: 11px; font-weight: 700; color: #94a3b8; display: block; margin-bottom: 4px;">Nama Sesi / Aktivitas</label>
+          <input type="text" class="input-text" id="rundown-form-title" placeholder="Cth: Presentation Chapter 5 AM" required>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <div>
+            <label style="font-size: 11px; font-weight: 700; color: #94a3b8; display: block; margin-bottom: 4px;">Jam (Rentang Waktu)</label>
+            <input type="text" class="input-text" id="rundown-form-time" placeholder="08:30 - 08:45">
+          </div>
+          <div>
+            <label style="font-size: 11px; font-weight: 700; color: #94a3b8; display: block; margin-bottom: 4px;">Durasi (Menit)</label>
+            <input type="number" class="input-text" id="rundown-form-dur" min="1" max="180" placeholder="15" required>
+          </div>
+        </div>
+
+        <div>
+          <label style="font-size: 11px; font-weight: 700; color: #94a3b8; display: block; margin-bottom: 4px;">PIC / Presenter / Ruang</label>
+          <input type="text" class="input-text" id="rundown-form-pic" placeholder="Cth: Mr. Joko / Studio">
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+          <input type="checkbox" id="rundown-form-highlight" style="cursor: pointer; width: 15px; height: 15px;">
+          <label for="rundown-form-highlight" style="font-size: 12px; color: #fef08a; cursor: pointer;">Tandai sebagai Break / Highlight (Kuning)</label>
+        </div>
+
+        <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px;">
+          <button class="btn-action btn-reset" id="btn-cancel-rundown-item" style="flex: 0; padding: 7px 14px;">Batal</button>
+          <button class="btn-action btn-start" id="btn-save-rundown-item" style="flex: 0; padding: 7px 18px;">Simpan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Elegan: Edit Separator Sesi Chat -->
+  <div class="modal-overlay" id="separator-edit-modal">
+    <div class="modal-card" style="max-width: 400px;">
+      <div class="modal-header">
+        <h3 class="modal-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="color: #38bdf8;"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+          <span>Ubah Label Separator Sesi</span>
+        </h3>
+        <button class="modal-close-btn" id="btn-close-sep-modal">&times;</button>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <input type="hidden" id="edit-sep-msg-id">
+        <div>
+          <label style="font-size: 11px; font-weight: 700; color: #94a3b8; display: block; margin-bottom: 4px;">Nama Sesi / Label Pembatas</label>
+          <input type="text" class="input-text" id="edit-sep-title" placeholder="Contoh: Break Sore (15m)" required>
+        </div>
+
+        <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px;">
+          <button class="btn-action btn-reset" id="btn-cancel-sep-modal" style="flex: 0; padding: 7px 14px;">Batal</button>
+          <button class="btn-action btn-start" id="btn-save-sep-modal" style="flex: 0; padding: 7px 18px;">Simpan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Elegan: Konfirmasi Dialog (Pengganti window.confirm / jsprompt jelek) -->
+  <div class="modal-overlay" id="confirm-dialog-modal">
+    <div class="modal-card" style="max-width: 400px;">
+      <div class="modal-header">
+        <h3 class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="color: #ef4444;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+          <span id="confirm-modal-title">Konfirmasi Tindakan</span>
+        </h3>
+        <button class="modal-close-btn" id="btn-close-confirm-modal">&times;</button>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <p id="confirm-modal-message" style="font-size: 13px; color: #cbd5e1; line-height: 1.5; margin: 2px 0 6px 0;">
+          Apakah Anda yakin ingin menghapus item ini?
+        </p>
+
+        <div style="display: flex; gap: 8px; justify-content: flex-end;">
+          <button class="btn-action btn-reset" id="btn-cancel-confirm" style="flex: 0; padding: 7px 14px;">Batal</button>
+          <button class="btn-action btn-start" id="btn-accept-confirm" style="flex: 0; padding: 7px 18px; background: #ef4444; color: #fff;">Hapus</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sticky Footer (Desktop Only) -->
+  <footer class="app-sticky-footer" id="app-sticky-footer">
+    <div class="footer-left">
+      <img src="/images/Logo%20Educamp%202026.png" alt="Nandur Studio" class="footer-logo">
+      <span class="footer-copyright">&copy; 2026 Nandur Studio. All rights reserved.</span>
+    </div>
+    <div class="footer-right">
+      <div class="footer-semver" title="Semantic Versioning">
+        <span class="semver-dot"></span>
+        <span class="semver-label">SemVer</span>
+        <span>v1.3.0</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Application Logic -->
+  <script>
+    // === 1. DATA MASTER RUNDOWN HEALTH CHECK DAY 1 & DAY 2 (OFFICIAL) ===
+    const RUNDOWN_DAY_1 = [
+      { no: 1, time: "08:30 - 08:35", durMin: 5, sec: 300, title: "Opening MC (Pray, Indonesia Raya, Kalbe Panca Sradha)", pic: "Ms. Anisa", isYellow: false },
+      { no: 2, time: "08:35 - 08:40", durMin: 5, sec: 300, title: "Video : Safety Briefing", pic: "Ms. Anisa", isYellow: false },
+      { no: 3, time: "08:40 - 08:45", durMin: 5, sec: 300, title: "Video Journey TPM", pic: "Ms. Anisa", isYellow: false },
+      { no: 4, time: "08:45 - 08:50", durMin: 5, sec: 300, title: "Video Rundown (Day 1)", pic: "Ms. Anisa", isYellow: false },
+      { no: 5, time: "08:50 - 08:55", durMin: 5, sec: 300, title: "Opening Speech Top Management SHP", pic: "Mr. Andi Chendra", isYellow: false },
+      { no: 6, time: "08:55 - 09:00", durMin: 5, sec: 300, title: "Opening Speech JMAC", pic: "Mr. Otsuka", isYellow: false },
+      { no: 7, time: "09:00 - 09:30", durMin: 30, sec: 1800, title: "Presentation Chapter 1, 2, 3, 12 (TPM Promotion)", pic: "Mrs. Verdiana", isYellow: false },
+      { no: 8, time: "09:30 - 10:00", durMin: 30, sec: 1800, title: "Question & Answer Chapter 1, 2, 3, 12", pic: "Mr. Otsuka", isYellow: false },
+      { no: 9, time: "10:00 - 10:10", durMin: 10, sec: 600, title: "Break Pagi", pic: "KNLC D", isYellow: true },
+      { no: 10, time: "10:10 - 10:25", durMin: 15, sec: 900, title: "Presentation Chapter 5 Autonomous Maintenance (AM)", pic: "Mr. Agung Joko", isYellow: false },
+      { no: 11, time: "10:25 - 10:40", durMin: 15, sec: 900, title: "Presentation Chapter 6 Planned Maintenance (PM)", pic: "Mr. Cahyo Agung", isYellow: false },
+      { no: 12, time: "10:40 - 11:10", durMin: 30, sec: 1800, title: "Question & Answer (AM & PM)", pic: "Mr. Otsuka", isYellow: false },
+      { no: 13, time: "11:10 - 11:25", durMin: 15, sec: 900, title: "Presentation Chapter 7 Quality Maintenance (QM)", pic: "Mrs. Sri Rejeki", isYellow: false },
+      { no: 14, time: "11:25 - 11:40", durMin: 15, sec: 900, title: "Presentation Chapter 8 Early Management (EM)", pic: "Mr. Sukaryadi", isYellow: false },
+      { no: 15, time: "11:40 - 12:10", durMin: 30, sec: 1800, title: "Question & Answer (QM & EM)", pic: "Mr. Otsuka", isYellow: false },
+      { no: 16, time: "12:10 - 13:00", durMin: 50, sec: 3000, title: "Lunch Break", pic: "KNLC D", isYellow: true },
+      { no: 17, time: "13:00 - 13:07", durMin: 7, sec: 420, title: "Quick Win 1: EM & OSA", pic: "Mr. Dimas JP & Team", isYellow: false },
+      { no: 18, time: "13:07 - 13:37", durMin: 30, sec: 1800, title: "Q&A Quick Win 1", pic: "Mr. Otsuka", isYellow: false },
+      { no: 19, time: "13:37 - 13:52", durMin: 15, sec: 900, title: "Go to Highcare Area (IBC Lt.2)", pic: "All Team", isYellow: false },
+      { no: 20, time: "13:52 - 13:59", durMin: 7, sec: 420, title: "Quick Win 2: AM & EM", pic: "Mr. Raihan & Mr. Reki", isYellow: false },
+      { no: 21, time: "13:59 - 14:29", durMin: 30, sec: 1800, title: "Q&A Quick Win 2", pic: "Mr. Otsuka", isYellow: false },
+      { no: 22, time: "14:29 - 14:34", durMin: 5, sec: 300, title: "Go to Filling Sachet I", pic: "All Team", isYellow: false },
+      { no: 23, time: "14:34 - 14:41", durMin: 7, sec: 420, title: "Quick Win 3: QM", pic: "Mr. Budy Sutrisno", isYellow: false },
+      { no: 24, time: "14:41 - 15:11", durMin: 30, sec: 1800, title: "Q&A Quick Win 3", pic: "Mr. Otsuka", isYellow: false },
+      { no: 25, time: "15:11 - 15:26", durMin: 15, sec: 900, title: "Go to Packing (Robot Salak)", pic: "All Team", isYellow: false },
+      { no: 26, time: "15:26 - 15:33", durMin: 7, sec: 420, title: "Quick Win 4: PM", pic: "Mr. Joko Suprihanto", isYellow: false },
+      { no: 27, time: "15:33 - 16:03", durMin: 30, sec: 1800, title: "Q&A Quick Win 4", pic: "Mr. Otsuka", isYellow: false },
+      { no: 28, time: "16:03 - 16:13", durMin: 10, sec: 600, title: "Back to Main Room (KNLC A-C)", pic: "All Team", isYellow: false },
+      { no: 29, time: "16:13 - 16:28", durMin: 15, sec: 900, title: "Break Sore", pic: "KNLC D", isYellow: true },
+      { no: 30, time: "16:28 - 16:33", durMin: 5, sec: 300, title: "Closing MC & Pray Day 1", pic: "Ms. Anisa", isYellow: false }
+    ];
+
+    const RUNDOWN_DAY_2 = [
+      { no: 1, time: "08:30 - 08:35", durMin: 5, sec: 300, title: "Opening MC Day 2", pic: "Ms. Anisa", isYellow: false },
+      { no: 2, time: "08:35 - 08:40", durMin: 5, sec: 300, title: "Video Rundown (Day 2)", pic: "Ms. Anisa", isYellow: false },
+      { no: 3, time: "08:40 - 09:10", durMin: 30, sec: 1800, title: "Presentation Chapter 4 Focused Improvement (FI)", pic: "Mr. Dyanza Arya Perdana", isYellow: false },
+      { no: 4, time: "09:10 - 09:40", durMin: 30, sec: 1800, title: "Question & Answer Chapter 4 FI", pic: "Mr. Otsuka", isYellow: false },
+      { no: 5, time: "09:40 - 09:55", durMin: 15, sec: 900, title: "Presentation Chapter 9 Education & Training (ET)", pic: "Mr. Andreas Hari Listanto", isYellow: false },
+      { no: 6, time: "09:55 - 10:25", durMin: 30, sec: 1800, title: "Question & Answer Chapter 9 ET", pic: "Mr. Otsuka", isYellow: false },
+      { no: 7, time: "10:25 - 10:35", durMin: 10, sec: 600, title: "Break Pagi", pic: "Studio", isYellow: true },
+      { no: 8, time: "10:35 - 10:50", durMin: 15, sec: 900, title: "Presentation Chapter 10 Office & Administration (OSA)", pic: "Mr. Priyo Anarkie", isYellow: false },
+      { no: 9, time: "10:50 - 11:20", durMin: 30, sec: 1800, title: "Question & Answer Chapter 10 OSA", pic: "Mr. Otsuka", isYellow: false },
+      { no: 10, time: "11:20 - 11:35", durMin: 15, sec: 900, title: "Presentation Chapter 11 Safety, Health & Environment (SHE)", pic: "Pilar SHE Team", isYellow: false },
+      { no: 11, time: "11:35 - 12:05", durMin: 30, sec: 1800, title: "Question & Answer Chapter 11 SHE", pic: "Mr. Otsuka", isYellow: false },
+      { no: 12, time: "12:05 - 13:05", durMin: 60, sec: 3600, title: "Lunch Break", pic: "Studio", isYellow: true },
+      { no: 13, time: "13:05 - 13:10", durMin: 5, sec: 300, title: "Go to View Gallery", pic: "All Team", isYellow: false },
+      { no: 14, time: "13:10 - 13:17", durMin: 7, sec: 420, title: "Quick Win 4: FI", pic: "Ms. Fifi & Mr. Bintang Z", isYellow: false },
+      { no: 15, time: "13:17 - 13:47", durMin: 30, sec: 1800, title: "Q&A Quick Win 4 FI", pic: "Mr. Otsuka", isYellow: false },
+      { no: 16, time: "13:47 - 13:54", durMin: 7, sec: 420, title: "Quick Win 6: SHE", pic: "Mr. Nanang & Mr. Putra Dewangga", isYellow: false },
+      { no: 17, time: "13:54 - 14:24", durMin: 30, sec: 1800, title: "Q&A Quick Win 6 SHE", pic: "Mr. Otsuka", isYellow: false },
+      { no: 18, time: "14:24 - 14:31", durMin: 7, sec: 420, title: "Quick Win 7: ET", pic: "Tim ET", isYellow: false },
+      { no: 19, time: "14:31 - 15:01", durMin: 30, sec: 1800, title: "Q&A Quick Win 7 ET", pic: "Mr. Otsuka", isYellow: false },
+      { no: 20, time: "15:01 - 15:06", durMin: 5, sec: 300, title: "Back to Main Room", pic: "Studio", isYellow: false },
+      { no: 21, time: "15:06 - 15:21", durMin: 15, sec: 900, title: "Break Sore", pic: "Studio", isYellow: true },
+      { no: 22, time: "15:21 - 16:21", durMin: 60, sec: 3600, title: "Lecture & Feedback", pic: "Mr. Otsuka", isYellow: false },
+      { no: 23, time: "16:21 - 16:26", durMin: 5, sec: 300, title: "Closing Speech", pic: "Mr. Yudha Agus Tri Basuki", isYellow: false },
+      { no: 24, time: "16:26 - 16:31", durMin: 5, sec: 300, title: "Closing MC & Pray Day 2", pic: "Ms. Anisa", isYellow: false }
+    ];
+
+    let currentDayTab = 'DAY_1';
+
+    // Ambil data rundown dari localStorage atau gunakan default master
+    function getStoredRundown(dayKey) {
+      try {
+        const stored = localStorage.getItem(`tpm_rundown_${dayKey.toLowerCase()}`);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch (e) {
+        console.warn('Gagal membaca storage rundown, gunakan default');
+      }
+      return dayKey === 'DAY_1' ? JSON.parse(JSON.stringify(RUNDOWN_DAY_1)) : JSON.parse(JSON.stringify(RUNDOWN_DAY_2));
+    }
+
+    function saveStoredRundown(dayKey, items) {
+      try {
+        localStorage.setItem(`tpm_rundown_${dayKey.toLowerCase()}`, JSON.stringify(items));
+      } catch (e) {
+        console.error('Gagal menyimpan storage rundown', e);
+      }
+    }
+
+    let rundownItemsDay1 = getStoredRundown('DAY_1');
+    let rundownItemsDay2 = getStoredRundown('DAY_2');
+
+    function getCurrentRundownList() {
+      return currentDayTab === 'DAY_1' ? rundownItemsDay1 : rundownItemsDay2;
+    }
+
+    function setCurrentRundownList(items) {
+      if (currentDayTab === 'DAY_1') {
+        rundownItemsDay1 = items;
+        saveStoredRundown('DAY_1', items);
+      } else {
+        rundownItemsDay2 = items;
+        saveStoredRundown('DAY_2', items);
+      }
+    }
+
+    function renderRundownItems() {
+      const container = document.getElementById('rundown-list');
+      if (!container) return;
+      container.innerHTML = '';
+      const items = getCurrentRundownList();
+
+      if (items.length === 0) {
+        container.innerHTML = `
+          <div style="text-align: center; padding: 24px 10px; color: #64748b; font-size: 12px;">
+            Belum ada sesi di tab ini. Klik <strong>+ Tambah Sesi</strong> untuk menambahkan.
+          </div>
+        `;
+        return;
+      }
+
+      items.forEach((item, index) => {
+        const row = document.createElement('div');
+        row.className = `rundown-row ${item.isYellow ? 'is-highlight' : ''}`;
+        row.innerHTML = `
+          <div class="rundown-meta-left">
+            <span class="rundown-time-badge">${escapeHtml(item.time || '-')}</span>
+            <div class="rundown-activity">
+              <span>${escapeHtml(item.title)}</span>
+              ${item.pic ? `<span class="rundown-pic">• ${escapeHtml(item.pic)}</span>` : ''}
+            </div>
+          </div>
+          <div class="rundown-meta-right">
+            <span class="rundown-dur-pill ${item.isYellow ? 'yellow' : ''}">${item.durMin}m</span>
+            <div class="rundown-item-actions">
+              <button class="btn-rundown-action btn-edit" title="Edit sesi ini" data-index="${index}">✎</button>
+              <button class="btn-rundown-action btn-del" title="Hapus sesi ini" data-index="${index}">&times;</button>
+            </div>
+          </div>
+        `;
+
+        // 1-Klik Set Waktu + Buat Separator Sesi di Live Chat + Set Active Sesi Tracker
+        row.addEventListener('click', (e) => {
+          if (e.target.closest('.rundown-item-actions')) return;
+
+          if (!checkTimerControlPermission()) return;
+
+          const totalSec = item.sec || (item.durMin * 60);
+          
+          currentActiveSession = {
+            title: item.title,
+            planSeconds: totalSec,
+            timeLabel: item.time || '-'
+          };
+
+          socket.emit('TC_SET_DURATION', {
+            durationSeconds: totalSec,
+            userEmail: currentUser ? currentUser.email : ''
+          });
+          socket.emit('TC_ADD_SEPARATOR', {
+            eventId: currentActiveEvent ? currentActiveEvent.id : null,
+            sessionTitle: `${item.title} (${item.durMin}m)`,
+            sessionDuration: totalSec,
+            userEmail: currentUser ? currentUser.email : ''
+          });
+
+          // Tandai row aktif di rundown list
+          document.querySelectorAll('.rundown-row').forEach(r => r.classList.remove('is-current-playing'));
+          row.classList.add('is-current-playing');
+          updateRundownVsActualUI();
+        });
+
+        // Edit button
+        const btnEdit = row.querySelector('.btn-edit');
+        if (btnEdit) {
+          btnEdit.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openRundownModal('EDIT', index, item);
+          });
+        }
+
+        // Delete button
+        const btnDel = row.querySelector('.btn-del');
+        if (btnDel) {
+          btnDel.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const ok = await showConfirmDialog({
+              title: 'Hapus Sesi Rundown',
+              message: `Apakah Anda yakin ingin menghapus sesi "${item.title}" dari rundown?`,
+              confirmText: 'Hapus Sesi'
+            });
+            if (ok) {
+              const currentList = getCurrentRundownList();
+              currentList.splice(index, 1);
+              setCurrentRundownList(currentList);
+              renderRundownItems();
+            }
+          });
+        }
+
+        container.appendChild(row);
+      });
+    }
+
+    // Modal Add / Edit Rundown Item Logic
+    const rundownModal = document.getElementById('rundown-item-modal');
+    const rundownModalTitle = document.getElementById('rundown-modal-title');
+    const rundownItemId = document.getElementById('rundown-item-id');
+    const rundownFormTitle = document.getElementById('rundown-form-title');
+    const rundownFormTime = document.getElementById('rundown-form-time');
+    const rundownFormDur = document.getElementById('rundown-form-dur');
+    const rundownFormPic = document.getElementById('rundown-form-pic');
+    const rundownFormHighlight = document.getElementById('rundown-form-highlight');
+    const btnCloseRundownModal = document.getElementById('btn-close-rundown-modal');
+    const btnCancelRundownItem = document.getElementById('btn-cancel-rundown-item');
+    const btnSaveRundownItem = document.getElementById('btn-save-rundown-item');
+    const btnAddRundownItem = document.getElementById('btn-add-rundown-item');
+
+    function openRundownModal(mode, index = null, item = null) {
+      if (mode === 'ADD') {
+        rundownModalTitle.textContent = `Tambah Sesi (${currentDayTab === 'DAY_1' ? 'Day 1' : 'Day 2'})`;
+        rundownItemId.value = '';
+        rundownFormTitle.value = '';
+        rundownFormTime.value = '';
+        rundownFormDur.value = '15';
+        rundownFormPic.value = '';
+        rundownFormHighlight.checked = false;
+      } else {
+        rundownModalTitle.textContent = `Edit Sesi (${currentDayTab === 'DAY_1' ? 'Day 1' : 'Day 2'})`;
+        rundownItemId.value = String(index);
+        rundownFormTitle.value = item.title || '';
+        rundownFormTime.value = item.time || '';
+        rundownFormDur.value = item.durMin || 15;
+        rundownFormPic.value = item.pic || '';
+        rundownFormHighlight.checked = !!item.isYellow;
+      }
+      rundownModal.classList.add('active');
+      setTimeout(() => rundownFormTitle.focus(), 150);
+    }
+
+    function closeRundownModal() {
+      rundownModal.classList.remove('active');
+    }
+
+    if (btnAddRundownItem) {
+      btnAddRundownItem.addEventListener('click', () => {
+        if (!checkTimerControlPermission()) return;
+        openRundownModal('ADD');
+      });
+    }
+    if (btnCloseRundownModal) btnCloseRundownModal.addEventListener('click', closeRundownModal);
+    if (btnCancelRundownItem) btnCancelRundownItem.addEventListener('click', closeRundownModal);
+
+    if (btnSaveRundownItem) {
+      btnSaveRundownItem.addEventListener('click', () => {
+        const title = rundownFormTitle.value.trim();
+        const time = rundownFormTime.value.trim() || '-';
+        const durMin = parseInt(rundownFormDur.value, 10) || 5;
+        const pic = rundownFormPic.value.trim();
+        const isYellow = rundownFormHighlight.checked;
+
+        if (!title) {
+          alert('Nama sesi tidak boleh kosong.');
+          return;
+        }
+
+        const currentList = getCurrentRundownList();
+        const editIdxStr = rundownItemId.value;
+
+        if (editIdxStr !== '' && !isNaN(parseInt(editIdxStr, 10))) {
+          const idx = parseInt(editIdxStr, 10);
+          currentList[idx] = {
+            ...currentList[idx],
+            title,
+            time,
+            durMin,
+            sec: durMin * 60,
+            pic,
+            isYellow
+          };
+        } else {
+          currentList.push({
+            no: currentList.length + 1,
+            title,
+            time,
+            durMin,
+            sec: durMin * 60,
+            pic,
+            isYellow
+          });
+        }
+
+        setCurrentRundownList(currentList);
+        renderRundownItems();
+        closeRundownModal();
+      });
+    }
+
+    document.getElementById('tab-day1').addEventListener('click', () => {
+      currentDayTab = 'DAY_1';
+      document.getElementById('tab-day1').classList.add('active');
+      document.getElementById('tab-day2').classList.remove('active');
+      renderRundownItems();
+    });
+
+    document.getElementById('tab-day2').addEventListener('click', () => {
+      currentDayTab = 'DAY_2';
+      document.getElementById('tab-day2').classList.add('active');
+      document.getElementById('tab-day1').classList.remove('active');
+      renderRundownItems();
+    });
+
+    renderRundownItems();
+
+    // === 2. GLOBAL STATE & NTP SYNC VARIABLES ===
+    const socket = io();
+    let clockOffset = 0;
+    let activeTimerState = {
+      status: 'IDLE',
+      durationSeconds: 300,
+      targetEndTime: null,
+      remainingSeconds: 300,
+      isBlinking: false
+    };
+    let currentUser = null;
+    let isUserAdmin = false;
+    let isSuperAdmin = false;
+    let currentActiveEvent = null;
+
+    // Fungsi Penguncian Akses Timer & Rundown untuk Non-Admin
+    function updateTimerPermissionUI() {
+      const timerControlsBar = document.getElementById('timer-controls-bar');
+      const timerLockNotice = document.getElementById('timer-lock-notice');
+      const btnOpenUserMgmt = document.getElementById('btn-open-user-mgmt');
+      const btnAddRundown = document.getElementById('btn-add-rundown-item');
+      const presetPills = document.querySelectorAll('.preset-pill');
+      const mobilePresetBtn = document.getElementById('btn-mobile-preset');
+
+      if (isSuperAdmin && btnOpenUserMgmt) {
+        btnOpenUserMgmt.style.display = 'inline-flex';
+      } else if (btnOpenUserMgmt) {
+        btnOpenUserMgmt.style.display = 'none';
+      }
+
+      if (isUserAdmin) {
+        // Full Access untuk Admin / Game Master / Super Admin
+        if (timerControlsBar) timerControlsBar.classList.remove('controls-locked');
+        if (timerLockNotice) timerLockNotice.classList.remove('active');
+        if (btnAddRundown) {
+          btnAddRundown.style.opacity = '1';
+          btnAddRundown.style.cursor = 'pointer';
+        }
+        presetPills.forEach(p => {
+          p.style.opacity = '1';
+          p.style.cursor = 'pointer';
+        });
+        if (mobilePresetBtn) {
+          mobilePresetBtn.style.opacity = '1';
+          mobilePresetBtn.style.cursor = 'pointer';
+        }
+      } else {
+        // Terkunci untuk penonton / non-admin
+        if (timerControlsBar) timerControlsBar.classList.add('controls-locked');
+        if (timerLockNotice) timerLockNotice.classList.add('active');
+        if (btnAddRundown) {
+          btnAddRundown.style.opacity = '0.5';
+          btnAddRundown.style.cursor = 'not-allowed';
+        }
+        presetPills.forEach(p => {
+          p.style.opacity = '0.4';
+          p.style.cursor = 'not-allowed';
+        });
+        if (mobilePresetBtn) {
+          mobilePresetBtn.style.opacity = '0.4';
+          mobilePresetBtn.style.cursor = 'not-allowed';
+        }
+      }
+    }
+
+    // Realtime Rundown vs Actual State Tracker
+    let currentActiveSession = {
+      title: 'Opening / Standby',
+      planSeconds: 300,
+      timeLabel: '-'
+    };
+
+    const rvaTrackerBadge = document.getElementById('rva-tracker-badge');
+    const rvaSessionName = document.getElementById('rva-session-name');
+    const rvaPlanVal = document.getElementById('rva-plan-val');
+    const rvaActualVal = document.getElementById('rva-actual-val');
+    const rvaDiffBadge = document.getElementById('rva-diff-badge');
+    const rvaDiffText = document.getElementById('rva-diff-text');
+    const rvaOverallPct = document.getElementById('rva-overall-pct');
+
+    function updateRundownVsActualUI() {
+      if (!rvaTrackerBadge) return;
+
+      const planSec = (currentActiveSession && currentActiveSession.planSeconds) 
+        ? currentActiveSession.planSeconds 
+        : (activeTimerState.durationSeconds || 300);
+
+      const planFormatted = formatTime(planSec);
+      if (rvaPlanVal) rvaPlanVal.textContent = planFormatted;
+
+      if (rvaSessionName) {
+        rvaSessionName.textContent = currentActiveSession.title || 'Sesi Acara';
+        rvaSessionName.title = `Sesi: ${currentActiveSession.title}`;
+      }
+
+      // Hitung sisa detik aktif
+      let remainingSec = activeTimerState.remainingSeconds;
+      if (activeTimerState.status === 'RUNNING' && activeTimerState.targetEndTime) {
+        const adjustedNow = Date.now() + clockOffset;
+        const diffMs = activeTimerState.targetEndTime - adjustedNow;
+        remainingSec = Math.max(0, Math.ceil(diffMs / 1000));
+      }
+
+      // Actual elapsed time
+      const actualElapsedSec = Math.max(0, planSec - remainingSec);
+      if (rvaActualVal) rvaActualVal.textContent = formatTime(actualElapsedSec);
+
+      // Hitung Overall Progress Keseluruhan Rundown (Total durasi sesi sebelum + elapsed sesi saat ini / Total rundown)
+      try {
+        const currentList = getCurrentRundownList() || [];
+        let totalRundownSec = 0;
+        let cumulativeElapsedSec = 0;
+        let activeFound = false;
+
+        currentList.forEach((it) => {
+          const itemSec = it.sec || (it.durMin * 60) || 300;
+          totalRundownSec += itemSec;
+
+          if (!activeFound) {
+            if (currentActiveSession && currentActiveSession.title === it.title) {
+              cumulativeElapsedSec += actualElapsedSec;
+              activeFound = true;
+            } else {
+              cumulativeElapsedSec += itemSec;
+            }
+          }
+        });
+
+        if (totalRundownSec > 0 && rvaOverallPct) {
+          const pct = Math.min(100, Math.max(0, Math.round((cumulativeElapsedSec / totalRundownSec) * 100)));
+          rvaOverallPct.textContent = `${pct}%`;
+        }
+      } catch (e) {
+        if (rvaOverallPct) rvaOverallPct.textContent = '0%';
+      }
+
+      // Status deviasi vs schedule
+      // Jika timer habis tapi masih jalan / timeout -> Overrun
+      if (activeTimerState.status === 'TIME_OUT' || (activeTimerState.status === 'RUNNING' && remainingSec === 0)) {
+        if (rvaDiffBadge) {
+          rvaDiffBadge.className = 'rva-diff-badge over';
+          rvaDiffText.textContent = 'OVERRUN (+LEWAT)';
+        }
+      } else if (remainingSec === planSec) {
+        if (rvaDiffBadge) {
+          rvaDiffBadge.className = 'rva-diff-badge ontime';
+          rvaDiffText.textContent = 'TEPAT WAKTU';
+        }
+      } else {
+        // Sedang berjalan normal
+        const pacePercent = Math.round((actualElapsedSec / planSec) * 100);
+        if (rvaDiffBadge) {
+          rvaDiffBadge.className = 'rva-diff-badge ontime';
+          rvaDiffText.textContent = `${pacePercent}% ON TRACK`;
+        }
+      }
+    }
+
+    function syncNTPClock() {
+      const t0 = Date.now();
+      socket.emit('TC_TIME_SYNC', { clientTimestamp: t0 });
+    }
+
+    socket.on('TC_TIME_PONG', (data) => {
+      const t3 = Date.now();
+      const t0 = data.clientTimestamp;
+      const t1 = data.serverTimestamp;
+      const rtt = t3 - t0;
+      clockOffset = t1 - (t3 - (rtt / 2));
+      const syncBadge = document.getElementById('sync-latency-label');
+      if (syncBadge) {
+        syncBadge.textContent = `${Math.round(rtt / 2)}ms`;
+      }
+    });
+
+    setInterval(syncNTPClock, 15000);
+    syncNTPClock();
+
+    function formatTime(totalSec) {
+      const s = Math.max(0, Math.floor(totalSec));
+      const mins = Math.floor(s / 60);
+      const secs = s % 60;
+      return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+
+    // === 3. REALTIME TIMER RAF TICKER (0ms JITTER) ===
+    const timerDisplay = document.getElementById('timer-display');
+
+    function updateTimerUI() {
+      if (activeTimerState.status === 'RUNNING' && activeTimerState.targetEndTime) {
+        const adjustedNow = Date.now() + clockOffset;
+        const diffMs = activeTimerState.targetEndTime - adjustedNow;
+        const remainingSec = Math.max(0, Math.ceil(diffMs / 1000));
+
+        timerDisplay.textContent = formatTime(remainingSec);
+        timerDisplay.className = 'timer-display running';
+
+        if (remainingSec <= 10 && remainingSec > 0) {
+          timerDisplay.classList.add('blinking-alert');
+        } else if (remainingSec === 0) {
+          timerDisplay.className = 'timer-display over';
+        }
+      } else {
+        timerDisplay.textContent = formatTime(activeTimerState.remainingSeconds);
+        if (activeTimerState.status === 'PAUSED') {
+          timerDisplay.className = 'timer-display paused';
+        } else if (activeTimerState.status === 'TIME_OUT') {
+          timerDisplay.className = 'timer-display over';
+        } else {
+          timerDisplay.className = 'timer-display ready';
+        }
+      }
+
+      // Update Rundown vs Actual realtime mini badge
+      updateRundownVsActualUI();
+
+      requestAnimationFrame(updateTimerUI);
+    }
+    requestAnimationFrame(updateTimerUI);
+
+    // === 4. SOCKET.IO LISTENERS ===
+    socket.on('TC_STATE_UPDATE', (state) => {
+      if (!state) return;
+      activeTimerState = state.timer;
+      if (state.activeEvent) {
+        currentActiveEvent = state.activeEvent;
+        updateEventLabels(currentActiveEvent);
+      }
+      if (state.chatHistory) {
+        renderChatMessages(state.chatHistory);
+      }
+      updateRundownVsActualUI();
+    });
+
+    socket.on('TC_TIMER_STARTED', (data) => {
+      activeTimerState.status = 'RUNNING';
+      activeTimerState.targetEndTime = data.targetEndTime;
+      activeTimerState.durationSeconds = data.durationSeconds;
+      updateRundownVsActualUI();
+    });
+
+    socket.on('TC_TIMER_PAUSED', (data) => {
+      activeTimerState.status = 'PAUSED';
+      activeTimerState.remainingSeconds = data.remainingSeconds;
+      updateRundownVsActualUI();
+    });
+
+    socket.on('TC_TIMER_RESET', (data) => {
+      activeTimerState.status = 'IDLE';
+      activeTimerState.remainingSeconds = data.remainingSeconds;
+      activeTimerState.durationSeconds = data.durationSeconds;
+      updateRundownVsActualUI();
+    });
+
+    socket.on('TC_NEW_MESSAGE', (msg) => {
+      appendChatMessage(msg, true);
+    });
+
+    socket.on('TC_MESSAGE_DELETED', ({ messageId }) => {
+      const el = document.querySelector(`[data-msg-id="${messageId}"]`);
+      if (el) {
+        el.style.transition = 'all 0.25s ease';
+        el.style.opacity = '0';
+        el.style.transform = 'scale(0.9)';
+        setTimeout(() => el.remove(), 250);
+      }
+    });
+
+    socket.on('TC_MESSAGE_UPDATED', (updatedMsg) => {
+      if (!updatedMsg) return;
+      const el = document.querySelector(`[data-msg-id="${updatedMsg.id}"]`);
+      if (el) {
+        if (updatedMsg.isSeparator) {
+          const textSpan = el.querySelector('.sep-text');
+          if (textSpan) {
+            textSpan.textContent = updatedMsg.sessionTitle || updatedMsg.message || 'Sesi Baru';
+          }
+        } else {
+          const contentDiv = el.querySelector('.msg-content');
+          if (contentDiv) {
+            contentDiv.textContent = updatedMsg.message || updatedMsg.text || '';
+          }
+        }
+      }
+    });
+
+    socket.on('TC_CHAT_CLEARED', () => {
+      const container = document.getElementById('chat-messages');
+      if (container) container.innerHTML = '';
+    });
+
+    socket.on('TC_ERROR', (err) => {
+      if (err && err.message) alert(err.message);
+    });
+
+    // === 5. TIMER CONTROLS ===
+    function checkTimerControlPermission() {
+      if (!isUserAdmin) {
+        alert('Akses Ditolak: Hanya pengguna terotorisasi yang dapat mengubah atau mengontrol timer.');
+        return false;
+      }
+      return true;
+    }
+
+    document.getElementById('btn-timer-start').addEventListener('click', () => {
+      if (!checkTimerControlPermission()) return;
+      socket.emit('TC_START_TIMER', {
+        userEmail: currentUser ? currentUser.email : ''
+      });
+    });
+
+    document.getElementById('btn-timer-pause').addEventListener('click', () => {
+      if (!checkTimerControlPermission()) return;
+      socket.emit('TC_PAUSE_TIMER', {
+        userEmail: currentUser ? currentUser.email : ''
+      });
+    });
+
+    document.getElementById('btn-timer-reset').addEventListener('click', () => {
+      if (!checkTimerControlPermission()) return;
+      socket.emit('TC_RESET_TIMER', {
+        userEmail: currentUser ? currentUser.email : ''
+      });
+    });
+
+    // Preset pills click
+    document.querySelectorAll('.preset-pill[data-sec]').forEach(pill => {
+      pill.addEventListener('click', () => {
+        if (!checkTimerControlPermission()) return;
+        const sec = parseInt(pill.dataset.sec, 10);
+        socket.emit('TC_SET_DURATION', {
+          durationSeconds: sec,
+          userEmail: currentUser ? currentUser.email : ''
+        });
+      });
+    });
+
+    // === 6. MODAL DURASI KUSTOM ELEGAN (Menggantikan window.prompt jelek) ===
+    const customDurationModal = document.getElementById('custom-duration-modal');
+    const customDurationInput = document.getElementById('custom-duration-input');
+    const btnCustomDuration = document.getElementById('btn-custom-duration');
+    const btnCloseDurationModal = document.getElementById('btn-close-duration-modal');
+    const btnCancelCustomDuration = document.getElementById('btn-cancel-custom-duration');
+    const btnConfirmCustomDuration = document.getElementById('btn-confirm-custom-duration');
+
+    function openCustomDurationModal() {
+      customDurationInput.value = '';
+      customDurationModal.classList.add('active');
+      setTimeout(() => customDurationInput.focus(), 150);
+    }
+
+    function closeCustomDurationModal() {
+      customDurationModal.classList.remove('active');
+    }
+
+    btnCustomDuration.addEventListener('click', openCustomDurationModal);
+    btnCloseDurationModal.addEventListener('click', closeCustomDurationModal);
+    btnCancelCustomDuration.addEventListener('click', closeCustomDurationModal);
+
+    function submitCustomDuration() {
+      const val = customDurationInput.value.trim();
+      if (!val) return;
+      let totalSec = 0;
+      if (val.toLowerCase().endsWith('m')) {
+        totalSec = parseInt(val, 10) * 60;
+      } else if (val.toLowerCase().endsWith('s')) {
+        totalSec = parseInt(val, 10);
+      } else {
+        totalSec = parseInt(val, 10) * 60;
+      }
+      if (totalSec > 0) {
+        socket.emit('TC_SET_DURATION', { durationSeconds: totalSec });
+        closeCustomDurationModal();
+      } else {
+        alert('Format durasi tidak valid. Gunakan format seperti 7m atau 45s.');
+      }
+    }
+
+    btnConfirmCustomDuration.addEventListener('click', submitCustomDuration);
+    customDurationInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') submitCustomDuration();
+      if (e.key === 'Escape') closeCustomDurationModal();
+    });
+
+    // === 7. CONTEXT MENU LOGIC ===
+    const timerCard = document.getElementById('timer-card');
+    const ctxMenu = document.getElementById('timer-context-menu');
+    const btnMobilePreset = document.getElementById('btn-mobile-preset');
+
+    function showContextMenu(x, y) {
+      const menuWidth = 220;
+      const menuHeight = 280;
+      const posX = Math.min(x, window.innerWidth - menuWidth - 10);
+      const posY = Math.min(y, window.innerHeight - menuHeight - 10);
+
+      ctxMenu.style.left = `${Math.max(10, posX)}px`;
+      ctxMenu.style.top = `${Math.max(10, posY)}px`;
+      ctxMenu.classList.add('active');
+    }
+
+    timerCard.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      showContextMenu(e.clientX, e.clientY);
+    });
+
+    btnMobilePreset.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const rect = btnMobilePreset.getBoundingClientRect();
+      showContextMenu(rect.left, rect.bottom + 6);
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!ctxMenu.contains(e.target) && e.target !== btnMobilePreset) {
+        ctxMenu.classList.remove('active');
+      }
+    });
+
+    ctxMenu.querySelectorAll('.context-item[data-sec]').forEach(item => {
+      item.addEventListener('click', () => {
+        const sec = parseInt(item.dataset.sec, 10);
+        socket.emit('TC_SET_DURATION', { durationSeconds: sec });
+        ctxMenu.classList.remove('active');
+      });
+    });
+
+    document.getElementById('ctx-custom').addEventListener('click', () => {
+      ctxMenu.classList.remove('active');
+      openCustomDurationModal();
+    });
+
+    // === 8. CHAT & FONT RESIZER ===
+    const fontResizerButtons = document.querySelectorAll('.btn-font-scale');
+    fontResizerButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        fontResizerButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.documentElement.style.setProperty('--chat-font-size', btn.dataset.size);
+      });
+    });
+
+    const chatForm = document.getElementById('chat-form');
+    const chatInput = document.getElementById('chat-input');
+    const chatContainer = document.getElementById('chat-messages');
+
+    // Guest vs Login elements
+    const guestNameBar = document.getElementById('guest-name-bar');
+    const guestNameInput = document.getElementById('guest-name-input');
+    const chatToolsGroup = document.getElementById('chat-tools-group');
+    const charLimitCount = document.getElementById('char-limit-count');
+    const cooldownIndicator = document.getElementById('cooldown-indicator');
+    const cooldownSecondsEl = document.getElementById('cooldown-seconds');
+    const btnSendChat = document.getElementById('btn-send-chat');
+
+    // Emoji, Sticker & Media elements
+    const btnOpenEmoji = document.getElementById('btn-open-emoji');
+    const btnOpenSticker = document.getElementById('btn-open-sticker');
+    const btnOpenMedia = document.getElementById('btn-open-media');
+    const emojiPickerPanel = document.getElementById('emoji-picker-panel');
+    const stickerPickerPanel = document.getElementById('sticker-picker-panel');
+    const emojiGridContainer = document.getElementById('emoji-grid-container');
+    const stickerGridContainer = document.getElementById('sticker-grid-container');
+    const btnCloseEmojiPicker = document.getElementById('btn-close-emoji-picker');
+    const btnCloseStickerPicker = document.getElementById('btn-close-sticker-picker');
+    const btnCreateSticker = document.getElementById('btn-create-sticker');
+    const chatFileInput = document.getElementById('chat-file-input');
+    const stickerFileInput = document.getElementById('sticker-file-input');
+
+    const mediaAttachmentPreview = document.getElementById('media-attachment-preview');
+    const mediaPreviewImg = document.getElementById('media-preview-img');
+    const mediaPreviewName = document.getElementById('media-preview-name');
+    const btnRemoveMedia = document.getElementById('btn-remove-media');
+
+    // State Variables
+    let currentAttachedMedia = null; // { url: base64/link, type: 'IMAGE' | 'STICKER', name: string }
+    let guestCooldownRemaining = 0;
+    let guestCooldownTimer = null;
+
+    // Restore guest name if saved
+    try {
+      const savedGuestName = localStorage.getItem('tc_guest_name');
+      if (savedGuestName && guestNameInput) {
+        guestNameInput.value = savedGuestName;
+      }
+    } catch (e) {}
+
+    if (guestNameInput) {
+      guestNameInput.addEventListener('input', () => {
+        try {
+          localStorage.setItem('tc_guest_name', guestNameInput.value.trim());
+        } catch (e) {}
+      });
+    }
+
+    // Update Chat Input Character Counter
+    function updateCharCounter() {
+      if (!chatInput || !charLimitCount) return;
+      const maxLen = currentUser ? 500 : 150;
+      const currentLen = chatInput.value.length;
+      charLimitCount.textContent = `${currentLen}/${maxLen}`;
+      if (currentLen >= maxLen) {
+        charLimitCount.style.color = '#ef4444';
+      } else {
+        charLimitCount.style.color = '';
+      }
+    }
+
+    chatInput.addEventListener('input', updateCharCounter);
+
+    // Apply Permissions based on Auth state
+    function updateChatPermissionUI() {
+      const isLoggedIn = !!currentUser;
+      if (isLoggedIn) {
+        // User Login: Full Access
+        if (guestNameBar) guestNameBar.style.display = 'none';
+        if (chatToolsGroup) {
+          chatToolsGroup.classList.remove('disabled');
+          chatToolsGroup.querySelectorAll('.btn-chat-tool').forEach(btn => {
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            btn.style.cursor = 'pointer';
+          });
+        }
+        chatInput.maxLength = 500;
+        chatInput.placeholder = 'Tulis pesan obrolan (opsional jika melampirkan media/sticker)...';
+        if (cooldownIndicator) cooldownIndicator.classList.remove('active');
+        if (guestCooldownTimer) {
+          clearInterval(guestCooldownTimer);
+          guestCooldownTimer = null;
+        }
+        btnSendChat.disabled = false;
+      } else {
+        // Guest (Belum Login): Chat Only, Name Required, 150 char limit, 15s cooldown
+        if (guestNameBar) guestNameBar.style.display = 'flex';
+        if (chatToolsGroup) {
+          chatToolsGroup.classList.add('disabled');
+          chatToolsGroup.querySelectorAll('.btn-chat-tool').forEach(btn => {
+            btn.disabled = true;
+            btn.style.opacity = '0.4';
+            btn.style.cursor = 'not-allowed';
+            btn.title = 'Fitur ini hanya untuk pengguna yang telah login';
+          });
+        }
+        chatInput.maxLength = 150;
+        chatInput.placeholder = 'Ketik pesan obrolan (maksimal 150 karakter)...';
+
+        // Tutup picker jika terbuka
+        if (emojiPickerPanel) emojiPickerPanel.classList.remove('active');
+        if (stickerPickerPanel) stickerPickerPanel.classList.remove('active');
+        clearAttachedMedia();
+      }
+      updateCharCounter();
+    }
+
+    // Populate Emojis
+    const EMOJI_LIST = [
+      '👍', '👏', '🔥', '🎉', '💡', '❤️', '🙌', '🚀', 
+      '😊', '🤝', '⭐', '💯', '✨', '🏆', '🎯', '💪',
+      '👀', '🙋‍♂️', '🙋‍♀️', '🙏', '⚡', '🌟', '🏅', '☕'
+    ];
+
+    if (emojiGridContainer) {
+      emojiGridContainer.innerHTML = '';
+      EMOJI_LIST.forEach(em => {
+        const item = document.createElement('div');
+        item.className = 'emoji-grid-item';
+        item.textContent = em;
+        item.addEventListener('click', () => {
+          chatInput.value += em;
+          chatInput.focus();
+          updateCharCounter();
+        });
+        emojiGridContainer.appendChild(item);
+      });
+    }
+
+    // Sticker Presets (Educamp, TPM & Quality Badges)
+    const PRESET_STICKERS = [
+      {
+        name: 'Educamp 2026',
+        url: '/images/Logo%20Educamp%202026.png'
+      },
+      {
+        name: 'Semangat Juara',
+        url: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120"><circle cx="60" cy="60" r="54" fill="%23f59e0b" stroke="%23b45309" stroke-width="6"/><text x="50%" y="45%" text-anchor="middle" font-size="34">🔥</text><text x="50%" y="75%" text-anchor="middle" font-family="sans-serif" font-weight="900" font-size="13" fill="%23ffffff">SEMANGAT!</text></svg>'
+      },
+      {
+        name: 'TPM Excellent',
+        url: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120"><rect x="10" y="10" width="100" height="100" rx="20" fill="%230284c7" stroke="%230369a1" stroke-width="6"/><text x="50%" y="48%" text-anchor="middle" font-size="32">🏆</text><text x="50%" y="78%" text-anchor="middle" font-family="sans-serif" font-weight="900" font-size="12" fill="%23ffffff">TPM EXCELLENT</text></svg>'
+      },
+      {
+        name: 'Good Job',
+        url: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120"><circle cx="60" cy="60" r="54" fill="%2310b981" stroke="%23047857" stroke-width="6"/><text x="50%" y="48%" text-anchor="middle" font-size="34">👏</text><text x="50%" y="78%" text-anchor="middle" font-family="sans-serif" font-weight="900" font-size="14" fill="%23ffffff">GOOD JOB!</text></svg>'
+      },
+      {
+        name: 'Question / Tanya',
+        url: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120"><circle cx="60" cy="60" r="54" fill="%236366f1" stroke="%234338ca" stroke-width="6"/><text x="50%" y="48%" text-anchor="middle" font-size="34">❓</text><text x="50%" y="78%" text-anchor="middle" font-family="sans-serif" font-weight="900" font-size="13" fill="%23ffffff">Q&amp;A SESI</text></svg>'
+      },
+      {
+        name: 'Zero Breakdown',
+        url: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120"><rect x="10" y="10" width="100" height="100" rx="20" fill="%23ef4444" stroke="%23b91c1c" stroke-width="6"/><text x="50%" y="48%" text-anchor="middle" font-size="32">🛡️</text><text x="50%" y="78%" text-anchor="middle" font-family="sans-serif" font-weight="900" font-size="11" fill="%23ffffff">ZERO BREAKDOWN</text></svg>'
+      }
+    ];
+
+    function getCustomStickers() {
+      try {
+        return JSON.parse(localStorage.getItem('tc_custom_stickers') || '[]');
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function saveCustomSticker(stk) {
+      try {
+        const list = getCustomStickers();
+        list.unshift(stk);
+        // Batasi maksimal 15 custom stickers per browser
+        if (list.length > 15) list.pop();
+        localStorage.setItem('tc_custom_stickers', JSON.stringify(list));
+      } catch (e) {}
+    }
+
+    function renderStickerGrid() {
+      if (!stickerGridContainer) return;
+      stickerGridContainer.innerHTML = '';
+      
+      const customList = getCustomStickers();
+      const allStickers = [...customList, ...PRESET_STICKERS];
+
+      allStickers.forEach(stk => {
+        const item = document.createElement('div');
+        item.className = 'sticker-grid-item';
+        item.innerHTML = `
+          <img src="${stk.url}" alt="${stk.name}" loading="lazy">
+          <span>${stk.name}</span>
+        `;
+        item.addEventListener('click', () => {
+          if (!currentUser) {
+            alert('Silakan login terlebih dahulu untuk mengirim sticker.');
+            return;
+          }
+          currentAttachedMedia = {
+            url: stk.url,
+            type: 'STICKER',
+            name: stk.name
+          };
+          renderMediaPreview();
+          if (stickerPickerPanel) stickerPickerPanel.classList.remove('active');
+        });
+        stickerGridContainer.appendChild(item);
+      });
+    }
+
+    renderStickerGrid();
+
+    // Trigger Bikin Sticker Sendiri (PNG / GIF Only)
+    if (btnCreateSticker) {
+      btnCreateSticker.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!currentUser) {
+          alert('Fitur Buat Sticker hanya tersedia bagi pengguna yang telah login.');
+          return;
+        }
+        if (stickerFileInput) stickerFileInput.click();
+      });
+    }
+
+    // Helper: Resize & Crop Sticker ke Ukuran Kecil (Max 160x160 px, PNG / GIF Only)
+    function processStickerFile(file) {
+      return new Promise((resolve, reject) => {
+        const validTypes = ['image/png', 'image/gif'];
+        if (!validTypes.includes(file.type)) {
+          return reject(new Error('Format stiker hanya diperbolehkan file PNG atau GIF transparan!'));
+        }
+
+        // Jika GIF animasi, pertahankan format dan batasi ukuran file maksimal 1 MB
+        if (file.type === 'image/gif') {
+          if (file.size > 1.5 * 1024 * 1024) {
+            return reject(new Error('Ukuran file GIF animasi maksimal 1.5 MB agar ringan.'));
+          }
+          const reader = new FileReader();
+          reader.onload = (e) => resolve({ dataUrl: e.target.result, name: file.name.replace(/\.[^/.]+$/, '') });
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+          return;
+        }
+
+        // Jika PNG, lakukan kompresi & resize ke dimensi stiker kecil (maks 160x160 px)
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            const maxDim = 160;
+            let width = img.width;
+            let height = img.height;
+
+            if (width > maxDim || height > maxDim) {
+              if (width > height) {
+                height = Math.round((height * maxDim) / width);
+                width = maxDim;
+              } else {
+                width = Math.round((width * maxDim) / height);
+                height = maxDim;
+              }
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(img, 0, 0, width, height);
+
+            const pngDataUrl = canvas.toDataURL('image/png');
+            resolve({
+              dataUrl: pngDataUrl,
+              name: file.name.replace(/\.[^/.]+$/, '')
+            });
+          };
+          img.onerror = reject;
+          img.src = e.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    if (stickerFileInput) {
+      stickerFileInput.addEventListener('change', async () => {
+        const file = stickerFileInput.files[0];
+        if (!file) return;
+
+        try {
+          const result = await processStickerFile(file);
+          const newStk = {
+            name: result.name || 'Custom Sticker',
+            url: result.dataUrl
+          };
+          saveCustomSticker(newStk);
+          renderStickerGrid();
+
+          // Otomatis attach sticker yang baru dibuat
+          currentAttachedMedia = {
+            url: newStk.url,
+            type: 'STICKER',
+            name: newStk.name
+          };
+          renderMediaPreview();
+          if (stickerPickerPanel) stickerPickerPanel.classList.remove('active');
+          stickerFileInput.value = '';
+        } catch (err) {
+          alert(err.message);
+          stickerFileInput.value = '';
+        }
+      });
+    }
+
+    // Toggle Panels
+    if (btnOpenEmoji) {
+      btnOpenEmoji.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!currentUser) {
+          alert('Emoji picker hanya tersedia bagi pengguna yang telah login.');
+          return;
+        }
+        if (stickerPickerPanel) stickerPickerPanel.classList.remove('active');
+        if (emojiPickerPanel) emojiPickerPanel.classList.toggle('active');
+      });
+    }
+
+    if (btnOpenSticker) {
+      btnOpenSticker.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!currentUser) {
+          alert('Fitur Sticker hanya tersedia bagi pengguna yang telah login.');
+          return;
+        }
+        if (emojiPickerPanel) emojiPickerPanel.classList.remove('active');
+        if (stickerPickerPanel) stickerPickerPanel.classList.toggle('active');
+      });
+    }
+
+    if (btnOpenMedia) {
+      btnOpenMedia.addEventListener('click', () => {
+        if (!currentUser) {
+          alert('Fitur unggah media hanya tersedia bagi pengguna yang telah login.');
+          return;
+        }
+        chatFileInput.click();
+      });
+    }
+
+    if (btnCloseEmojiPicker) {
+      btnCloseEmojiPicker.addEventListener('click', () => emojiPickerPanel.classList.remove('active'));
+    }
+    if (btnCloseStickerPicker) {
+      btnCloseStickerPicker.addEventListener('click', () => stickerPickerPanel.classList.remove('active'));
+    }
+
+    // Close pickers on click outside
+    document.addEventListener('click', (e) => {
+      if (emojiPickerPanel && emojiPickerPanel.classList.contains('active') && !emojiPickerPanel.contains(e.target) && e.target !== btnOpenEmoji) {
+        emojiPickerPanel.classList.remove('active');
+      }
+      if (stickerPickerPanel && stickerPickerPanel.classList.contains('active') && !stickerPickerPanel.contains(e.target) && e.target !== btnOpenSticker) {
+        stickerPickerPanel.classList.remove('active');
+      }
+    });
+
+    // Helper: Kompresi Gambar Otomatis (Full Client-side Canvas Compression)
+    function compressImageFile(file, maxWidth = 1200, maxHeight = 1200, quality = 0.75) {
+      return new Promise((resolve, reject) => {
+        // GIF dibiarkan agar animasinya tidak hilang
+        if (file.type === 'image/gif') {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve({ dataUrl: e.target.result, size: file.size });
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            let width = img.width;
+            let height = img.height;
+
+            if (width > maxWidth || height > maxHeight) {
+              if (width / height > maxWidth / maxHeight) {
+                height = Math.round((height * maxWidth) / width);
+                width = maxWidth;
+              } else {
+                width = Math.round((width * maxHeight) / height);
+                height = maxHeight;
+              }
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(img, 0, 0, width, height);
+
+            const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+            resolve({ dataUrl: compressedDataUrl, width, height });
+          };
+          img.onerror = reject;
+          img.src = e.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // Handle Media File Selection (Kompresi Otomatis sebelum attach)
+    if (chatFileInput) {
+      chatFileInput.addEventListener('change', async () => {
+        const file = chatFileInput.files[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+          alert('Hanya file gambar yang diizinkan (PNG, JPG, WebP, GIF).');
+          chatFileInput.value = '';
+          return;
+        }
+
+        if (file.size > 10 * 1024 * 1024) {
+          alert('Ukuran file asli melebihi batas maksimal 10 MB.');
+          chatFileInput.value = '';
+          return;
+        }
+
+        try {
+          const compressed = await compressImageFile(file);
+          currentAttachedMedia = {
+            url: compressed.dataUrl,
+            type: 'IMAGE',
+            name: file.name
+          };
+          renderMediaPreview();
+        } catch (err) {
+          console.error('Gagal mengompresi gambar:', err);
+          alert('Gagal memproses gambar: ' + err.message);
+        }
+      });
+    }
+
+    // Handle Clipboard Paste Image (Ctrl+V / Paste gambar langsung ke chat)
+    document.addEventListener('paste', async (e) => {
+      const items = (e.clipboardData || e.originalEvent?.clipboardData)?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.type.indexOf('image') !== -1) {
+          e.preventDefault();
+
+          if (!currentUser) {
+            alert('Fitur lampiran gambar hanya tersedia bagi pengguna yang telah login.');
+            return;
+          }
+
+          const file = item.getAsFile();
+          if (!file) return;
+
+          try {
+            const compressed = await compressImageFile(file);
+            currentAttachedMedia = {
+              url: compressed.dataUrl,
+              type: 'IMAGE',
+              name: `Pasted_Image_${Date.now()}.jpg`
+            };
+            renderMediaPreview();
+            if (chatInput) chatInput.focus();
+          } catch (err) {
+            console.error('Gagal memproses gambar dari clipboard:', err);
+            alert('Gagal memproses gambar dari clipboard: ' + err.message);
+          }
+          break;
+        }
+      }
+    });
+
+    function renderMediaPreview() {
+      if (!mediaAttachmentPreview) return;
+      if (currentAttachedMedia) {
+        mediaPreviewImg.src = currentAttachedMedia.url;
+        mediaPreviewName.textContent = currentAttachedMedia.name || 'Lampiran Gambar';
+        mediaAttachmentPreview.classList.add('active');
+      } else {
+        mediaAttachmentPreview.classList.remove('active');
+        mediaPreviewImg.src = '';
+        mediaPreviewName.textContent = '';
+      }
+    }
+
+    function clearAttachedMedia() {
+      currentAttachedMedia = null;
+      if (chatFileInput) chatFileInput.value = '';
+      renderMediaPreview();
+    }
+
+    if (btnRemoveMedia) {
+      btnRemoveMedia.addEventListener('click', clearAttachedMedia);
+    }
+
+    // Cooldown Timer Logic for Guests (15s)
+    function startGuestCooldown() {
+      guestCooldownRemaining = 15;
+      if (cooldownIndicator) cooldownIndicator.classList.add('active');
+      if (cooldownSecondsEl) cooldownSecondsEl.textContent = guestCooldownRemaining;
+      if (btnSendChat) btnSendChat.disabled = true;
+
+      if (guestCooldownTimer) clearInterval(guestCooldownTimer);
+      guestCooldownTimer = setInterval(() => {
+        guestCooldownRemaining--;
+        if (cooldownSecondsEl) cooldownSecondsEl.textContent = guestCooldownRemaining;
+        if (guestCooldownRemaining <= 0) {
+          clearInterval(guestCooldownTimer);
+          guestCooldownTimer = null;
+          if (cooldownIndicator) cooldownIndicator.classList.remove('active');
+          if (btnSendChat) btnSendChat.disabled = false;
+        }
+      }, 1000);
+    }
+
+    chatInput.addEventListener('focus', () => {
+      setTimeout(() => {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+        chatInput.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 300);
+    });
+
+    chatForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+
+      const text = chatInput.value.trim();
+      const hasMedia = !!currentAttachedMedia;
+
+      if (!text && !hasMedia) return;
+
+      // 1. Validasi Guest (Non-Login)
+      if (!currentUser) {
+        const guestName = guestNameInput ? guestNameInput.value.trim() : '';
+        if (!guestName) {
+          alert('Mohon isi nama Anda di kolom nama terlebih dahulu sebelum mengirim pesan!');
+          if (guestNameInput) guestNameInput.focus();
+          return;
+        }
+        if (guestCooldownRemaining > 0) {
+          alert(`Mohon tunggu ${guestCooldownRemaining} detik lagi sebelum mengirim pesan berikutnya.`);
+          return;
+        }
+      }
+
+      // 2. Siapkan Payload
+      const guestName = guestNameInput ? guestNameInput.value.trim() : 'Peserta';
+      const payload = {
+        eventId: currentActiveEvent ? currentActiveEvent.id : null,
+        userName: currentUser ? currentUser.displayName : (guestName || 'Peserta'),
+        userEmail: currentUser ? currentUser.email : '',
+        userPhoto: currentUser ? currentUser.photoURL : null,
+        role: isUserAdmin ? 'ADMIN' : (currentUser ? 'USER' : 'AUDIENCE'),
+        message: text,
+        text: text,
+        mediaUrl: currentAttachedMedia ? currentAttachedMedia.url : null,
+        mediaType: currentAttachedMedia ? currentAttachedMedia.type : null
+      };
+
+      socket.emit('TC_SEND_MESSAGE', payload);
+
+      // 3. Reset Input
+      chatInput.value = '';
+      clearAttachedMedia();
+      updateCharCounter();
+
+      // 4. Guest 15s Cooldown Activation
+      if (!currentUser) {
+        startGuestCooldown();
+      }
+    });
+
+    function renderChatMessages(messages) {
+      if (!chatContainer) return;
+      chatContainer.innerHTML = '';
+      messages.forEach(msg => appendChatMessage(msg));
+    }
+
+    function appendChatMessage(msg, isNew = false) {
+      if (!chatContainer) return;
+
+      // Handle Sesi Separator Khusus
+      if (msg.isSeparator) {
+        const sep = document.createElement('div');
+        sep.className = 'chat-session-separator';
+        sep.dataset.msgId = msg.id;
+        sep.innerHTML = `
+          <div class="separator-badge">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            <span class="sep-text">${escapeHtml(msg.sessionTitle || msg.message || 'Sesi Baru')}</span>
+            <div class="sep-actions">
+              <button class="btn-sep-action edit" title="Ubah nama separator" data-sep-id="${msg.id}">✎</button>
+              <button class="btn-sep-action del" title="Hapus separator ini" data-sep-id="${msg.id}">&times;</button>
+            </div>
+          </div>
+        `;
+
+        // Separator Edit button
+        const btnEditSep = sep.querySelector('.btn-sep-action.edit');
+        if (btnEditSep) {
+          btnEditSep.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openEditSeparatorModal(msg);
+          });
+        }
+
+        // Separator Delete button
+        const btnDelSep = sep.querySelector('.btn-sep-action.del');
+        if (btnDelSep) {
+          btnDelSep.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const ok = await showConfirmDialog({
+              title: 'Hapus Separator Sesi',
+              message: `Apakah Anda yakin ingin menghapus separator "${msg.sessionTitle || msg.message || 'Sesi'}" dari obrolan?`,
+              confirmText: 'Hapus Separator'
+            });
+            if (ok) {
+              socket.emit('TC_DELETE_MESSAGE', {
+                messageId: msg.id,
+                eventId: currentActiveEvent ? currentActiveEvent.id : null,
+                requesterEmail: currentUser ? currentUser.email : '',
+                requesterName: currentUser ? currentUser.displayName : 'Operator',
+                isAdmin: isUserAdmin
+              });
+            }
+          });
+        }
+
+        chatContainer.appendChild(sep);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+        return;
+      }
+
+      const row = document.createElement('div');
+      row.className = 'chat-message-row';
+      row.dataset.msgId = msg.id;
+
+      const initialChar = (msg.userName ? msg.userName.charAt(0).toUpperCase() : 'O');
+      const photoSrc = msg.userPhoto || msg.photoURL;
+      const avatarHtml = photoSrc
+        ? `<img src="${photoSrc}" alt="${msg.userName || 'User'}" referrerpolicy="no-referrer" loading="lazy" onerror="this.onerror=null; this.parentElement.textContent='${initialChar}';">`
+        : initialChar;
+
+      const isOperator = !msg.userEmail || msg.role === 'ADMIN';
+
+      const guestInputVal = (guestNameInput && guestNameInput.value.trim()) || localStorage.getItem('tc_guest_name') || '';
+      const isSender = (currentUser && currentUser.email && msg.email && currentUser.email.toLowerCase() === msg.email.toLowerCase()) ||
+                       (!currentUser && !msg.email && guestInputVal && msg.userName.toLowerCase() === guestInputVal.toLowerCase()) ||
+                       (!currentUser && !msg.email && !guestInputVal && msg.userName === 'Operator') ||
+                       (currentUser && !msg.email && currentUser.displayName === msg.userName);
+
+      const canDelete = isSender || isUserAdmin;
+
+      if (isSender) {
+        row.classList.add('is-own-message');
+      }
+
+      const deleteBtnHtml = canDelete
+        ? `<button class="btn-msg-delete" title="Hapus pesan ini" data-msg-id="${msg.id}">&times;</button>`
+        : '';
+
+      let mediaHtml = '';
+      if (msg.mediaUrl) {
+        if (msg.mediaType === 'STICKER') {
+          mediaHtml = `<div class="msg-sticker-wrapper"><img src="${msg.mediaUrl}" class="msg-sticker-attachment" alt="Sticker" loading="lazy"></div>`;
+        } else {
+          mediaHtml = `
+            <div class="msg-media-attachment" title="Klik untuk membuka gambar ukuran penuh">
+              <img src="${msg.mediaUrl}" alt="Media Chat" onclick="window.open(this.src, '_blank')" loading="lazy">
+            </div>
+          `;
+        }
+      }
+
+      const textHtml = (msg.message || msg.text) ? `<div class="msg-content">${escapeHtml(msg.message || msg.text || '')}</div>` : '';
+
+      row.innerHTML = `
+        <div class="msg-avatar">${avatarHtml}</div>
+        <div class="msg-body">
+          <div class="msg-meta">
+            <div class="msg-meta-left">
+              <span class="msg-author ${isOperator ? 'operator' : ''}">${escapeHtml(msg.userName || 'Peserta')}</span>
+              <span class="msg-time">${msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</span>
+            </div>
+            ${deleteBtnHtml}
+          </div>
+          ${textHtml}
+          ${mediaHtml}
+        </div>
+      `;
+
+      if (canDelete) {
+        const delBtn = row.querySelector('.btn-msg-delete');
+        if (delBtn) {
+          delBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const ok = await showConfirmDialog({
+              title: 'Hapus Pesan Obrolan',
+              message: 'Apakah Anda yakin ingin menghapus pesan obrolan ini?',
+              confirmText: 'Hapus Pesan'
+            });
+            if (ok) {
+              socket.emit('TC_DELETE_MESSAGE', {
+                messageId: msg.id,
+                eventId: currentActiveEvent ? currentActiveEvent.id : null,
+                requesterEmail: currentUser ? currentUser.email : '',
+                requesterName: currentUser ? currentUser.displayName : 'Operator',
+                isAdmin: isUserAdmin
+              });
+            }
+          });
+        }
+      }
+
+      chatContainer.appendChild(row);
+      
+      // Auto-scroll ke pesan terbaru dengan timeout agar rendering layout & font scale tuntas
+      setTimeout(() => {
+        chatContainer.scrollTop = chatContainer.scrollHeight + 120;
+        row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 50);
+
+      // Jika pesan baru yang masuk (live), tandai highlight NEW
+      if (isNew) {
+        markMessageAsNew(row, msg.id);
+      }
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text || '';
+      return div.innerHTML;
+    }
+
+    // === 9. MULTI-EVENT MANAGEMENT MODAL (TAMPILAN RAPI DENGAN BUTTON PROPORSI) ===
+    const eventModal = document.getElementById('event-modal');
+    const btnOpenEventModal = document.getElementById('btn-open-event-modal');
+    const btnCloseEventModal = document.getElementById('btn-close-event-modal');
+    const modalEventList = document.getElementById('modal-event-list');
+    const currentEventLabel = document.getElementById('current-event-label');
+    const chatHeaderEvent = document.getElementById('chat-header-event');
+
+    btnOpenEventModal.addEventListener('click', async () => {
+      await loadEventsIntoModal();
+      eventModal.classList.add('active');
+    });
+
+    btnCloseEventModal.addEventListener('click', () => {
+      eventModal.classList.remove('active');
+    });
+
+    async function loadEventsIntoModal() {
+      try {
+        const res = await fetch('/api/timer-chat/events');
+        const data = await res.json();
+        modalEventList.innerHTML = '';
+        data.events.forEach(evt => {
+          const isActive = data.activeEvent && data.activeEvent.id === evt.id;
+          const item = document.createElement('div');
+          item.className = `event-item ${isActive ? 'active' : ''}`;
+          item.innerHTML = `
+            <div class="event-item-info">
+              <strong class="event-item-title">${escapeHtml(evt.name)}</strong>
+              <div class="event-item-meta">Tanggal: ${evt.date || '-'}</div>
+            </div>
+            <button class="btn-select-event">${isActive ? 'Aktif' : 'Pilih'}</button>
+          `;
+          item.addEventListener('click', () => {
+            selectEvent(evt.id);
+          });
+          modalEventList.appendChild(item);
+        });
+      } catch (err) {
+        console.error('Gagal memuat events', err);
+      }
+    }
+
+    async function selectEvent(eventId) {
+      socket.emit('TC_SELECT_EVENT', { eventId });
+      eventModal.classList.remove('active');
+    }
+
+    function updateEventLabels(event) {
+      if (!event) return;
+      currentEventLabel.textContent = event.name;
+      chatHeaderEvent.textContent = `Event: ${event.name}`;
+    }
+
+    document.getElementById('btn-submit-new-event').addEventListener('click', async () => {
+      const nameInput = document.getElementById('new-event-name');
+      const dateInput = document.getElementById('new-event-date');
+      const name = nameInput.value.trim();
+      const date = dateInput.value;
+      if (!name) return alert('Nama acara wajib diisi!');
+
+      try {
+        const res = await fetch('/api/timer-chat/events', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, date })
+        });
+        const result = await res.json();
+        if (result.success) {
+          nameInput.value = '';
+          dateInput.value = '';
+          await loadEventsIntoModal();
+        }
+      } catch (err) {
+        alert('Gagal membuat acara: ' + err.message);
+      }
+    });
+
+    // === 10. FIREBASE GOOGLE AUTH & ROLE VERIFICATION ===
+    async function initFirebaseAuth() {
+      try {
+        const res = await fetch('/api/auth/firebase-config');
+        const config = await res.json();
+        if (config && config.apiKey) {
+          if (!firebase.apps.length) {
+            firebase.initializeApp(config);
+          }
+          const auth = firebase.auth();
+
+          auth.onAuthStateChanged(async (user) => {
+            currentUser = user;
+            if (user && user.email) {
+              try {
+                const roleRes = await fetch(`/api/auth/status?email=${encodeURIComponent(user.email)}`);
+                const roleData = await roleRes.json();
+                isUserAdmin = !!(roleData && (roleData.role === 'SUPER_ADMIN' || roleData.role === 'ADMIN' || roleData.role === 'GAME_MASTER' || roleData.isOwner));
+                isSuperAdmin = !!(roleData && (roleData.role === 'SUPER_ADMIN' || roleData.isOwner));
+              } catch (e) {
+                isUserAdmin = false;
+                isSuperAdmin = false;
+              }
+            } else {
+              isUserAdmin = false;
+              isSuperAdmin = false;
+            }
+            renderAuthUI(user);
+            updateChatPermissionUI();
+            updateTimerPermissionUI();
+            if (chatContainer && chatContainer.children.length > 0) {
+              socket.emit('TC_TIME_SYNC');
+            }
+          });
+
+          document.getElementById('btn-google-login').addEventListener('click', () => {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider).catch(err => {
+              console.error('Login error', err);
+              alert('Gagal login Google: ' + err.message);
+            });
+          });
+        }
+      } catch (err) {
+        console.warn('Firebase config fetch skipped or failed', err);
+      }
+    }
+
+    function renderAuthUI(user) {
+      const authBox = document.getElementById('auth-box');
+      if (!authBox) return;
+      if (user) {
+        authBox.innerHTML = `
+          <div class="user-profile">
+            <img src="${user.photoURL || '/images/Logo%20Educamp%202026.png'}" alt="${user.displayName || 'User'}" referrerpolicy="no-referrer" onerror="this.onerror=null; this.src='/images/Logo%20Educamp%202026.png';">
+            <span class="user-name-label">${user.displayName || user.email}</span>
+            ${isUserAdmin ? '<span class="admin-badge-indicator" title="Admin Moderator">ADMIN</span>' : ''}
+            <button class="btn-logout" id="btn-logout" title="Keluar">⎋</button>
+          </div>
+        `;
+        document.getElementById('btn-logout').addEventListener('click', () => {
+          firebase.auth().signOut();
+        });
+      } else {
+        authBox.innerHTML = `
+          <button class="btn-google-login" id="btn-google-login">
+            <svg width="12" height="12" viewBox="0 0 24 24"><path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.7 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.3 9 5 12 5z"/><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.6h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.9z"/><path fill="#FBBC05" d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3s.2-1.6.4-2.3L1.9 7.3C.7 9.7 0 12.3 0 15s.7 5.3 1.9 7.7l3.7-2.9z"/><path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.3-6.4-5.2L1.9 16C3.7 19.7 7.5 23 12 23z"/></svg>
+            Login
+          </button>
+        `;
+        document.getElementById('btn-google-login').addEventListener('click', () => {
+          const provider = new firebase.auth.GoogleAuthProvider();
+          firebase.auth().signInWithPopup(provider);
+        });
+      }
+    }
+
+    // === 11. MODAL KONFIRMASI CUSTOM ELEGAN (Pengganti confirm / prompt jelek) ===
+    const confirmModal = document.getElementById('confirm-dialog-modal');
+    const confirmModalTitle = document.getElementById('confirm-modal-title');
+    const confirmModalMessage = document.getElementById('confirm-modal-message');
+    const btnCloseConfirmModal = document.getElementById('btn-close-confirm-modal');
+    const btnCancelConfirm = document.getElementById('btn-cancel-confirm');
+    const btnAcceptConfirm = document.getElementById('btn-accept-confirm');
+    let onConfirmAcceptCallback = null;
+
+    function showConfirmDialog({ title = 'Konfirmasi Tindakan', message = 'Apakah Anda yakin?', confirmText = 'Hapus' }) {
+      return new Promise((resolve) => {
+        if (!confirmModal) {
+          resolve(window.confirm(message));
+          return;
+        }
+
+        confirmModalTitle.textContent = title;
+        confirmModalMessage.textContent = message;
+        btnAcceptConfirm.textContent = confirmText;
+
+        onConfirmAcceptCallback = () => {
+          closeConfirmDialog();
+          resolve(true);
+        };
+
+        const onCancel = () => {
+          closeConfirmDialog();
+          resolve(false);
+        };
+
+        btnAcceptConfirm.onclick = onConfirmAcceptCallback;
+        btnCancelConfirm.onclick = onCancel;
+        btnCloseConfirmModal.onclick = onCancel;
+
+        const onKeyDown = (e) => {
+          if (e.key === 'Escape') {
+            document.removeEventListener('keydown', onKeyDown);
+            onCancel();
+          } else if (e.key === 'Enter') {
+            document.removeEventListener('keydown', onKeyDown);
+            onConfirmAcceptCallback();
+          }
+        };
+        document.addEventListener('keydown', onKeyDown);
+
+        confirmModal.classList.add('active');
+      });
+    }
+
+    function closeConfirmDialog() {
+      if (confirmModal) confirmModal.classList.remove('active');
+    }
+
+    // === 12. MODAL EDIT SEPARATOR SESI CHAT ===
+    const sepModal = document.getElementById('separator-edit-modal');
+    const editSepMsgId = document.getElementById('edit-sep-msg-id');
+    const editSepTitle = document.getElementById('edit-sep-title');
+    const btnCloseSepModal = document.getElementById('btn-close-sep-modal');
+    const btnCancelSepModal = document.getElementById('btn-cancel-sep-modal');
+    const btnSaveSepModal = document.getElementById('btn-save-sep-modal');
+
+    function openEditSeparatorModal(msg) {
+      if (!sepModal) return;
+      editSepMsgId.value = msg.id;
+      editSepTitle.value = msg.sessionTitle || msg.message || '';
+      sepModal.classList.add('active');
+      setTimeout(() => editSepTitle.focus(), 150);
+    }
+
+    function closeEditSeparatorModal() {
+      if (sepModal) sepModal.classList.remove('active');
+    }
+
+    if (btnCloseSepModal) btnCloseSepModal.addEventListener('click', closeEditSeparatorModal);
+    if (btnCancelSepModal) btnCancelSepModal.addEventListener('click', closeEditSeparatorModal);
+
+    if (btnSaveSepModal) {
+      btnSaveSepModal.addEventListener('click', () => {
+        const msgId = editSepMsgId.value;
+        const newTitle = editSepTitle.value.trim();
+        if (!newTitle) {
+          alert('Judul sesi separator tidak boleh kosong.');
+          return;
+        }
+
+        socket.emit('TC_UPDATE_MESSAGE', {
+          messageId: msgId,
+          sessionTitle: newTitle,
+          text: newTitle,
+          eventId: currentActiveEvent ? currentActiveEvent.id : null,
+          requesterEmail: currentUser ? currentUser.email : '',
+          requesterName: currentUser ? currentUser.displayName : 'Operator',
+          isAdmin: isUserAdmin
+        });
+
+        closeEditSeparatorModal();
+      });
+    }
+
+    // === 12. DRAGGABLE SPLIT RESIZER FOR STUDIO WORKSPACE ===
+    function initDraggableWorkspace() {
+      const workspace = document.querySelector('.studio-workspace');
+      const gutter = document.getElementById('gutter-resizer');
+      if (!workspace || !gutter) return;
+
+      // Restore saved split preference
+      try {
+        const savedSplit = localStorage.getItem('tc_studio_split');
+        if (savedSplit && parseFloat(savedSplit) >= 25 && parseFloat(savedSplit) <= 75) {
+          workspace.style.setProperty('--split-left', `${savedSplit}%`);
+        }
+      } catch (e) {}
+
+      let isDragging = false;
+
+      function onMouseDown(e) {
+        if (window.innerWidth <= 920) return; // Nonaktif di mobile view
+        isDragging = true;
+        workspace.classList.add('is-resizing');
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+      }
+
+      function onMouseMove(e) {
+        if (!isDragging) return;
+        const rect = workspace.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const offsetLeft = clientX - rect.left;
+        let percentage = (offsetLeft / rect.width) * 100;
+
+        // Batasi range proporsi antara 30% dan 75%
+        if (percentage < 30) percentage = 30;
+        if (percentage > 75) percentage = 75;
+
+        workspace.style.setProperty('--split-left', `${percentage.toFixed(2)}%`);
+      }
+
+      function onMouseUp() {
+        if (!isDragging) return;
+        isDragging = false;
+        workspace.classList.remove('is-resizing');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+
+        try {
+          const currentSplit = workspace.style.getPropertyValue('--split-left');
+          if (currentSplit) {
+            localStorage.setItem('tc_studio_split', parseFloat(currentSplit));
+          }
+        } catch (e) {}
+      }
+
+      gutter.addEventListener('mousedown', onMouseDown);
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+
+      gutter.addEventListener('touchstart', onMouseDown, { passive: true });
+      window.addEventListener('touchmove', onMouseMove, { passive: true });
+      window.addEventListener('touchend', onMouseUp);
+    }
+
+    initDraggableWorkspace();
+
+    // === 13. THEME & BACKGROUND SWITCHER (LIGHT / DARK / OLED) ===
+    function initThemeSwitcher() {
+      const btnTheme = document.getElementById('btn-theme-switcher');
+      const themeMenu = document.getElementById('theme-dropdown-menu');
+      const themeLabel = document.getElementById('theme-label-indicator');
+      const themeIcon = document.getElementById('theme-icon-indicator');
+      if (!btnTheme || !themeMenu) return;
+
+      const THEMES = {
+        dark: {
+          label: 'Dark',
+          iconSvg: '<path d="M12 3a9 9 0 109 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 01-4.4 2.26 5.403 5.403 0 01-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/>'
+        },
+        light: {
+          label: 'Light',
+          iconSvg: '<path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0s-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0s-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41s-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41s-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/>'
+        },
+        oled: {
+          label: 'OLED',
+          iconSvg: '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/>'
+        }
+      };
+
+      function applyTheme(themeKey) {
+        const theme = THEMES[themeKey] ? themeKey : 'dark';
+        if (theme === 'dark') {
+          document.documentElement.removeAttribute('data-theme');
+        } else {
+          document.documentElement.setAttribute('data-theme', theme);
+        }
+
+        if (themeLabel) themeLabel.textContent = THEMES[theme].label;
+        if (themeIcon) themeIcon.innerHTML = THEMES[theme].iconSvg;
+
+        themeMenu.querySelectorAll('.theme-menu-item').forEach(item => {
+          if (item.dataset.theme === theme) {
+            item.classList.add('active');
+          } else {
+            item.classList.remove('active');
+          }
+        });
+
+        try {
+          localStorage.setItem('tc_app_theme', theme);
+        } catch (e) {}
+      }
+
+      // Restore stored theme
+      try {
+        const savedTheme = localStorage.getItem('tc_app_theme') || 'dark';
+        applyTheme(savedTheme);
+      } catch (e) {
+        applyTheme('dark');
+      }
+
+      btnTheme.addEventListener('click', (e) => {
+        e.stopPropagation();
+        themeMenu.classList.toggle('active');
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!themeMenu.contains(e.target) && e.target !== btnTheme) {
+          themeMenu.classList.remove('active');
+        }
+      });
+
+      themeMenu.querySelectorAll('.theme-menu-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const selected = item.dataset.theme;
+          applyTheme(selected);
+          themeMenu.classList.remove('active');
+        });
+      });
+    }
+
+    // === 14. ANTI-DISTRACTION (FOCUS MODE) CONTROLLER ===
+    function initFocusMode() {
+      const btnFocus = document.getElementById('btn-focus-mode');
+      const focusLabel = document.getElementById('focus-mode-label');
+      if (!btnFocus) return;
+
+      function setFocusState(isActive) {
+        if (isActive) {
+          document.body.classList.add('focus-mode-active');
+          btnFocus.classList.add('active');
+          if (focusLabel) focusLabel.textContent = 'Fokus ON';
+        } else {
+          document.body.classList.remove('focus-mode-active');
+          btnFocus.classList.remove('active');
+          if (focusLabel) focusLabel.textContent = 'Fokus';
+        }
+        try {
+          localStorage.setItem('tc_focus_mode', isActive ? 'true' : 'false');
+        } catch (e) {}
+      }
+
+      // Restore saved focus preference
+      try {
+        const savedFocus = localStorage.getItem('tc_focus_mode') === 'true';
+        setFocusState(savedFocus);
+      } catch (e) {
+        setFocusState(false);
+      }
+
+      btnFocus.addEventListener('click', () => {
+        const isCurrentlyActive = document.body.classList.contains('focus-mode-active');
+        setFocusState(!isCurrentlyActive);
+      });
+
+      // Delegated click pada media masking agar bisa di-unmask sementara jika diklik
+      if (chatContainer) {
+        chatContainer.addEventListener('click', (e) => {
+          if (!document.body.classList.contains('focus-mode-active')) return;
+          const maskTarget = e.target.closest('.msg-media-attachment, .msg-sticker-wrapper');
+          if (maskTarget) {
+            maskTarget.classList.toggle('revealed');
+          }
+        });
+      }
+    }
+
+    // === 15. NEW CHAT HIGHLIGHT QUEUE (MAX 3 ITEMS, CONFIGURABLE TIMER) ===
+    // Queue menyimpan array { msgId: string, element: HTMLElement, timer: TimeoutID, badgeEl: HTMLElement }
+    const newChatQueue = [];
+    let highlightDurationSec = 30;
+
+    try {
+      const savedDuration = localStorage.getItem('tc_highlight_duration_sec');
+      if (savedDuration && !isNaN(savedDuration)) {
+        highlightDurationSec = Math.max(5, Math.min(300, parseInt(savedDuration, 10)));
+      }
+    } catch (e) {}
+
+    const cfgHighlightDurationInput = document.getElementById('cfg-highlight-duration');
+    if (cfgHighlightDurationInput) {
+      cfgHighlightDurationInput.value = highlightDurationSec;
+      cfgHighlightDurationInput.addEventListener('change', () => {
+        let val = parseInt(cfgHighlightDurationInput.value, 10);
+        if (isNaN(val) || val < 5) val = 5;
+        if (val > 300) val = 300;
+        highlightDurationSec = val;
+        cfgHighlightDurationInput.value = val;
+        try {
+          localStorage.setItem('tc_highlight_duration_sec', val);
+        } catch (e) {}
+      });
+    }
+
+    function markMessageAsNew(rowElement, msgId) {
+      if (!rowElement) return;
+
+      // 1. Jika queue sudah 3 item, hapus highlight item tertua lebih awal
+      while (newChatQueue.length >= 3) {
+        const oldest = newChatQueue.shift();
+        removeNewHighlight(oldest);
+      }
+
+      // 2. Pasang class highlight dan badge 'NEW'
+      rowElement.classList.add('is-new-chat');
+      const metaLeft = rowElement.querySelector('.msg-meta-left');
+      let badge = null;
+      if (metaLeft && !metaLeft.querySelector('.badge-new-chat')) {
+        badge = document.createElement('span');
+        badge.className = 'badge-new-chat';
+        badge.textContent = 'NEW';
+        metaLeft.appendChild(badge);
+      }
+
+      // 3. Set timer otomatis sesuai konfigurasi admin untuk menghapus highlight
+      const durationMs = highlightDurationSec * 1000;
+      const timer = setTimeout(() => {
+        const idx = newChatQueue.findIndex(item => item.msgId === msgId);
+        if (idx !== -1) {
+          const [removed] = newChatQueue.splice(idx, 1);
+          removeNewHighlight(removed);
+        }
+      }, durationMs);
+
+      // 4. Catat ke queue
+      newChatQueue.push({
+        msgId,
+        element: rowElement,
+        timer,
+        badgeEl: badge
+      });
+    }
+
+    function removeNewHighlight(item) {
+      if (!item) return;
+      if (item.timer) clearTimeout(item.timer);
+      if (item.element) {
+        item.element.classList.remove('is-new-chat');
+      }
+      if (item.badgeEl && item.badgeEl.parentElement) {
+        item.badgeEl.remove();
+      }
+    }
+
+    // === 14. USER MANAGEMENT (HAK AKSES TIMER & RUNDOWN - SUPER ADMIN ONLY) ===
+    const userMgmtModal = document.getElementById('user-mgmt-modal');
+    const btnOpenUserMgmt = document.getElementById('btn-open-user-mgmt');
+    const btnCloseUserMgmt = document.getElementById('btn-close-user-mgmt');
+    const userMgmtList = document.getElementById('user-mgmt-list');
+    const newUserEmailInput = document.getElementById('new-user-email');
+    const newUserNameInput = document.getElementById('new-user-name');
+    const btnSubmitNewUser = document.getElementById('btn-submit-new-user');
+
+    if (btnOpenUserMgmt) {
+      btnOpenUserMgmt.addEventListener('click', async () => {
+        if (!isSuperAdmin) {
+          alert('Hanya Super Admin yang berhak mengelola akses pengguna.');
+          return;
+        }
+        await loadUserMgmtList();
+        if (userMgmtModal) userMgmtModal.classList.add('active');
+      });
+    }
+
+    if (btnCloseUserMgmt) {
+      btnCloseUserMgmt.addEventListener('click', () => {
+        if (userMgmtModal) userMgmtModal.classList.remove('active');
+      });
+    }
+
+    async function loadUserMgmtList() {
+      if (!userMgmtList) return;
+      try {
+        const res = await fetch('/api/auth/admins');
+        const data = await res.json();
+        const users = data.users || [];
+        userMgmtList.innerHTML = '';
+
+        if (users.length === 0) {
+          userMgmtList.innerHTML = '<div style="color: #64748b; font-size: 12px; text-align: center; padding: 12px;">Belum ada user terdaftar.</div>';
+          return;
+        }
+
+        users.forEach(u => {
+          const item = document.createElement('div');
+          item.className = 'user-mgmt-item';
+          const isSuper = u.role === 'SUPER_ADMIN' || u.isOwner;
+          const isOwnerPermanent = u.email.toLowerCase() === 'nandang.dhe@gmail.com' || u.isOwner;
+
+          item.innerHTML = `
+            <div class="user-mgmt-info">
+              <div class="user-mgmt-avatar">${(u.name || u.email).charAt(0).toUpperCase()}</div>
+              <div class="user-mgmt-details">
+                <span class="user-mgmt-name">${escapeHtml(u.name || u.email)}</span>
+                <span class="user-mgmt-email">${escapeHtml(u.email)}</span>
+              </div>
+            </div>
+            <div class="user-mgmt-actions">
+              <span class="role-badge ${isSuper ? 'super' : 'admin'}">${isSuper ? 'SUPER ADMIN' : 'GAME MASTER'}</span>
+              ${!isOwnerPermanent ? `<button class="btn-revoke-user" data-email="${u.email}" title="Cabut Akses">&times; Hapus</button>` : ''}
+            </div>
+          `;
+
+          const revokeBtn = item.querySelector('.btn-revoke-user');
+          if (revokeBtn) {
+            revokeBtn.addEventListener('click', async (e) => {
+              e.stopPropagation();
+              const ok = await showConfirmDialog({
+                title: 'Cabut Akses Pengguna',
+                message: `Apakah Anda yakin ingin mencabut akses untuk ${u.email}? Pengguna tidak akan bisa lagi mengontrol timer atau rundown.`,
+                confirmText: 'Cabut Akses'
+              });
+              if (ok) {
+                try {
+                  const delRes = await fetch(`/api/auth/admins/${encodeURIComponent(u.email)}`, { method: 'DELETE' });
+                  const delData = await delRes.json();
+                  if (delData.success) {
+                    await loadUserMgmtList();
+                  } else {
+                    alert('Gagal mencabut akses: ' + (delData.error || 'Terjadi kesalahan'));
+                  }
+                } catch (err) {
+                  alert('Gagal: ' + err.message);
+                }
+              }
+            });
+          }
+
+          userMgmtList.appendChild(item);
+        });
+      } catch (err) {
+        console.error('Gagal memuat user admin:', err);
+      }
+    }
+
+    if (btnSubmitNewUser) {
+      btnSubmitNewUser.addEventListener('click', async () => {
+        const email = newUserEmailInput.value.trim();
+        const name = newUserNameInput.value.trim();
+        if (!email || !email.includes('@')) {
+          alert('Mohon masukkan alamat email Google yang valid.');
+          return;
+        }
+
+        try {
+          const res = await fetch('/api/auth/admins', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email,
+              name: name || email.split('@')[0],
+              role: 'GAME_MASTER',
+              admittedBy: currentUser ? currentUser.email : 'nandang.dhe@gmail.com'
+            })
+          });
+          const result = await res.json();
+          if (result.success) {
+            newUserEmailInput.value = '';
+            newUserNameInput.value = '';
+            await loadUserMgmtList();
+          } else {
+            alert('Gagal menambahkan user: ' + (result.error || 'Terjadi kesalahan'));
+          }
+        } catch (err) {
+          alert('Gagal: ' + err.message);
+        }
+      });
+    }
+
+    // === 16. CHAT FONT RESIZER PERSISTENCE (LOCALSTORAGE) ===
+    function initFontResizer() {
+      const fontButtons = document.querySelectorAll('.btn-font-scale');
+      if (!fontButtons.length) return;
+
+      function setChatFontSize(size) {
+        document.documentElement.style.setProperty('--chat-font-size', size);
+        fontButtons.forEach(btn => {
+          if (btn.dataset.size === size) {
+            btn.classList.add('active');
+          } else {
+            btn.classList.remove('active');
+          }
+        });
+        try {
+          localStorage.setItem('tc_chat_font_size', size);
+        } catch (e) {}
+      }
+
+      // Restore saved font size or default 15px
+      try {
+        const savedSize = localStorage.getItem('tc_chat_font_size') || '15px';
+        setChatFontSize(savedSize);
+      } catch (e) {
+        setChatFontSize('15px');
+      }
+
+      fontButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const size = btn.dataset.size;
+          if (size) setChatFontSize(size);
+        });
+      });
+    }
+
+    initFontResizer();
+    initThemeSwitcher();
+    initFocusMode();
+
+    updateChatPermissionUI();
+    updateTimerPermissionUI();
+
+    initFirebaseAuth();
+  </script>
+</body>
+</html>

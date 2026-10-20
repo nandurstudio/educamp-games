@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Timer Overlay Source (vMix / OBS) - Educamp 2026</title>
+  <link rel="icon" type="image/png" href="/images/Logo%20Educamp%202026.png">
+  <link rel="stylesheet" href="/css/fonts.css">
+  <script src="/socket.io/socket.io.js"></script>
+
+  <style>
+    :root {
+      --timer-color: #ffffff;
+      --glow-color: rgba(0, 0, 0, 0.85);
+      --alert-color: #ef4444;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: var(--font-number, 'Courier New', monospace, sans-serif);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      background: transparent;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      user-select: none;
+    }
+
+    /* Support optional chroma background via URL query ?chroma=green or ?chroma=blue */
+    body.chroma-green {
+      background: #00ff00 !important;
+    }
+    body.chroma-blue {
+      background: #0000ff !important;
+    }
+    body.chroma-magenta {
+      background: #ff00ff !important;
+    }
+
+    .overlay-container {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 16px 36px;
+      border-radius: 24px;
+      /* Subtle glass backing for readability on light broadcast backgrounds, can be disabled with ?pure=1 */
+      background: rgba(15, 23, 42, 0.75);
+      border: 2px solid rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    body.pure-overlay .overlay-container {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      backdrop-filter: none !important;
+    }
+
+    .event-badge {
+      font-size: clamp(14px, 2.5vw, 24px);
+      font-weight: 800;
+      letter-spacing: 1px;
+      color: #38bdf8;
+      text-transform: uppercase;
+      text-shadow: 0 2px 8px var(--glow-color);
+      margin-bottom: 4px;
+      font-family: var(--font-heading, sans-serif);
+    }
+
+    .timer-digits {
+      font-size: clamp(60px, 15vw, 180px);
+      font-weight: 900;
+      letter-spacing: 2px;
+      line-height: 1;
+      color: var(--timer-color);
+      text-shadow: 0 4px 20px var(--glow-color), 0 0 12px rgba(56, 189, 248, 0.5);
+      transition: color 0.2s;
+    }
+
+    .timer-digits.running {
+      color: #22c55e;
+      text-shadow: 0 4px 25px rgba(0, 0, 0, 0.9), 0 0 20px rgba(34, 197, 94, 0.6);
+    }
+
+    .timer-digits.paused {
+      color: #f59e0b;
+      text-shadow: 0 4px 25px rgba(0, 0, 0, 0.9), 0 0 20px rgba(245, 158, 11, 0.6);
+    }
+
+    .timer-digits.over {
+      color: var(--alert-color);
+      text-shadow: 0 4px 25px rgba(0, 0, 0, 0.9), 0 0 25px rgba(239, 68, 68, 0.8);
+    }
+
+    /* 10s Blinking Alert */
+    .timer-digits.blinking-alert {
+      color: var(--alert-color) !important;
+      animation: alertBlink 0.6s infinite alternate cubic-bezier(0.4, 0, 0.6, 1);
+    }
+
+    @keyframes alertBlink {
+      0% {
+        opacity: 1;
+        transform: scale(1);
+        text-shadow: 0 0 40px rgba(239, 68, 68, 0.9);
+      }
+      100% {
+        opacity: 0.2;
+        transform: scale(1.02);
+        text-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
+      }
+    }
+
+    /* Last chat broadcast ticker (optional, toggled via ?ticker=1) */
+    .chat-ticker {
+      display: none;
+      font-size: clamp(12px, 2vw, 20px);
+      color: #fef08a;
+      text-shadow: 0 2px 6px var(--glow-color);
+      margin-top: 8px;
+      max-width: 600px;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-family: var(--font-body, sans-serif);
+      font-weight: 600;
+    }
+
+    .chat-ticker.active {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="overlay-container">
+    <div class="event-badge" id="event-name">EDUCAMP 2026</div>
+    <div class="timer-digits" id="timer-display">05:00</div>
+    <div class="chat-ticker" id="chat-ticker"></div>
+  </div>
+
+  <script>
+    // URL Query flags
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('chroma')) {
+      document.body.classList.add(`chroma-${urlParams.get('chroma')}`);
+    }
+    if (urlParams.get('pure') === '1') {
+      document.body.classList.add('pure-overlay');
+    }
+    const showTicker = urlParams.get('ticker') === '1';
+
+    const socket = io();
+    let clockOffset = 0;
+    let timerState = {
+      status: 'IDLE',
+      durationSeconds: 300,
+      targetEndTime: null,
+      remainingSeconds: 300
+    };
+
+    function syncNTPClock() {
+      const t0 = Date.now();
+      socket.emit('TC_TIME_SYNC', { clientTimestamp: t0 });
+    }
+
+    socket.on('TC_TIME_PONG', (data) => {
+      const t3 = Date.now();
+      const t0 = data.clientTimestamp;
+      const t1 = data.serverTimestamp;
+      const rtt = t3 - t0;
+      clockOffset = t1 - (t3 - (rtt / 2));
+    });
+
+    setInterval(syncNTPClock, 15000);
+    syncNTPClock();
+
+    function formatTime(totalSec) {
+      const s = Math.max(0, Math.floor(totalSec));
+      const mins = Math.floor(s / 60);
+      const secs = s % 60;
+      return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+
+    const timerDisplay = document.getElementById('timer-display');
+    const eventNameEl = document.getElementById('event-name');
+    const chatTickerEl = document.getElementById('chat-ticker');
+
+    function updateUI() {
+      if (timerState.status === 'RUNNING' && timerState.targetEndTime) {
+        const adjustedNow = Date.now() + clockOffset;
+        const diffMs = timerState.targetEndTime - adjustedNow;
+        const remainingSec = Math.max(0, Math.ceil(diffMs / 1000));
+
+        timerDisplay.textContent = formatTime(remainingSec);
+        timerDisplay.className = 'timer-digits running';
+
+        if (remainingSec <= 10 && remainingSec > 0) {
+          timerDisplay.classList.add('blinking-alert');
+        } else if (remainingSec === 0) {
+          timerDisplay.className = 'timer-digits over';
+        }
+      } else {
+        timerDisplay.textContent = formatTime(timerState.remainingSeconds);
+        if (timerState.status === 'PAUSED') {
+          timerDisplay.className = 'timer-digits paused';
+        } else if (timerState.status === 'TIME_OUT') {
+          timerDisplay.className = 'timer-digits over';
+        } else {
+          timerDisplay.className = 'timer-digits';
+        }
+      }
+      requestAnimationFrame(updateUI);
+    }
+    requestAnimationFrame(updateUI);
+
+    socket.on('TC_STATE_UPDATE', (state) => {
+      if (!state) return;
+      timerState = state.timer;
+      if (state.activeEvent) {
+        eventNameEl.textContent = state.activeEvent.name;
+      }
+      if (showTicker && state.chatHistory && state.chatHistory.length > 0) {
+        const lastMsg = state.chatHistory[state.chatHistory.length - 1];
+        chatTickerEl.textContent = `💬 ${lastMsg.userName}: ${lastMsg.message}`;
+        chatTickerEl.classList.add('active');
+      }
+    });
+
+    socket.on('TC_NEW_MESSAGE', (msg) => {
+      if (showTicker && msg) {
+        chatTickerEl.textContent = `💬 ${msg.userName}: ${msg.message}`;
+        chatTickerEl.classList.add('active');
+      }
+    });
+
+    socket.on('TC_TIMER_STARTED', (data) => {
+      timerState.status = 'RUNNING';
+      timerState.targetEndTime = data.targetEndTime;
+      timerState.durationSeconds = data.durationSeconds;
+    });
+
+    socket.on('TC_TIMER_PAUSED', (data) => {
+      timerState.status = 'PAUSED';
+      timerState.remainingSeconds = data.remainingSeconds;
+    });
+
+    socket.on('TC_TIMER_RESET', (data) => {
+      timerState.status = 'IDLE';
+      timerState.remainingSeconds = data.remainingSeconds;
+      timerState.durationSeconds = data.durationSeconds;
+    });
+  </script>
+</body>
+</html>
