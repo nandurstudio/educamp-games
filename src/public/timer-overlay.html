@@ -79,9 +79,12 @@
     }
 
     .timer-digits {
+      font-family: var(--font-timer-digital, 'Orbitron', 'Rajdhani', 'JetBrains Mono', monospace);
       font-size: clamp(60px, 15vw, 180px);
       font-weight: 900;
       letter-spacing: 2px;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum" 1, "zero" 1;
       line-height: 1;
       color: var(--timer-color);
       text-shadow: 0 4px 20px var(--glow-color), 0 0 12px rgba(56, 189, 248, 0.5);
@@ -101,6 +104,12 @@
     .timer-digits.over {
       color: var(--alert-color);
       text-shadow: 0 4px 25px rgba(0, 0, 0, 0.9), 0 0 25px rgba(239, 68, 68, 0.8);
+    }
+
+    /* Overtime Blinking Alert (Merah menyala kedip) */
+    .timer-digits.overtime {
+      color: var(--alert-color) !important;
+      animation: alertBlink 0.6s infinite alternate cubic-bezier(0.4, 0, 0.6, 1);
     }
 
     /* 10s Blinking Alert */
@@ -194,32 +203,58 @@
       return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
     }
 
+    function formatOvertime(totalSec) {
+      const s = Math.max(0, Math.floor(totalSec));
+      const mins = Math.floor(s / 60);
+      const secs = s % 60;
+      return `+${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+
     const timerDisplay = document.getElementById('timer-display');
     const eventNameEl = document.getElementById('event-name');
     const chatTickerEl = document.getElementById('chat-ticker');
 
     function updateUI() {
+      const allowOvertime = (timerState.allowOvertime !== false);
+
       if (timerState.status === 'RUNNING' && timerState.targetEndTime) {
         const adjustedNow = Date.now() + clockOffset;
         const diffMs = timerState.targetEndTime - adjustedNow;
-        const remainingSec = Math.max(0, Math.ceil(diffMs / 1000));
 
-        timerDisplay.textContent = formatTime(remainingSec);
-        timerDisplay.className = 'timer-digits running';
+        if (diffMs >= 0) {
+          const remainingSec = Math.max(0, Math.ceil(diffMs / 1000));
+          timerDisplay.textContent = formatTime(remainingSec);
+          timerDisplay.className = 'timer-digits running';
 
-        if (remainingSec <= 10 && remainingSec > 0) {
-          timerDisplay.classList.add('blinking-alert');
-        } else if (remainingSec === 0) {
-          timerDisplay.className = 'timer-digits over';
+          if (remainingSec <= 10 && remainingSec > 0) {
+            timerDisplay.classList.add('blinking-alert');
+          } else if (remainingSec === 0) {
+            timerDisplay.className = 'timer-digits over';
+          }
+        } else {
+          const overtimePassedSec = Math.floor(Math.abs(diffMs) / 1000);
+          if (allowOvertime) {
+            timerDisplay.textContent = formatOvertime(overtimePassedSec);
+            timerDisplay.className = 'timer-digits overtime';
+          } else {
+            timerDisplay.textContent = '00:00';
+            timerDisplay.className = 'timer-digits over';
+          }
         }
       } else {
-        timerDisplay.textContent = formatTime(timerState.remainingSeconds);
-        if (timerState.status === 'PAUSED') {
-          timerDisplay.className = 'timer-digits paused';
-        } else if (timerState.status === 'TIME_OUT') {
-          timerDisplay.className = 'timer-digits over';
+        if (timerState.remainingSeconds < 0) {
+          const absOvertimeSec = Math.abs(timerState.remainingSeconds);
+          timerDisplay.textContent = formatOvertime(absOvertimeSec);
+          timerDisplay.className = 'timer-digits overtime paused';
         } else {
-          timerDisplay.className = 'timer-digits';
+          timerDisplay.textContent = formatTime(timerState.remainingSeconds);
+          if (timerState.status === 'PAUSED') {
+            timerDisplay.className = 'timer-digits paused';
+          } else if (timerState.status === 'TIME_OUT') {
+            timerDisplay.className = 'timer-digits over';
+          } else {
+            timerDisplay.className = 'timer-digits';
+          }
         }
       }
       requestAnimationFrame(updateUI);

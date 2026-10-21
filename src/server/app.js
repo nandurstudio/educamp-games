@@ -193,6 +193,9 @@ app.get('/TimerOverlay.exe', (req, res) => {
     }
   });
 });
+app.get('/TimerOverlay_Windows.zip', (req, res) => {
+  res.download(path.join(__dirname, '../../dist/TimerOverlay_Windows.zip'), 'TimerOverlay_Windows.zip');
+});
 app.get('/timer_overlay.py', (req, res) => {
   res.download(path.join(__dirname, '../../timer_overlay.py'), 'timer_overlay.py');
 });
@@ -1461,17 +1464,21 @@ app.post('/api/timer-chat/chat', (req, res) => {
 
 app.delete('/api/timer-chat/chat/:id', (req, res) => {
   try {
-    const { requesterEmail, requesterName, isAdmin, eventId } = req.body;
+    const { requesterEmail, requesterName, requesterRole, isAdmin, eventId } = req.body;
     const result = timerChatEngine.deleteChatMessage(req.params.id, {
       requesterEmail,
       requesterName,
+      requesterRole,
       isAdmin,
       eventId
     });
     io.emit('TC_MESSAGE_DELETED', {
       messageId: req.params.id,
       eventId: result.eventId,
-      deletedBy: result.deletedBy
+      isPermanent: result.isPermanent,
+      updatedMessage: result.updatedMessage,
+      deletedBy: result.deletedBy,
+      deleteNotice: result.deleteNotice
     });
     res.json(result);
   } catch (err) {
@@ -1886,11 +1893,14 @@ io.on('connection', (socket) => {
   socket.on('TC_START_TIMER', (data = {}) => {
     try {
       verifyTimerAccess(data);
-      const state = timerChatEngine.startTimer(data.durationSeconds);
+      const state = timerChatEngine.startTimer(data.durationSeconds, null, {
+        allowOvertime: data.allowOvertime !== undefined ? data.allowOvertime : true
+      });
       io.emit('TC_STATE_UPDATE', state);
       io.emit('TC_TIMER_STARTED', {
         targetEndTime: state.timer.targetEndTime,
         durationSeconds: state.timer.durationSeconds,
+        allowOvertime: state.timer.allowOvertime,
         serverTime: Date.now()
       });
     } catch (err) {
@@ -1905,6 +1915,8 @@ io.on('connection', (socket) => {
       io.emit('TC_STATE_UPDATE', state);
       io.emit('TC_TIMER_PAUSED', {
         remainingSeconds: state.timer.remainingSeconds,
+        overtimeSeconds: state.timer.overtimeSeconds,
+        isOvertime: state.timer.isOvertime,
         serverTime: Date.now()
       });
     } catch (err) {
@@ -1936,7 +1948,29 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('TC_SET_OVERTIME_TOGGLE', (data = {}) => {
+    try {
+      verifyTimerAccess(data);
+      const state = timerChatEngine.setOvertimeToggle(data.allowOvertime);
+      io.emit('TC_STATE_UPDATE', state);
+    } catch (err) {
+      socket.emit('TC_ERROR', { message: err.message });
+    }
+  });
+
   // 3. Chat Controls
+  socket.on('TC_USER_TYPING', (data = {}) => {
+    try {
+      socket.broadcast.emit('TC_USER_TYPING', {
+        userName: data.userName || 'Peserta',
+        userEmail: data.userEmail || '',
+        isTyping: !!data.isTyping
+      });
+    } catch (err) {
+      // Ignore typing broadcast errors
+    }
+  });
+
   socket.on('TC_SEND_MESSAGE', (data = {}) => {
     try {
       const message = timerChatEngine.addChatMessage(data);
@@ -1951,14 +1985,32 @@ io.on('connection', (socket) => {
       const result = timerChatEngine.deleteChatMessage(data.messageId, {
         requesterEmail: data.requesterEmail,
         requesterName: data.requesterName,
+        requesterRole: data.requesterRole,
         isAdmin: !!data.isAdmin,
         eventId: data.eventId
       });
       io.emit('TC_MESSAGE_DELETED', {
         messageId: data.messageId,
         eventId: result.eventId,
-        deletedBy: result.deletedBy
+        isPermanent: result.isPermanent,
+        updatedMessage: result.updatedMessage,
+        deletedBy: result.deletedBy,
+        deleteNotice: result.deleteNotice
       });
+    } catch (err) {
+      socket.emit('TC_ERROR', { message: err.message });
+    }
+  });
+
+  socket.on('TC_TOGGLE_REACTION', (data = {}) => {
+    try {
+      const result = timerChatEngine.toggleReaction(data.messageId, {
+        emoji: data.emoji,
+        userName: data.userName,
+        userEmail: data.userEmail,
+        eventId: data.eventId
+      });
+      io.emit('TC_REACTION_UPDATED', result);
     } catch (err) {
       socket.emit('TC_ERROR', { message: err.message });
     }

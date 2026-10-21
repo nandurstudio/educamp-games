@@ -158,25 +158,45 @@ class TimerChatEngine {
     if (!ev || !ev.timer) return null;
 
     const t = ev.timer;
+    const allowOvertime = t.allowOvertime !== false; // Default true
     let remaining = t.remainingSeconds;
+    let isOvertime = false;
+    let overtimeSeconds = 0;
 
     if (t.isRunning && t.targetEndTime) {
       const diffMs = t.targetEndTime - Date.now();
-      remaining = Math.max(0, Math.ceil(diffMs / 1000));
-      if (remaining <= 0) {
-        t.isRunning = false;
-        t.remainingSeconds = 0;
-        t.targetEndTime = null;
-      } else {
+      if (diffMs >= 0) {
+        remaining = Math.max(0, Math.ceil(diffMs / 1000));
         t.remainingSeconds = remaining;
+      } else {
+        // Melewati 00:00
+        const passedSec = Math.floor(Math.abs(diffMs) / 1000);
+        if (allowOvertime) {
+          isOvertime = true;
+          overtimeSeconds = passedSec;
+          remaining = -passedSec;
+          t.remainingSeconds = -passedSec;
+        } else {
+          t.isRunning = false;
+          t.remainingSeconds = 0;
+          t.targetEndTime = null;
+          remaining = 0;
+        }
       }
+    } else if (t.remainingSeconds < 0) {
+      isOvertime = true;
+      overtimeSeconds = Math.abs(t.remainingSeconds);
+      remaining = t.remainingSeconds;
     }
 
     return {
       eventId: targetId,
       durationSeconds: t.durationSeconds,
       remainingSeconds: remaining,
-      status: t.isRunning ? 'RUNNING' : (t.pausedAt ? 'PAUSED' : (remaining <= 0 ? 'TIME_OUT' : 'IDLE')),
+      overtimeSeconds: overtimeSeconds,
+      isOvertime: isOvertime,
+      allowOvertime: allowOvertime,
+      status: t.isRunning ? (isOvertime ? 'OVERTIME' : 'RUNNING') : (t.pausedAt ? 'PAUSED' : (remaining <= 0 ? 'TIME_OUT' : 'IDLE')),
       isRunning: t.isRunning,
       targetEndTime: t.targetEndTime,
       serverTime: Date.now()
@@ -220,7 +240,17 @@ class TimerChatEngine {
     return this.getState(targetId);
   }
 
-  startTimer(durationSeconds, eventId) {
+  setOvertimeToggle(allowOvertime, eventId) {
+    const targetId = eventId || this.activeEventId;
+    const ev = this.events[targetId];
+    if (!ev) throw new Error('Event tidak ditemukan.');
+
+    ev.timer.allowOvertime = !!allowOvertime;
+    this.saveStorage();
+    return this.getState(targetId);
+  }
+
+  startTimer(durationSeconds, eventId, options = {}) {
     let sec = durationSeconds;
     let targetId = eventId;
     if (typeof durationSeconds === 'string' && isNaN(durationSeconds)) {
@@ -232,10 +262,13 @@ class TimerChatEngine {
     if (!ev) throw new Error('Event tidak ditemukan.');
 
     const t = ev.timer;
+    if (options.allowOvertime !== undefined) {
+      t.allowOvertime = !!options.allowOvertime;
+    }
     if (sec && !isNaN(sec)) {
       t.durationSeconds = parseInt(sec, 10);
       t.remainingSeconds = t.durationSeconds;
-    } else if (t.remainingSeconds <= 0) {
+    } else if (t.remainingSeconds <= 0 && !t.pausedAt) {
       t.remainingSeconds = t.durationSeconds;
     }
 
@@ -253,9 +286,16 @@ class TimerChatEngine {
     if (!ev) throw new Error('Event tidak ditemukan.');
 
     const t = ev.timer;
+    const allowOvertime = t.allowOvertime !== false;
     if (t.isRunning && t.targetEndTime) {
       const diffMs = t.targetEndTime - Date.now();
-      t.remainingSeconds = Math.max(0, Math.ceil(diffMs / 1000));
+      if (diffMs >= 0) {
+        t.remainingSeconds = Math.max(0, Math.ceil(diffMs / 1000));
+      } else {
+        // Sedang overtime saat di-pause/stop
+        const passedSec = Math.floor(Math.abs(diffMs) / 1000);
+        t.remainingSeconds = allowOvertime ? -passedSec : 0;
+      }
     }
 
     t.isRunning = false;
@@ -336,6 +376,9 @@ class TimerChatEngine {
       sessionDuration: data.sessionDuration || null,
       mediaUrl: data.mediaUrl || null,
       mediaType: data.mediaType || null, // 'IMAGE' | 'STICKER'
+      quote: data.quote || null, // { id, userName, text }
+      reactions: {}, // { '👍': ['name1', 'name2'], '❤️': ['name3'] }
+      isDeleted: false,
       timestamp: new Date().toISOString()
     };
 
@@ -360,7 +403,7 @@ class TimerChatEngine {
     });
   }
 
-  deleteChatMessage(messageId, { requesterEmail, requesterName, isAdmin = false, eventId } = {}) {
+  deleteChatMessage(messageId, { requesterEmail, requesterName, requesterRole, isAdmin = false, eventId } = {}) {
     let targetEventId = eventId;
     let foundMsg = null;
     let foundIndex = -1;
@@ -380,6 +423,10 @@ class TimerChatEngine {
       }
     }
 
+    if (!foundMsg) {
+      throw new Error('Pesan tidak ditemukan.');
+    }
+
     // Otorisasi: Untuk pesan separator atau admin atau pengirim asli
     const isSeparator = !!foundMsg.isSeparator;
     const isSender = (requesterEmail && foundMsg.email && requesterEmail.toLowerCase() === foundMsg.email.toLowerCase()) ||
@@ -389,15 +436,118 @@ class TimerChatEngine {
       throw new Error('Akses ditolak: Hanya pengirim pesan atau Admin yang berhak menghapus pesan ini.');
     }
 
-    // Hapus pesan dari array chats event
-    this.events[targetEventId].chats.splice(foundIndex, 1);
+    if (isSeparator) {
+      // Separator dihapus permanen
+      this.events[targetEventId].chats.splice(foundIndex, 1);
+      this.saveStorage();
+      return {
+        success: true,
+        deletedMessageId: messageId,
+        eventId: targetEventId,
+        isPermanent: true,
+        deletedBy: isSender ? 'SENDER' : 'ADMIN'
+      };
+    }
+
+    // Hapus attachment secara fisik dari server jika berupa file lokal
+    if (foundMsg.mediaUrl && typeof foundMsg.mediaUrl === 'string') {
+      const url = foundMsg.mediaUrl.trim();
+      // Hanya hapus file fisik lokal (misal: /uploads/...) dan jangan hapus aset bawaan /images/ atau data: URI
+      if (url.startsWith('/uploads/') || url.startsWith('/storage/') || url.startsWith('uploads/')) {
+        try {
+          const relativePath = url.replace(/^\/+/, '');
+          const localFilePath = path.join(__dirname, '../public', relativePath);
+          if (fs.existsSync(localFilePath)) {
+            fs.unlinkSync(localFilePath);
+            console.log(`[TimerChatEngine] Berhasil menghapus file fisik: ${localFilePath}`);
+          }
+        } catch (fileErr) {
+          console.error('[TimerChatEngine] Gagal menghapus file attachment fisik:', fileErr.message);
+        }
+      }
+    }
+
+    // Tentukan label & nama yang menghapus
+    let deleteNoticeText = 'Pesan telah dihapus';
+    if (!isSender && isAdmin) {
+      const adminRole = requesterRole || 'Admin';
+      const cleanName = (requesterName || 'Admin').trim();
+      const firstName = cleanName.split(/\s+/)[0] || cleanName;
+      deleteNoticeText = `Pesan dihapus oleh ${adminRole} ${firstName}`;
+    }
+
+    // Soft delete: bubble tetap ada dengan status isDeleted = true & pesan notice dinamis
+    foundMsg.isDeleted = true;
+    foundMsg.text = deleteNoticeText;
+    foundMsg.message = deleteNoticeText;
+    foundMsg.mediaUrl = null;
+    foundMsg.mediaType = null;
+    foundMsg.deletedAt = new Date().toISOString();
+    foundMsg.deletedBy = isSender ? (requesterName || 'Pengirim') : 'Admin';
+    foundMsg.deletedByRole = isSender ? 'SENDER' : (requesterRole || 'ADMIN');
+    foundMsg.deletedByName = requesterName || (isSender ? 'Pengirim' : 'Admin');
+    foundMsg.deleteNotice = deleteNoticeText;
     this.saveStorage();
 
     return {
       success: true,
       deletedMessageId: messageId,
       eventId: targetEventId,
-      deletedBy: isSender ? 'SENDER' : (isSeparator ? 'USER_OR_ADMIN' : 'ADMIN')
+      isPermanent: false,
+      updatedMessage: foundMsg,
+      deletedBy: isSender ? 'SENDER' : 'ADMIN',
+      deleteNotice: deleteNoticeText
+    };
+  }
+
+  toggleReaction(messageId, { emoji, userName, userEmail, eventId } = {}) {
+    if (!emoji || !userName) throw new Error('Emoji dan nama pengguna wajib disertakan.');
+    let targetEventId = eventId;
+    let foundMsg = null;
+
+    const eventKeys = targetEventId ? [targetEventId] : Object.keys(this.events);
+    for (const eId of eventKeys) {
+      const ev = this.events[eId];
+      if (ev && Array.isArray(ev.chats)) {
+        const m = ev.chats.find(item => item.id === messageId);
+        if (m) {
+          foundMsg = m;
+          targetEventId = eId;
+          break;
+        }
+      }
+    }
+
+    if (!foundMsg) throw new Error('Pesan tidak ditemukan.');
+    if (!foundMsg.reactions || typeof foundMsg.reactions !== 'object') {
+      foundMsg.reactions = {};
+    }
+
+    const currentList = foundMsg.reactions[emoji] || [];
+    const userIdentifier = userEmail || userName;
+    const existingIndex = currentList.findIndex(u => (typeof u === 'string' ? u : u.id) === userIdentifier);
+
+    if (existingIndex !== -1) {
+      // Toggle off / remove reaction
+      currentList.splice(existingIndex, 1);
+      if (currentList.length === 0) {
+        delete foundMsg.reactions[emoji];
+      } else {
+        foundMsg.reactions[emoji] = currentList;
+      }
+    } else {
+      // Add reaction
+      currentList.push(userIdentifier);
+      foundMsg.reactions[emoji] = currentList;
+    }
+
+    this.saveStorage();
+    return {
+      success: true,
+      messageId,
+      reactions: foundMsg.reactions,
+      eventId: targetEventId,
+      updatedMessage: foundMsg
     };
   }
 
@@ -471,9 +621,11 @@ class TimerChatEngine {
 
     const tState = this.getTimerState(targetId);
     const sec = tState.remainingSeconds;
-    const m = Math.floor(sec / 60).toString().padStart(2, '0');
-    const s = (sec % 60).toString().padStart(2, '0');
-    const timeFormatted = `${m}:${s}`;
+    const isOvertime = tState.isOvertime || sec < 0;
+    const absSec = Math.abs(sec);
+    const m = Math.floor(absSec / 60).toString().padStart(2, '0');
+    const s = (absSec % 60).toString().padStart(2, '0');
+    const timeFormatted = isOvertime ? `+${m}:${s}` : `${m}:${s}`;
     const latestChat = (ev.chats && ev.chats.length > 0) ? ev.chats[ev.chats.length - 1] : null;
 
     if (format === 'text') {
@@ -488,7 +640,7 @@ class TimerChatEngine {
   <seconds>${sec}</seconds>
   <duration>${tState.durationSeconds}</duration>
   <isRunning>${tState.isRunning ? '1' : '0'}</isRunning>
-  <isBlinking>${sec <= 10 && tState.isRunning ? '1' : '0'}</isBlinking>
+  <isBlinking>${(isOvertime || (sec <= 10 && sec > 0)) && tState.isRunning ? '1' : '0'}</isBlinking>
   <latestChatSender>${latestChat ? latestChat.sender : ''}</latestChatSender>
   <latestChatMessage>${latestChat ? latestChat.text : ''}</latestChatMessage>
 </vmix>`;
@@ -501,8 +653,11 @@ class TimerChatEngine {
       time: timeFormatted,
       remainingSeconds: sec,
       durationSeconds: tState.durationSeconds,
+      status: tState.status,
       isRunning: tState.isRunning,
-      isBlinking: sec <= 10 && tState.isRunning,
+      isBlinking: (isOvertime || (sec <= 10 && sec > 0)) && tState.isRunning,
+      isOvertime: isOvertime,
+      overtimeSeconds: tState.overtimeSeconds || 0,
       targetEndTime: tState.targetEndTime,
       serverTime: Date.now(),
       latestChat: latestChat ? {

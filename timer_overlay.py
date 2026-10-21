@@ -177,17 +177,21 @@ class TransparentTimerOverlay:
         is_running = data.get("isRunning", False)
         is_blinking = data.get("isBlinking", False)
         remaining_sec = data.get("remainingSeconds", 300)
+        status_val = data.get("status", "")
 
         self.lbl_event.config(text=event_name.upper())
         self.lbl_timer.config(text=time_str)
 
-        if is_blinking:
+        if is_blinking or status_val == "OVERTIME" or time_str.startswith("+"):
             self.blink_state = not self.blink_state
             if self.blink_state:
                 self.lbl_timer.config(fg="#ef4444")
             else:
                 self.lbl_timer.config(fg="#fee2e2")
-            self.lbl_status.config(text="⚠️ PERINGATAN WAKTU HAMPIR HABIS", fg="#ef4444")
+            if status_val == "OVERTIME" or time_str.startswith("+"):
+                self.lbl_status.config(text="⏱️ MELEBIHI BATAS WAKTU (OVERTIME)", fg="#ef4444")
+            else:
+                self.lbl_status.config(text="⚠️ PERINGATAN WAKTU HAMPIR HABIS", fg="#ef4444")
         elif is_running:
             self.lbl_timer.config(fg="#22c55e")
             self.lbl_status.config(text="● RUNNING • LIVE SYNC", fg="#22c55e")
