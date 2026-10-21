@@ -8,6 +8,7 @@ class TimerChatEngine {
   constructor() {
     this.events = {};
     this.activeEventId = null;
+    this.overlayConfig = { showChat: false };
     this.updatedAt = new Date().toISOString();
     this.loadStorage();
   }
@@ -76,6 +77,9 @@ class TimerChatEngine {
     if (data.activeEventId && this.events[data.activeEventId]) {
       this.activeEventId = data.activeEventId;
     }
+    if (data.overlayConfig && typeof data.overlayConfig === 'object') {
+      this.overlayConfig = { ...this.overlayConfig, ...data.overlayConfig };
+    }
     this.updatedAt = data.updatedAt || new Date().toISOString();
   }
 
@@ -104,6 +108,7 @@ class TimerChatEngine {
       const data = {
         activeEventId: this.activeEventId,
         events: this.events,
+        overlayConfig: this.overlayConfig,
         updatedAt: this.updatedAt
       };
       fs.writeFileSync(STORAGE_FILE, JSON.stringify(data, null, 2), 'utf-8');
@@ -121,6 +126,7 @@ class TimerChatEngine {
       const payload = {
         activeEventId: this.activeEventId,
         events: this.events,
+        overlayConfig: this.overlayConfig,
         updatedAt: this.updatedAt
       };
       firebaseService.saveDoc('timer_chat', payload).catch(err => {
@@ -246,7 +252,7 @@ class TimerChatEngine {
       overtimeSeconds: overtimeSeconds,
       isOvertime: isOvertime,
       allowOvertime: allowOvertime,
-      status: t.isRunning ? (isOvertime ? 'OVERTIME' : 'RUNNING') : (t.pausedAt ? 'PAUSED' : (remaining <= 0 ? 'TIME_OUT' : 'IDLE')),
+      status: t.isRunning ? (isOvertime ? 'OVERTIME' : 'RUNNING') : (t.status === 'STOPPED' ? 'STOPPED' : (t.pausedAt ? 'PAUSED' : (remaining <= 0 ? 'TIME_OUT' : 'IDLE'))),
       isRunning: t.isRunning,
       targetEndTime: t.targetEndTime,
       serverTime: Date.now()
@@ -259,8 +265,15 @@ class TimerChatEngine {
     return {
       activeEvent: active,
       timer: this.getTimerState(targetId),
-      chatHistory: this.getChatHistory(targetId)
+      chatHistory: this.getChatHistory(targetId),
+      overlayConfig: this.overlayConfig
     };
+  }
+
+  setOverlayChatVisibility(visible) {
+    this.overlayConfig.showChat = !!visible;
+    this.saveStorage();
+    return this.overlayConfig;
   }
 
   setDuration(durationSeconds, eventId, options = {}) {
@@ -290,6 +303,7 @@ class TimerChatEngine {
     ev.timer.isRunning = false;
     ev.timer.targetEndTime = null;
     ev.timer.pausedAt = null;
+    ev.timer.status = 'IDLE';
 
     this.saveStorage();
     return this.getState(targetId);
@@ -323,13 +337,14 @@ class TimerChatEngine {
     if (sec && !isNaN(sec)) {
       t.durationSeconds = parseInt(sec, 10);
       t.remainingSeconds = t.durationSeconds;
-    } else if (t.remainingSeconds <= 0 && !t.pausedAt) {
+    } else if (t.remainingSeconds <= 0 && !t.pausedAt && t.status !== 'STOPPED') {
       t.remainingSeconds = t.durationSeconds;
     }
 
     t.isRunning = true;
     t.targetEndTime = Date.now() + (t.remainingSeconds * 1000);
     t.pausedAt = null;
+    t.status = 'RUNNING';
 
     this.saveStorage();
     return this.getState(targetId);
@@ -356,6 +371,34 @@ class TimerChatEngine {
     t.isRunning = false;
     t.targetEndTime = null;
     t.pausedAt = Date.now();
+    t.status = 'PAUSED';
+
+    this.saveStorage();
+    return this.getState(targetId);
+  }
+
+  stopTimer(eventId) {
+    const targetId = eventId || this.activeEventId;
+    const ev = this.events[targetId];
+    if (!ev) throw new Error('Event tidak ditemukan.');
+
+    const t = ev.timer;
+    const allowOvertime = t.allowOvertime !== false;
+    if (t.isRunning && t.targetEndTime) {
+      const diffMs = t.targetEndTime - Date.now();
+      if (diffMs >= 0) {
+        t.remainingSeconds = Math.max(0, Math.ceil(diffMs / 1000));
+      } else {
+        const passedSec = Math.floor(Math.abs(diffMs) / 1000);
+        t.remainingSeconds = allowOvertime ? -passedSec : 0;
+      }
+    }
+
+    // Freeze waktu saat di-stop (tidak kembali ke durasi preset!)
+    t.isRunning = false;
+    t.targetEndTime = null;
+    t.pausedAt = null;
+    t.status = 'STOPPED';
 
     this.saveStorage();
     return this.getState(targetId);
@@ -449,8 +492,27 @@ class TimerChatEngine {
     return msg;
   }
 
+  getCleanSeparatorTitle(raw) {
+    if (!raw) return '';
+    return String(raw).split(' - Aktual (')[0].split(' • Actual:')[0].trim().toLowerCase();
+  }
+
   addSessionSeparator(eventId, sessionTitle, sessionDuration = null) {
-    return this.addChatMessage(eventId, {
+    const targetId = eventId || this.activeEventId;
+    const ev = this.events[targetId];
+    if (ev && Array.isArray(ev.chats)) {
+      const cleanIncoming = this.getCleanSeparatorTitle(sessionTitle);
+      const existing = ev.chats.find(c => {
+        if (!c.isSeparator || c.isDeleted) return false;
+        const cleanExisting = this.getCleanSeparatorTitle(c.sessionTitle || c.message || c.text);
+        return cleanExisting === cleanIncoming;
+      });
+      if (existing) {
+        throw new Error(`Separator untuk sesi "${sessionTitle}" sudah ada di riwayat chat! Hapus terlebih dahulu separator lama untuk membuat yang baru.`);
+      }
+    }
+
+    return this.addChatMessage(targetId, {
       message: sessionTitle,
       isSeparator: true,
       sessionTitle,

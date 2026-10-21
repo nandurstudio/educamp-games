@@ -3,28 +3,28 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Timer Overlay Source (vMix / OBS) - Educamp 2026</title>
+  <title>Timer & Live Chat Overlay Source (vMix / OBS / Stage) - Educamp 2026</title>
   <link rel="icon" type="image/png" href="/images/Logo%20Educamp%202026.png">
   <link rel="stylesheet" href="/css/fonts.css">
   <script src="/socket.io/socket.io.js"></script>
 
   <style>
     :root {
-      --timer-color: #ffffff;
-      --glow-color: rgba(0, 0, 0, 0.85);
-      --alert-color: #ef4444;
+      --timer-stroke-color: #000000;
+      --glow-color: rgba(0, 0, 0, 0.95);
+      --font-digital: var(--font-timer-digital, 'Rajdhani', 'Orbitron', 'JetBrains Mono', 'Consolas', monospace);
     }
 
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
-      font-family: var(--font-number, 'Courier New', monospace, sans-serif);
       -webkit-font-smoothing: antialiased;
     }
 
+    /* Default Chroma Key: Green Screen (#00ff00) */
     body {
-      background: transparent;
+      background-color: #00ff00;
       overflow: hidden;
       width: 100vw;
       height: 100vh;
@@ -33,153 +33,486 @@
       justify-content: center;
       align-items: center;
       user-select: none;
+      font-family: var(--font-body, system-ui, -apple-system, sans-serif);
+      transition: background-color 0.25s ease;
     }
 
-    /* Support optional chroma background via URL query ?chroma=green or ?chroma=blue */
+    /* Chroma Palette Modes */
     body.chroma-green {
-      background: #00ff00 !important;
+      background-color: #00ff00 !important;
     }
     body.chroma-blue {
-      background: #0000ff !important;
+      background-color: #0000ff !important;
     }
-    body.chroma-magenta {
-      background: #ff00ff !important;
+    body.chroma-black {
+      background-color: #000000 !important;
+    }
+    body.chroma-transparent {
+      background-color: transparent !important;
     }
 
-    .overlay-container {
+    /* Main Container */
+    .overlay-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      max-width: 95vw;
+      padding: 10px;
+    }
+
+    /* Timer Pill Card */
+    .timer-card {
       display: inline-flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 16px 36px;
-      border-radius: 24px;
-      /* Subtle glass backing for readability on light broadcast backgrounds, can be disabled with ?pure=1 */
-      background: rgba(15, 23, 42, 0.75);
-      border: 2px solid rgba(255, 255, 255, 0.15);
-      backdrop-filter: blur(8px);
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      padding: 16px 42px;
+      border-radius: 28px;
+      background: rgba(15, 23, 42, 0.88);
+      border: 3px solid rgba(255, 255, 255, 0.25);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
+      transition: all 0.2s ease;
     }
 
-    body.pure-overlay .overlay-container {
+    /* Pure overlay mode: background card hilang (teks murni dengan outline pekat) */
+    body.pure-overlay .timer-card {
       background: transparent !important;
       border: none !important;
       box-shadow: none !important;
       backdrop-filter: none !important;
+      padding: 4px;
     }
 
     .event-badge {
-      font-size: clamp(14px, 2.5vw, 24px);
+      font-size: clamp(13px, 2.2vw, 22px);
       font-weight: 800;
-      letter-spacing: 1px;
+      letter-spacing: 2px;
       color: #38bdf8;
       text-transform: uppercase;
-      text-shadow: 0 2px 8px var(--glow-color);
-      margin-bottom: 4px;
+      -webkit-text-stroke: 1.5px #000000;
+      text-shadow: 0 3px 10px rgba(0, 0, 0, 0.95), 0 0 10px rgba(56, 189, 248, 0.6);
+      margin-bottom: 2px;
       font-family: var(--font-heading, sans-serif);
+      text-align: center;
     }
 
-    .timer-digits {
-      font-family: var(--font-timer-digital, 'Orbitron', 'Rajdhani', 'JetBrains Mono', monospace);
-      font-size: clamp(60px, 15vw, 180px);
+    /* Static Width Container untuk Anti-Jitter / Tidak Melebar */
+    .timer-digits-box {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 5.6ch;
+      min-width: 5.6ch;
+      max-width: 5.6ch;
+      text-align: center;
+      font-family: var(--font-digital);
+      font-size: clamp(64px, 16vw, 175px);
       font-weight: 900;
       letter-spacing: 2px;
       font-variant-numeric: tabular-nums;
       font-feature-settings: "tnum" 1, "zero" 1;
       line-height: 1;
-      color: var(--timer-color);
-      text-shadow: 0 4px 20px var(--glow-color), 0 0 12px rgba(56, 189, 248, 0.5);
-      transition: color 0.2s;
+      /* Anti-masking: Gunakan Putih Bersih dengan stroke tebal hitam */
+      color: #ffffff;
+      -webkit-text-stroke: 4px var(--timer-stroke-color);
+      text-shadow: 0 6px 25px rgba(0, 0, 0, 0.95), 0 0 12px rgba(0, 0, 0, 0.9);
+      transition: color 0.15s ease;
     }
 
-    .timer-digits.running {
-      color: #22c55e;
-      text-shadow: 0 4px 25px rgba(0, 0, 0, 0.9), 0 0 20px rgba(34, 197, 94, 0.6);
+    /* Status Colors (Semua anti-hijau agar vMix Chroma Key Green tidak memotong font) */
+    .timer-digits-box.running {
+      color: #ffffff;
+      -webkit-text-stroke: 4px #000000;
+      text-shadow: 0 6px 25px rgba(0, 0, 0, 0.95), 0 0 20px rgba(56, 189, 248, 0.6);
     }
 
-    .timer-digits.paused {
-      color: #f59e0b;
-      text-shadow: 0 4px 25px rgba(0, 0, 0, 0.9), 0 0 20px rgba(245, 158, 11, 0.6);
+    .timer-digits-box.paused {
+      color: #fbbf24; /* Kuning Amber */
+      -webkit-text-stroke: 4px #000000;
+      text-shadow: 0 6px 25px rgba(0, 0, 0, 0.95), 0 0 20px rgba(251, 191, 36, 0.7);
     }
 
-    .timer-digits.over {
-      color: var(--alert-color);
-      text-shadow: 0 4px 25px rgba(0, 0, 0, 0.9), 0 0 25px rgba(239, 68, 68, 0.8);
+    .timer-digits-box.over {
+      color: #ef4444; /* Merah */
+      -webkit-text-stroke: 4px #000000;
+      text-shadow: 0 6px 25px rgba(0, 0, 0, 0.95), 0 0 25px rgba(239, 68, 68, 0.85);
     }
 
-    /* Overtime Blinking Alert (Merah menyala kedip) */
-    .timer-digits.overtime {
-      color: var(--alert-color) !important;
-      animation: alertBlink 0.6s infinite alternate cubic-bezier(0.4, 0, 0.6, 1);
+    /* 10 Detik Terakhir & Overtime Alert Kedip Merah */
+    .timer-digits-box.blinking-alert,
+    .timer-digits-box.overtime {
+      color: #ef4444 !important;
+      -webkit-text-stroke: 4px #000000 !important;
+      animation: timerAlertBlink 0.6s infinite alternate cubic-bezier(0.4, 0, 0.6, 1);
     }
 
-    /* 10s Blinking Alert */
-    .timer-digits.blinking-alert {
-      color: var(--alert-color) !important;
-      animation: alertBlink 0.6s infinite alternate cubic-bezier(0.4, 0, 0.6, 1);
-    }
-
-    @keyframes alertBlink {
+    @keyframes timerAlertBlink {
       0% {
         opacity: 1;
         transform: scale(1);
-        text-shadow: 0 0 40px rgba(239, 68, 68, 0.9);
+        text-shadow: 0 0 35px rgba(239, 68, 68, 1);
       }
       100% {
-        opacity: 0.2;
+        opacity: 0.35;
         transform: scale(1.02);
-        text-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
+        text-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
       }
     }
 
-    /* Last chat broadcast ticker (optional, toggled via ?ticker=1) */
-    .chat-ticker {
-      display: none;
-      font-size: clamp(12px, 2vw, 20px);
-      color: #fef08a;
-      text-shadow: 0 2px 6px var(--glow-color);
-      margin-top: 8px;
-      max-width: 600px;
-      text-align: center;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      font-family: var(--font-body, sans-serif);
-      font-weight: 600;
+    /* Subtitle / Session State Indicator */
+    .timer-subinfo {
+      font-size: clamp(10px, 1.4vw, 15px);
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: #cbd5e1;
+      text-transform: uppercase;
+      -webkit-text-stroke: 1px #000000;
+      text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9);
+      margin-top: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
 
-    .chat-ticker.active {
-      display: block;
+    .timer-subinfo .sync-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 6px #22c55e;
+    }
+    .timer-subinfo.offline .sync-dot {
+      background: #f59e0b;
+      box-shadow: 0 0 6px #f59e0b;
+    }
+
+    /* 5 Chat Teratas Container (Read-Only Presenter Monitor) */
+    .overlay-chat-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 100%;
+      max-width: 680px;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .overlay-chat-container.hidden {
+      display: none !important;
+    }
+
+    .overlay-chat-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 14px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 999px;
+      color: #94a3b8;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    }
+
+    .overlay-chat-header .badge-tag {
+      background: rgba(56, 189, 248, 0.2);
+      color: #38bdf8;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-weight: 800;
+      border: 1px solid rgba(56, 189, 248, 0.4);
+    }
+
+    .overlay-chat-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .chat-bubble-card {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      padding: 9px 15px;
+      border-radius: 14px;
+      background: rgba(15, 23, 42, 0.92);
+      border: 1.5px solid rgba(255, 255, 255, 0.18);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+      animation: chatSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes chatSlideIn {
+      from {
+        opacity: 0;
+        transform: translateY(12px) scale(0.98);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    .chat-bubble-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .chat-sender-name {
+      font-size: 12px;
+      font-weight: 800;
+      color: #f1f5f9;
+      letter-spacing: 0.3px;
+    }
+
+    .chat-role-badge {
+      font-size: 9px;
+      font-weight: 800;
+      padding: 1px 6px;
+      border-radius: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .chat-role-badge.super-admin {
+      background: linear-gradient(135deg, #f59e0b, #ef4444);
+      color: #ffffff;
+    }
+    .chat-role-badge.admin {
+      background: #ef4444;
+      color: #ffffff;
+    }
+    .chat-role-badge.panitia {
+      background: #0284c7;
+      color: #ffffff;
+    }
+    .chat-role-badge.moderator {
+      background: #9333ea;
+      color: #ffffff;
+    }
+    .chat-role-badge.peserta {
+      background: #475569;
+      color: #e2e8f0;
+    }
+
+    .chat-timestamp {
+      margin-left: auto;
+      font-size: 10px;
+      font-weight: 600;
+      color: #94a3b8;
+    }
+
+    .chat-message-text {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #ffffff;
+      line-height: 1.35;
+      word-break: break-word;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+    }
+
+    .chat-empty-hint {
+      text-align: center;
+      padding: 12px;
+      color: #94a3b8;
+      font-size: 12px;
+      font-style: italic;
+      background: rgba(15, 23, 42, 0.7);
+      border-radius: 12px;
+      border: 1px dashed rgba(255, 255, 255, 0.15);
+    }
+
+    /* Floating Toolbar Mini (Pojok Kanan Atas - Auto Fade) */
+    .floating-toolbar {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 999px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+      opacity: 0.15;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      z-index: 999;
+    }
+
+    .floating-toolbar:hover {
+      opacity: 1;
+      transform: scale(1.02);
+    }
+
+    .tool-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #f1f5f9;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 999px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s ease;
+    }
+
+    .tool-btn:hover {
+      background: rgba(255, 255, 255, 0.25);
+      border-color: #38bdf8;
+      color: #38bdf8;
+    }
+
+    .tool-btn.active {
+      background: #0284c7;
+      color: #ffffff;
+      border-color: #38bdf8;
     }
   </style>
 </head>
-<body>
+<body class="chroma-green">
 
-  <div class="overlay-container">
-    <div class="event-badge" id="event-name">EDUCAMP 2026</div>
-    <div class="timer-digits" id="timer-display">05:00</div>
-    <div class="chat-ticker" id="chat-ticker"></div>
+  <!-- Floating Settings Toolbar (Auto-fades out on broadcast) -->
+  <div class="floating-toolbar" id="floating-toolbar" title="Pengaturan Latar & Mode Layar">
+    <button class="tool-btn active" id="btn-chroma-green" title="Chroma Green (#00ff00) untuk vMix / OBS">🟢 Green</button>
+    <button class="tool-btn" id="btn-chroma-blue" title="Chroma Blue (#0000ff)">🔵 Blue</button>
+    <button class="tool-btn" id="btn-chroma-black" title="Pitch Black (#000000) untuk TV / Stage">⚫ TV/Black</button>
+    <button class="tool-btn" id="btn-chroma-trans" title="Transparan murni (OBS Browser Source)">⬛ Trans</button>
+    <button class="tool-btn" id="btn-toggle-chat" title="Toggle Tampilan 5 Chat Teratas">💬 Chat: <span id="label-chat-toggle">AUTO</span></button>
+  </div>
+
+  <div class="overlay-wrapper">
+    <!-- Timer Card Box -->
+    <div class="timer-card" id="timer-card">
+      <div class="event-badge" id="event-name">EDUCAMP 2026</div>
+      <!-- Fixed-width box: 5.6ch anti-jitter font digit -->
+      <div class="timer-digits-box" id="timer-display">05:00</div>
+      <div class="timer-subinfo" id="timer-subinfo">
+        <span class="sync-dot"></span>
+        <span id="timer-status-text">LIVE SYNC • READY</span>
+      </div>
+    </div>
+
+    <!-- 5 Top Live Chats (Presenter Stage Monitor) -->
+    <div class="overlay-chat-container hidden" id="overlay-chat-container">
+      <div class="overlay-chat-header">
+        <span>💬 5 Pertanyaan & Chat Teratas</span>
+        <span class="badge-tag" id="view-mode-badge">PRESENTER MONITOR</span>
+      </div>
+      <div class="overlay-chat-list" id="overlay-chat-list">
+        <div class="chat-empty-hint">Menunggu pesan pertanyaan live dari peserta...</div>
+      </div>
+    </div>
   </div>
 
   <script>
-    // URL Query flags
+    // 1. Parsing Query Params
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('chroma')) {
-      document.body.classList.add(`chroma-${urlParams.get('chroma')}`);
-    }
-    if (urlParams.get('pure') === '1') {
-      document.body.classList.add('pure-overlay');
-    }
-    const showTicker = urlParams.get('ticker') === '1';
+    const viewParam = (urlParams.get('view') || '').toLowerCase(); // 'timer' (Otsuka), 'presenter', 'auto'
+    const chromaParam = (urlParams.get('chroma') || urlParams.get('bg') || 'green').toLowerCase();
+    const isPure = urlParams.get('pure') === '1';
+    const forceChat = urlParams.get('chat'); // '1' or '0'
 
-    const socket = io();
+    // Set Chroma Palette
+    function applyChroma(mode) {
+      document.body.className = '';
+      if (mode === 'blue') document.body.classList.add('chroma-blue');
+      else if (mode === 'black') document.body.classList.add('chroma-black');
+      else if (mode === 'trans' || mode === 'transparent' || mode === 'none') document.body.classList.add('chroma-transparent');
+      else document.body.classList.add('chroma-green');
+
+      if (isPure) document.body.classList.add('pure-overlay');
+
+      // Update Toolbar Buttons
+      document.querySelectorAll('.tool-btn').forEach(btn => {
+        if (btn.id === `btn-chroma-${mode}` || (mode === 'green' && btn.id === 'btn-chroma-green')) {
+          btn.classList.add('active');
+        } else if (btn.id.startsWith('btn-chroma-')) {
+          btn.classList.remove('active');
+        }
+      });
+    }
+    applyChroma(chromaParam);
+
+    // Toolbar Listeners
+    document.getElementById('btn-chroma-green').onclick = () => applyChroma('green');
+    document.getElementById('btn-chroma-blue').onclick = () => applyChroma('blue');
+    document.getElementById('btn-chroma-black').onclick = () => applyChroma('black');
+    document.getElementById('btn-chroma-trans').onclick = () => applyChroma('trans');
+
+    // Chat Toggle Override
+    let manualChatOverride = null; // null = follow admin, true = show, false = hide
+    if (forceChat === '1') manualChatOverride = true;
+    if (forceChat === '0') manualChatOverride = false;
+    if (viewParam === 'timer' || viewParam === 'otsuka' || viewParam === 'vmix') {
+      manualChatOverride = false; // Mode Otsuka / vMix = HANYA TIMER
+    } else if (viewParam === 'presenter') {
+      manualChatOverride = true; // Mode Presenter = Timer + Chat
+    }
+
+    const btnToggleChat = document.getElementById('btn-toggle-chat');
+    const labelChatToggle = document.getElementById('label-chat-toggle');
+    function updateChatToggleLabel() {
+      if (manualChatOverride === true) labelChatToggle.textContent = 'ON';
+      else if (manualChatOverride === false) labelChatToggle.textContent = 'HIDE';
+      else labelChatToggle.textContent = 'AUTO';
+    }
+    updateChatToggleLabel();
+
+    btnToggleChat.onclick = () => {
+      if (manualChatOverride === null) manualChatOverride = true;
+      else if (manualChatOverride === true) manualChatOverride = false;
+      else manualChatOverride = null;
+      updateChatToggleLabel();
+      applyOverlayChatVisibility();
+    };
+
+    // 2. High Resilience Socket.IO Initializer
+    const socket = io({
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000
+    });
+
     let clockOffset = 0;
     let timerState = {
       status: 'IDLE',
       durationSeconds: 300,
       targetEndTime: null,
-      remainingSeconds: 300
+      remainingSeconds: 300,
+      allowOvertime: true
     };
+    let overlayConfig = {
+      showChat: false
+    };
+    let currentChatHistory = [];
 
+    // DOM Elements
+    const timerDisplay = document.getElementById('timer-display');
+    const eventNameEl = document.getElementById('event-name');
+    const timerStatusText = document.getElementById('timer-status-text');
+    const timerSubinfo = document.getElementById('timer-subinfo');
+    const overlayChatContainer = document.getElementById('overlay-chat-container');
+    const overlayChatList = document.getElementById('overlay-chat-list');
+    const viewModeBadge = document.getElementById('view-mode-badge');
+
+    if (viewParam === 'timer' || viewParam === 'otsuka') {
+      viewModeBadge.textContent = 'OTSUKA TIMER ONLY';
+    } else if (viewParam === 'presenter') {
+      viewModeBadge.textContent = 'PRESENTER STAGE MONITOR';
+    }
+
+    // High Precision NTP Time Sync (Ping - Pong)
     function syncNTPClock() {
       const t0 = Date.now();
       socket.emit('TC_TIME_SYNC', { clientTimestamp: t0 });
@@ -194,8 +527,8 @@
     });
 
     setInterval(syncNTPClock, 15000);
-    syncNTPClock();
 
+    // Formatters
     function formatTime(totalSec) {
       const s = Math.max(0, Math.floor(totalSec));
       const mins = Math.floor(s / 60);
@@ -210,10 +543,84 @@
       return `+${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
     }
 
-    const timerDisplay = document.getElementById('timer-display');
-    const eventNameEl = document.getElementById('event-name');
-    const chatTickerEl = document.getElementById('chat-ticker');
+    function formatClockTime(isoStr) {
+      if (!isoStr) return '';
+      try {
+        const d = new Date(isoStr);
+        return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+      } catch (e) {
+        return '';
+      }
+    }
 
+    function escapeHtml(text) {
+      if (!text) return '';
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // 3. Render 5 Top Chats
+    function renderTopChats() {
+      if (!currentChatHistory || currentChatHistory.length === 0) {
+        overlayChatList.innerHTML = '<div class="chat-empty-hint">Menunggu pertanyaan atau chat live dari peserta...</div>';
+        return;
+      }
+
+      // Filter: bukan deleted, bukan separator kosong, ada teks
+      const activeChats = currentChatHistory.filter(c => !c.isDeleted && !c.isSeparator && c.text && c.text.trim());
+      // Ambil 5 chat terbaru
+      const top5 = activeChats.slice(-5);
+
+      if (top5.length === 0) {
+        overlayChatList.innerHTML = '<div class="chat-empty-hint">Belum ada chat aktif.</div>';
+        return;
+      }
+
+      overlayChatList.innerHTML = top5.map(msg => {
+        const sender = escapeHtml(msg.sender || msg.userName || 'Peserta');
+        const text = escapeHtml(msg.text || msg.message || '');
+        const role = (msg.role || 'PESERTA').toUpperCase();
+        let roleClass = 'peserta';
+        if (role === 'SUPER_ADMIN') roleClass = 'super-admin';
+        else if (role === 'ADMIN') roleClass = 'admin';
+        else if (role === 'PANITIA') roleClass = 'panitia';
+        else if (role === 'MODERATOR') roleClass = 'moderator';
+
+        const timeStr = formatClockTime(msg.timestamp);
+
+        return `
+          <div class="chat-bubble-card">
+            <div class="chat-bubble-meta">
+              <span class="chat-sender-name">${sender}</span>
+              <span class="chat-role-badge ${roleClass}">${role.replace('_', ' ')}</span>
+              <span class="chat-timestamp">${timeStr}</span>
+            </div>
+            <div class="chat-message-text">${text}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Kontrol Visibilitas Chat di Bawah Timer
+    function applyOverlayChatVisibility() {
+      let isVisible = false;
+
+      if (manualChatOverride !== null) {
+        isVisible = manualChatOverride;
+      } else {
+        isVisible = !!overlayConfig.showChat;
+      }
+
+      if (isVisible) {
+        overlayChatContainer.classList.remove('hidden');
+        renderTopChats();
+      } else {
+        overlayChatContainer.classList.add('hidden');
+      }
+    }
+
+    // 4. Render Main Loop (100% 60FPS Smooth RAF)
     function updateUI() {
       const allowOvertime = (timerState.allowOvertime !== false);
 
@@ -224,36 +631,48 @@
         if (diffMs >= 0) {
           const remainingSec = Math.max(0, Math.ceil(diffMs / 1000));
           timerDisplay.textContent = formatTime(remainingSec);
-          timerDisplay.className = 'timer-digits running';
+          timerDisplay.className = 'timer-digits-box running';
+          timerStatusText.textContent = '● RUNNING • LIVE SYNC';
 
           if (remainingSec <= 10 && remainingSec > 0) {
             timerDisplay.classList.add('blinking-alert');
+            timerStatusText.textContent = '⚠️ PERINGATAN: 10 DETIK TERAKHIR';
           } else if (remainingSec === 0) {
-            timerDisplay.className = 'timer-digits over';
+            timerDisplay.className = 'timer-digits-box over';
+            timerStatusText.textContent = 'WAKTU SELESAI';
           }
         } else {
           const overtimePassedSec = Math.floor(Math.abs(diffMs) / 1000);
           if (allowOvertime) {
             timerDisplay.textContent = formatOvertime(overtimePassedSec);
-            timerDisplay.className = 'timer-digits overtime';
+            timerDisplay.className = 'timer-digits-box overtime';
+            timerStatusText.textContent = '⏱️ MELEBIHI BATAS WAKTU (OVERTIME)';
           } else {
             timerDisplay.textContent = '00:00';
-            timerDisplay.className = 'timer-digits over';
+            timerDisplay.className = 'timer-digits-box over';
+            timerStatusText.textContent = 'WAKTU HABIS (TIME OUT)';
           }
         }
       } else {
         if (timerState.remainingSeconds < 0) {
           const absOvertimeSec = Math.abs(timerState.remainingSeconds);
           timerDisplay.textContent = formatOvertime(absOvertimeSec);
-          timerDisplay.className = 'timer-digits overtime paused';
+          timerDisplay.className = 'timer-digits-box overtime paused';
+          timerStatusText.textContent = '⏸️ OVERTIME PAUSED';
         } else {
           timerDisplay.textContent = formatTime(timerState.remainingSeconds);
           if (timerState.status === 'PAUSED') {
-            timerDisplay.className = 'timer-digits paused';
+            timerDisplay.className = 'timer-digits-box paused';
+            timerStatusText.textContent = '⏸️ TIMER DIJEDA (PAUSED)';
+          } else if (timerState.status === 'STOPPED') {
+            timerDisplay.className = 'timer-digits-box paused';
+            timerStatusText.textContent = '⏹️ SESI SELESAI (STOPPED)';
           } else if (timerState.status === 'TIME_OUT') {
-            timerDisplay.className = 'timer-digits over';
+            timerDisplay.className = 'timer-digits-box over';
+            timerStatusText.textContent = 'WAKTU HABIS (TIME OUT)';
           } else {
-            timerDisplay.className = 'timer-digits';
+            timerDisplay.className = 'timer-digits-box';
+            timerStatusText.textContent = 'READY • LIVE SYNC';
           }
         }
       }
@@ -261,35 +680,130 @@
     }
     requestAnimationFrame(updateUI);
 
-    socket.on('TC_STATE_UPDATE', (state) => {
+    // 5. Apply Full State
+    function applyState(state) {
       if (!state) return;
-      timerState = state.timer;
-      if (state.activeEvent) {
+      if (state.timer) {
+        timerState = state.timer;
+      }
+      if (state.activeEvent && state.activeEvent.name) {
         eventNameEl.textContent = state.activeEvent.name;
       }
-      if (showTicker && state.chatHistory && state.chatHistory.length > 0) {
-        const lastMsg = state.chatHistory[state.chatHistory.length - 1];
-        chatTickerEl.textContent = `💬 ${lastMsg.userName}: ${lastMsg.message}`;
-        chatTickerEl.classList.add('active');
+      if (state.overlayConfig) {
+        overlayConfig = state.overlayConfig;
+      }
+      if (state.chatHistory) {
+        currentChatHistory = state.chatHistory;
+      }
+      applyOverlayChatVisibility();
+    }
+
+    // 6. Anti-Stuck Cloud Initial Fetch & Polling Fallback
+    async function fetchInitialState() {
+      try {
+        const res = await fetch('/api/timer-chat/state');
+        if (res.ok) {
+          const state = await res.json();
+          applyState(state);
+          timerSubinfo.classList.remove('offline');
+          return;
+        }
+      } catch (err) {
+        console.warn('[Overlay] State HTTP fetch failed, fallback to vmix feed:', err);
+      }
+
+      // Secondary fallback to /api/timer-chat/vmix
+      try {
+        const vRes = await fetch('/api/timer-chat/vmix');
+        if (vRes.ok) {
+          const vData = await vRes.json();
+          if (vData.eventName) eventNameEl.textContent = vData.eventName;
+          if (vData.time) timerDisplay.textContent = vData.time;
+          timerState.remainingSeconds = vData.remainingSeconds || 300;
+          timerState.status = vData.status || 'IDLE';
+          timerState.targetEndTime = vData.targetEndTime;
+          timerSubinfo.classList.remove('offline');
+        }
+      } catch (err2) {
+        timerSubinfo.classList.add('offline');
+        timerStatusText.textContent = 'MENUNGGU KONEKSI SERVER...';
+      }
+    }
+
+    // Jalankan segera saat page load!
+    fetchInitialState();
+
+    // Fallback Polling interval tiap 2.5s jika socket disconnect
+    setInterval(async () => {
+      if (!socket.connected) {
+        await fetchInitialState();
+      }
+    }, 2500);
+
+    // 7. Socket Event Listeners
+    socket.on('connect', () => {
+      timerSubinfo.classList.remove('offline');
+      syncNTPClock();
+      socket.emit('TC_REQUEST_STATE');
+    });
+
+    socket.on('disconnect', () => {
+      timerSubinfo.classList.add('offline');
+    });
+
+    socket.on('TC_STATE_UPDATE', (state) => {
+      applyState(state);
+    });
+
+    socket.on('TC_OVERLAY_CHAT_VISIBILITY_CHANGED', (data) => {
+      if (data && typeof data.visible === 'boolean') {
+        overlayConfig.showChat = data.visible;
+        applyOverlayChatVisibility();
       }
     });
 
     socket.on('TC_NEW_MESSAGE', (msg) => {
-      if (showTicker && msg) {
-        chatTickerEl.textContent = `💬 ${msg.userName}: ${msg.message}`;
-        chatTickerEl.classList.add('active');
-      }
+      if (!msg) return;
+      currentChatHistory.push(msg);
+      applyOverlayChatVisibility();
+    });
+
+    socket.on('TC_MESSAGE_DELETED', (data) => {
+      if (!data || !data.messageId) return;
+      currentChatHistory = currentChatHistory.filter(c => c.id !== data.messageId);
+      applyOverlayChatVisibility();
+    });
+
+    socket.on('TC_MESSAGE_UPDATED', (updatedMsg) => {
+      if (!updatedMsg || !updatedMsg.id) return;
+      const idx = currentChatHistory.findIndex(c => c.id === updatedMsg.id);
+      if (idx !== -1) currentChatHistory[idx] = updatedMsg;
+      applyOverlayChatVisibility();
+    });
+
+    socket.on('TC_CHAT_CLEARED', () => {
+      currentChatHistory = [];
+      applyOverlayChatVisibility();
     });
 
     socket.on('TC_TIMER_STARTED', (data) => {
       timerState.status = 'RUNNING';
       timerState.targetEndTime = data.targetEndTime;
       timerState.durationSeconds = data.durationSeconds;
+      timerState.allowOvertime = data.allowOvertime !== false;
     });
 
     socket.on('TC_TIMER_PAUSED', (data) => {
       timerState.status = 'PAUSED';
       timerState.remainingSeconds = data.remainingSeconds;
+      timerState.isOvertime = data.isOvertime;
+      timerState.overtimeSeconds = data.overtimeSeconds;
+    });
+
+    socket.on('TC_TIMER_STOPPED', (data) => {
+      timerState.status = 'STOPPED';
+      timerState.remainingSeconds = data.remainingSeconds;
+      timerState.durationSeconds = data.durationSeconds;
     });
 
     socket.on('TC_TIMER_RESET', (data) => {

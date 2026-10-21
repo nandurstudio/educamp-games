@@ -11,12 +11,16 @@ import urllib.error
 import tkinter as tk
 from tkinter import font as tkfont
 
-DEFAULT_SERVER_URL = "http://localhost:3002/api/timer-chat/vmix"
+DEFAULT_LOCAL_URL = "http://localhost:3002/api/timer-chat/vmix"
+DEFAULT_CLOUD_URL = "https://educamp.ai.studio/api/timer-chat/vmix"
 
 class TransparentTimerOverlay:
-    def __init__(self, root, server_url=DEFAULT_SERVER_URL):
+    def __init__(self, root, server_url=None):
         self.root = root
-        self.server_url = server_url
+        self.server_url = server_url or DEFAULT_LOCAL_URL
+        self.cloud_fallback_url = DEFAULT_CLOUD_URL
+        self.active_url = self.server_url
+        self.fail_count = 0
         
         # Window Configuration
         self.root.title("Educamp Timer Overlay - Borderless")
@@ -24,7 +28,6 @@ class TransparentTimerOverlay:
         self.root.overrideredirect(True)       # Borderless, no titlebar
         
         # Set Transparent Key Color
-        # Windows supports transparentcolor attribute on Tk
         self.trans_color = "#010101"
         self.root.config(bg=self.trans_color)
         try:
@@ -32,7 +35,7 @@ class TransparentTimerOverlay:
         except Exception as e:
             print(f"[Warning] Transparent color not supported on this platform: {e}")
 
-        # Position default on screen (top-right or customizable)
+        # Position default on screen (top-right)
         win_w, win_h = 420, 200
         screen_w = self.root.winfo_screenwidth()
         start_x = max(20, screen_w - win_w - 40)
@@ -69,12 +72,12 @@ class TransparentTimerOverlay:
         )
         self.lbl_event.pack(anchor="center", pady=(0, 2))
 
-        # Main Digits Label
+        # Main Digits Label (Putih Bersih Anti-Masking)
         self.lbl_timer = tk.Label(
             self.card_frame,
             text="05:00",
             font=("Consolas", 56, "bold"),
-            fg="#22c55e",
+            fg="#ffffff",
             bg=self.card_bg
         )
         self.lbl_timer.pack(anchor="center", pady=0)
@@ -99,6 +102,9 @@ class TransparentTimerOverlay:
         self.context_menu = tk.Menu(self.root, tearoff=0)
         self.context_menu.add_command(label="Toggle Glass Card / Pure Transparent", command=self.toggle_pure_mode)
         self.context_menu.add_separator()
+        self.context_menu.add_command(label="Server: Localhost (:3002)", command=lambda: self.switch_server(DEFAULT_LOCAL_URL))
+        self.context_menu.add_command(label="Server: Cloud (educamp.ai.studio)", command=lambda: self.switch_server(DEFAULT_CLOUD_URL))
+        self.context_menu.add_separator()
         self.context_menu.add_command(label="Font Ukuran: Kecil", command=lambda: self.set_scale(0.75))
         self.context_menu.add_command(label="Font Ukuran: Normal", command=lambda: self.set_scale(1.0))
         self.context_menu.add_command(label="Font Ukuran: Besar", command=lambda: self.set_scale(1.3))
@@ -109,8 +115,13 @@ class TransparentTimerOverlay:
         # Blinking Alert State
         self.blink_state = False
 
-        # Start Poll Loop (100ms interval for smooth realtime display)
+        # Start Poll Loop (150ms interval for smooth realtime display)
         self.poll_timer_data()
+
+    def switch_server(self, target_url):
+        self.active_url = target_url
+        self.fail_count = 0
+        self.lbl_status.config(text=f"MENGHUBUNGKAN: {target_url}...", fg="#38bdf8")
 
     def on_drag_start(self, event):
         self.offset_x = event.x_root - self.root.winfo_x()
@@ -160,12 +171,16 @@ class TransparentTimerOverlay:
 
     def poll_timer_data(self):
         try:
-            req = urllib.request.Request(self.server_url, headers={"User-Agent": "EducampTimerOverlay/1.0"})
+            req = urllib.request.Request(self.active_url, headers={"User-Agent": "EducampTimerOverlay/1.0"})
             with urllib.request.urlopen(req, timeout=0.8) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
                 self.update_display(data)
-        except Exception as e:
-            # Server offline or connecting
+                self.fail_count = 0
+        except Exception:
+            self.fail_count += 1
+            if self.fail_count >= 5 and self.active_url == DEFAULT_LOCAL_URL:
+                # Otomatis fallback ke cloud jika localhost tidak aktif
+                self.active_url = self.cloud_fallback_url
             self.lbl_status.config(text="MENUNGGU KONEKSI SERVER...", fg="#f59e0b")
         
         # Schedule next poll in 150ms
@@ -193,17 +208,21 @@ class TransparentTimerOverlay:
             else:
                 self.lbl_status.config(text="⚠️ PERINGATAN WAKTU HAMPIR HABIS", fg="#ef4444")
         elif is_running:
-            self.lbl_timer.config(fg="#22c55e")
-            self.lbl_status.config(text="● RUNNING • LIVE SYNC", fg="#22c55e")
+            # Warna putih solid anti-masking vMix (bukan hijau)
+            self.lbl_timer.config(fg="#ffffff")
+            self.lbl_status.config(text="● RUNNING • LIVE SYNC", fg="#38bdf8")
         elif remaining_sec <= 0:
             self.lbl_timer.config(fg="#ef4444")
             self.lbl_status.config(text="WAKTU HABIS (TIME OUT)", fg="#ef4444")
+        elif status_val == "PAUSED":
+            self.lbl_timer.config(fg="#f59e0b")
+            self.lbl_status.config(text="⏸️ PAUSED", fg="#f59e0b")
         else:
-            self.lbl_timer.config(fg="#38bdf8")
+            self.lbl_timer.config(fg="#ffffff")
             self.lbl_status.config(text="READY • GESER UNTUK PINDAH", fg="#94a3b8")
 
 def main():
-    server_target = DEFAULT_SERVER_URL
+    server_target = None
     if len(sys.argv) > 1:
         server_target = sys.argv[1]
 

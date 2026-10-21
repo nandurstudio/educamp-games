@@ -61,6 +61,11 @@
 
     let currentDayTab = 'DAY_1';
     let pendingSessionSeparator = null;
+    let currentActiveSession = {
+      title: 'Opening / Standby',
+      planSeconds: 300,
+      timeLabel: '-'
+    };
 
     // Ambil data rundown dari localStorage atau gunakan default master
     function getStoredRundown(dayKey) {
@@ -101,11 +106,103 @@
       }
     }
 
+    function getCompletedSessions() {
+      try {
+        const stored = localStorage.getItem(`tpm_completed_sessions_${currentDayTab.toLowerCase()}`);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) return new Set(parsed);
+        }
+      } catch (e) {
+        console.warn('Gagal membaca completed sessions storage', e);
+      }
+      return new Set();
+    }
+
+    function saveCompletedSessions(set) {
+      try {
+        localStorage.setItem(`tpm_completed_sessions_${currentDayTab.toLowerCase()}`, JSON.stringify([...set]));
+      } catch (e) {
+        console.error('Gagal menyimpan completed sessions storage', e);
+      }
+    }
+
+    function markSessionAsCompleted(sessionTitle, markPreviousAsWell = true) {
+      if (!sessionTitle || sessionTitle === 'Opening / Standby') return;
+      const completedSet = getCompletedSessions();
+      completedSet.add(sessionTitle);
+
+      if (markPreviousAsWell) {
+        const currentList = getCurrentRundownList();
+        const activeIdx = currentList.findIndex(it => it.title === sessionTitle);
+        if (activeIdx !== -1) {
+          for (let i = 0; i <= activeIdx; i++) {
+            if (currentList[i] && currentList[i].title) {
+              completedSet.add(currentList[i].title);
+            }
+          }
+        }
+      }
+
+      saveCompletedSessions(completedSet);
+      renderRundownItems();
+    }
+
+    function unmarkSessionCompleted(sessionTitle) {
+      if (!sessionTitle) return;
+      const completedSet = getCompletedSessions();
+      completedSet.delete(sessionTitle);
+      saveCompletedSessions(completedSet);
+      renderRundownItems();
+    }
+
+    let draggedRundownIndex = null;
+    let rundownInsertPositionIndex = null;
+
+    function cleanupRundownDrag() {
+      document.body.classList.remove('is-rundown-dragging');
+      const container = document.getElementById('rundown-list');
+      if (container) {
+        container.classList.remove('is-sorting-active');
+        container.querySelectorAll('.rundown-row').forEach(r => {
+          r.draggable = false;
+          r.classList.remove('is-dragging', 'drag-over-top', 'drag-over-bottom');
+        });
+      }
+      draggedRundownIndex = null;
+    }
+
+    // Fail-safe global listener jika drag dibatalkan atau dilepas di luar elemen
+    window.addEventListener('dragend', cleanupRundownDrag);
+    window.addEventListener('drop', cleanupRundownDrag);
+
+    function createInsertDivider(insertIdx) {
+      const divider = document.createElement('div');
+      divider.className = 'rundown-insert-divider';
+      divider.dataset.insertIndex = insertIdx;
+      divider.innerHTML = `
+        <button type="button" class="btn-insert-between" title="Sisipkan sesi baru di sini">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+          <span>Sesi</span>
+        </button>
+      `;
+
+      const btn = divider.querySelector('.btn-insert-between');
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!checkTimerControlPermission()) return;
+        openRundownModal('ADD_AT', insertIdx);
+      });
+
+      return divider;
+    }
+
     function renderRundownItems() {
       const container = document.getElementById('rundown-list');
       if (!container) return;
       container.innerHTML = '';
       const items = getCurrentRundownList();
+      const completedSet = getCompletedSessions();
 
       if (items.length === 0) {
         container.innerHTML = `
@@ -116,20 +213,48 @@
         return;
       }
 
+      // Pastikan container menerima drop event dari HTML5 DnD
+      container.ondragover = (e) => {
+        if (draggedRundownIndex !== null) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+        }
+      };
+
       items.forEach((item, index) => {
+        // Divider untuk menyisipkan sesi sebelum item pertama
+        if (index === 0) {
+          container.appendChild(createInsertDivider(0));
+        }
+
+        const isCurrentPlaying = currentActiveSession && currentActiveSession.title === item.title && (activeTimerState.status === 'RUNNING' || activeTimerState.status === 'PAUSED');
+        const isPassed = !isCurrentPlaying && completedSet.has(item.title);
+
         const row = document.createElement('div');
-        row.className = `rundown-row ${item.isYellow ? 'is-highlight' : ''}`;
+        row.className = `rundown-row ${item.isYellow ? 'is-highlight' : ''} ${isCurrentPlaying ? 'is-current-playing' : ''} ${isPassed ? 'is-passed' : ''}`;
+        row.dataset.index = index;
+        row.dataset.title = item.title;
+        row.draggable = false; // Default false: klik normal tidak akan memicu drag / memudarkan elemen
+        if (isPassed) {
+          row.title = `Sesi "${item.title}" sudah terlewat / selesai dan tidak dapat dipilih kembali.`;
+        }
+
         row.innerHTML = `
+          <div class="rundown-drag-handle" title="${isPassed ? 'Sesi terlewat' : 'Tahan dan geser untuk mengubah urutan sesi'}">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="8.5" cy="6" r="1.5"/><circle cx="15.5" cy="6" r="1.5"/><circle cx="8.5" cy="12" r="1.5"/><circle cx="15.5" cy="12" r="1.5"/><circle cx="8.5" cy="18" r="1.5"/><circle cx="15.5" cy="18" r="1.5"/></svg>
+          </div>
           <div class="rundown-meta-left">
             <span class="rundown-time-badge">${escapeHtml(item.time || '-')}</span>
             <div class="rundown-activity">
               <span>${escapeHtml(item.title)}</span>
               ${item.pic ? `<span class="rundown-pic">• ${escapeHtml(item.pic)}</span>` : ''}
+              ${isPassed ? `<span class="rundown-passed-badge" title="Sesi telah terlewat / selesai">✓ Lewat</span>` : ''}
             </div>
           </div>
           <div class="rundown-meta-right">
             <span class="rundown-dur-pill ${item.isYellow ? 'yellow' : ''}">${item.durMin}m</span>
             <div class="rundown-item-actions">
+              ${isPassed ? `<button class="btn-rundown-action btn-unpass" title="Buka kembali sesi ini (batal lewat)" data-title="${escapeHtml(item.title)}">↺</button>` : ''}
               <button class="btn-rundown-action btn-edit" title="Edit sesi ini" data-index="${index}">✎</button>
               <button class="btn-rundown-action btn-del" title="Hapus sesi ini" data-index="${index}">
                 <svg viewBox="0 0 24 24" fill="currentColor" style="width: 12px; height: 12px;"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
@@ -138,22 +263,142 @@
           </div>
         `;
 
+        // Hanya aktifkan draggable saat kursor menekan grip handle titik 6 (hanya jika sesi belum terlewat)
+        const dragHandle = row.querySelector('.rundown-drag-handle');
+        if (dragHandle && !isPassed) {
+          dragHandle.addEventListener('mousedown', (e) => {
+            if (!checkTimerControlPermission()) return;
+            row.draggable = true;
+          });
+          dragHandle.addEventListener('mouseup', () => {
+            if (draggedRundownIndex === null) {
+              row.draggable = false;
+            }
+          });
+          dragHandle.addEventListener('mouseleave', () => {
+            if (draggedRundownIndex === null) {
+              row.draggable = false;
+            }
+          });
+        }
+
+        // Drag and drop listeners
+        row.addEventListener('dragstart', (e) => {
+          if (!checkTimerControlPermission() || !row.draggable) {
+            e.preventDefault();
+            return;
+          }
+          draggedRundownIndex = index;
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', String(index));
+          document.body.classList.add('is-rundown-dragging');
+          container.classList.add('is-sorting-active');
+
+          requestAnimationFrame(() => {
+            if (draggedRundownIndex !== null) {
+              row.classList.add('is-dragging');
+            }
+          });
+        });
+
+        row.addEventListener('dragend', () => {
+          cleanupRundownDrag();
+        });
+
+        row.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          if (draggedRundownIndex === null || draggedRundownIndex === index) return;
+          const rect = row.getBoundingClientRect();
+          const isAbove = e.clientY < (rect.top + rect.height / 2);
+          if (isAbove) {
+            row.classList.add('drag-over-top');
+            row.classList.remove('drag-over-bottom');
+          } else {
+            row.classList.add('drag-over-bottom');
+            row.classList.remove('drag-over-top');
+          }
+        });
+
+        row.addEventListener('dragleave', (e) => {
+          if (!row.contains(e.relatedTarget)) {
+            row.classList.remove('drag-over-top', 'drag-over-bottom');
+          }
+        });
+
+        row.addEventListener('drop', (e) => {
+          e.preventDefault();
+          row.classList.remove('drag-over-top', 'drag-over-bottom');
+          if (draggedRundownIndex === null || draggedRundownIndex === index) {
+            cleanupRundownDrag();
+            return;
+          }
+
+          const rect = row.getBoundingClientRect();
+          const isAbove = e.clientY < (rect.top + rect.height / 2);
+
+          const currentList = getCurrentRundownList();
+          const [movedItem] = currentList.splice(draggedRundownIndex, 1);
+
+          let targetIdx = index;
+          if (draggedRundownIndex < index) {
+            targetIdx = isAbove ? index - 1 : index;
+          } else {
+            targetIdx = isAbove ? index : index + 1;
+          }
+          targetIdx = Math.max(0, Math.min(targetIdx, currentList.length));
+          currentList.splice(targetIdx, 0, movedItem);
+
+          currentList.forEach((it, i) => it.no = i + 1);
+
+          // Update active session index jika sesi yang sedang dimainkan ikut bergeser
+          if (currentActiveSession && currentActiveSession.title) {
+            const newActiveIdx = currentList.findIndex(it => it.title === currentActiveSession.title);
+            if (newActiveIdx !== -1) {
+              currentActiveSession.index = newActiveIdx;
+            }
+          }
+
+          cleanupRundownDrag();
+          setCurrentRundownList(currentList);
+          renderRundownItems();
+        });
+
         // 1-Klik Set Waktu + Siapkan Separator Sesi (Hanya terkirim saat timer di-Play)
         row.addEventListener('click', (e) => {
-          if (e.target.closest('.rundown-item-actions')) return;
+          if (e.target.closest('.rundown-item-actions') || e.target.closest('.rundown-drag-handle')) return;
 
           if (!checkTimerControlPermission()) return;
 
+          // JIKA SESI SUDAH TERLEWAT: TIDAK BISA DI-SELECT ULANG!
+          if (isPassed) {
+            showAlertDialog({
+              title: 'Sesi Sudah Terlewat',
+              message: `Sesi "${item.title}" sudah terlewat / selesai dan tidak dapat dipilih kembali.`
+            });
+            return;
+          }
+
           // Jangan langsung berubah jika timer sedang berjalan! Harus di-stop/pause terlebih dahulu
+          // Jangan langsung berubah jika timer sedang berjalan atau dijeda! Harus di-stop terlebih dahulu
           if (activeTimerState.status === 'RUNNING') {
             showAlertDialog({
               title: 'Timer Sedang Berjalan',
-              message: `Timer sesi saat ini sedang aktif berjalan! Mohon jeda atau hentikan (Stop / Pause) timer terlebih dahulu sebelum berpindah ke sesi "${item.title}".`
+              message: `Timer sesi saat ini sedang aktif berjalan! Mohon jeda atau hentikan (Stop) timer terlebih dahulu sebelum berpindah ke sesi "${item.title}".`
+            });
+            return;
+          }
+
+          if (activeTimerState.status === 'PAUSED') {
+            showAlertDialog({
+              title: 'Timer Sedang Dijeda',
+              message: `Timer saat ini sedang dalam status Jeda! Harap tekan tombol "Stop" terlebih dahulu untuk menyelesaikan sesi sebelumnya sebelum berpindah ke sesi "${item.title}".`
             });
             return;
           }
 
           const totalSec = item.sec || (item.durMin * 60);
+          isCustomDurationSelected = false; // Dipilih dari rundown, separator wajib aktif
           
           currentActiveSession = {
             index: index,
@@ -180,6 +425,16 @@
           row.classList.add('is-current-playing');
           updateRundownVsActualUI();
         });
+
+        // Tombol Batal Terlewat (Buka Kunci Kembali)
+        const btnUnpass = row.querySelector('.btn-unpass');
+        if (btnUnpass) {
+          btnUnpass.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!checkTimerControlPermission()) return;
+            unmarkSessionCompleted(item.title);
+          });
+        }
 
         // Edit button
         const btnEdit = row.querySelector('.btn-edit');
@@ -210,6 +465,9 @@
         }
 
         container.appendChild(row);
+
+        // Divider untuk menyisipkan sesi setelah item saat ini
+        container.appendChild(createInsertDivider(index + 1));
       });
     }
 
@@ -229,6 +487,7 @@
 
     function openRundownModal(mode, index = null, item = null) {
       if (mode === 'ADD') {
+        rundownInsertPositionIndex = null;
         rundownModalTitle.textContent = `Tambah Sesi (${currentDayTab === 'DAY_1' ? 'Day 1' : 'Day 2'})`;
         rundownItemId.value = '';
         rundownFormTitle.value = '';
@@ -236,7 +495,18 @@
         rundownFormDur.value = '15';
         rundownFormPic.value = '';
         rundownFormHighlight.checked = false;
+      } else if (mode === 'ADD_AT') {
+        rundownInsertPositionIndex = typeof index === 'number' ? index : null;
+        const posText = rundownInsertPositionIndex !== null ? `(Urutan ke-${rundownInsertPositionIndex + 1})` : '';
+        rundownModalTitle.textContent = `Sisipkan Sesi Baru ${posText} - ${currentDayTab === 'DAY_1' ? 'Day 1' : 'Day 2'}`;
+        rundownItemId.value = '';
+        rundownFormTitle.value = '';
+        rundownFormTime.value = '';
+        rundownFormDur.value = '15';
+        rundownFormPic.value = '';
+        rundownFormHighlight.checked = false;
       } else {
+        rundownInsertPositionIndex = null;
         rundownModalTitle.textContent = `Edit Sesi (${currentDayTab === 'DAY_1' ? 'Day 1' : 'Day 2'})`;
         rundownItemId.value = String(index);
         rundownFormTitle.value = item.title || '';
@@ -289,6 +559,17 @@
             pic,
             isYellow
           };
+        } else if (rundownInsertPositionIndex !== null && !isNaN(rundownInsertPositionIndex)) {
+          currentList.splice(rundownInsertPositionIndex, 0, {
+            no: rundownInsertPositionIndex + 1,
+            title,
+            time,
+            durMin,
+            sec: durMin * 60,
+            pic,
+            isYellow
+          });
+          rundownInsertPositionIndex = null;
         } else {
           currentList.push({
             no: currentList.length + 1,
@@ -301,6 +582,7 @@
           });
         }
 
+        currentList.forEach((it, i) => it.no = i + 1);
         setCurrentRundownList(currentList);
         renderRundownItems();
         closeRundownModal();
@@ -416,10 +698,11 @@
       const presetPills = document.querySelectorAll('.preset-pill');
       const mobilePresetBtn = document.getElementById('btn-mobile-preset');
 
-      if (isSuperAdmin && btnOpenUserMgmt) {
-        btnOpenUserMgmt.style.display = 'inline-flex';
-      } else if (btnOpenUserMgmt) {
-        btnOpenUserMgmt.style.display = 'none';
+      if (btnOpenUserMgmt) {
+        btnOpenUserMgmt.style.display = 'none'; // Dipindahkan ke Profile Context Menu
+      }
+      if (currentUser) {
+        renderAuthUI(currentUser);
       }
 
       if (isUserAdmin) {
@@ -458,11 +741,7 @@
     }
 
     // Realtime Rundown vs Actual State Tracker
-    let currentActiveSession = {
-      title: 'Opening / Standby',
-      planSeconds: 300,
-      timeLabel: '-'
-    };
+    // (currentActiveSession dideklarasikan di scope atas agar aman dari TDZ saat render awal)
 
     const rvaTrackerBadge = document.getElementById('rva-tracker-badge');
     const rvaSessionName = document.getElementById('rva-session-name');
@@ -472,8 +751,108 @@
     const rvaDiffText = document.getElementById('rva-diff-text');
     const rvaOverallPct = document.getElementById('rva-overall-pct');
 
+    // Helper untuk mem-parsing waktu jam mulai sesi (misal "08:30 - 08:35" atau "09:00" -> 32400 detik)
+    function parseRundownTimeStringToSeconds(timeStr) {
+      if (!timeStr || typeof timeStr !== 'string') return null;
+      const startPart = timeStr.split('-')[0].trim().replace('.', ':');
+      const match = startPart.match(/^(\d{1,2}):(\d{2})/);
+      if (!match) return null;
+      const hours = parseInt(match[1], 10);
+      const minutes = parseInt(match[2], 10);
+      if (isNaN(hours) || isNaN(minutes)) return null;
+      return (hours * 3600) + (minutes * 60);
+    }
+
+    // Mendapatkan jam rencana mulai sesi (berdasarkan time string atau kalkulasi kumulatif jadwal sebelumnya)
+    function getPlannedStartSecondsForSession(list, activeIdx) {
+      if (!list || list.length === 0) return null;
+      const safeIdx = Math.max(0, Math.min(activeIdx, list.length - 1));
+      const targetItem = list[safeIdx];
+      if (!targetItem) return null;
+
+      // 1. Coba parse langsung dari string time target
+      const directSec = parseRundownTimeStringToSeconds(targetItem.time);
+      if (directSec !== null) return directSec;
+
+      // 2. Jika sesi ini tidak punya jam mulai yang terformat, telusuri mundur ke item sebelumnya yang valid
+      let baseSec = null;
+      let durationBetween = 0;
+      for (let i = safeIdx - 1; i >= 0; i--) {
+        const parsed = parseRundownTimeStringToSeconds(list[i].time);
+        durationBetween += (list[i].sec || (list[i].durMin * 60) || 0);
+        if (parsed !== null) {
+          baseSec = parsed + durationBetween;
+          break;
+        }
+      }
+      if (baseSec !== null) return baseSec;
+
+      // 3. Fallback: Cari item pertama di list
+      const firstSec = parseRundownTimeStringToSeconds(list[0].time);
+      if (firstSec !== null) {
+        let acc = 0;
+        for (let i = 0; i < safeIdx; i++) {
+          acc += (list[i].sec || (list[i].durMin * 60) || 0);
+        }
+        return firstSec + acc;
+      }
+
+      return null;
+    }
+
+    // Format deviasi waktu Overall Rundown Pace:
+    // Terlambat / Over -> +00:05 (Merah 🔴)
+    // Tepat Waktu -> 00:00 (Hijau 🟢)
+    // Lebih Cepat / Buffer -> -00:20 (Biru / Hijau Muda 🔵)
+    function formatRundownDriftTime(diffSeconds) {
+      const absSec = Math.abs(diffSeconds);
+      const totalMinutes = Math.floor(absSec / 60);
+      const hours = Math.floor(totalMinutes / 60);
+      const mins = totalMinutes % 60;
+      const formattedTime = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+
+      // Toleransi tepat waktu: rentang < 30 detik dianggap on time (00:00)
+      if (absSec < 30) {
+        return {
+          formatted: '00:00',
+          status: 'ontime',
+          badgeText: 'TEPAT WAKTU (00:00)',
+          color: '#34d399', // Hijau 🟢
+          diffMinutes: 0
+        };
+      } else if (diffSeconds > 0) {
+        return {
+          formatted: `+${formattedTime}`,
+          status: 'over',
+          badgeText: `MOLOR (+${formattedTime})`,
+          color: '#f87171', // Merah 🔴
+          diffMinutes: totalMinutes
+        };
+      } else {
+        return {
+          formatted: `-${formattedTime}`,
+          status: 'early',
+          badgeText: `AHEAD (-${formattedTime})`,
+          color: '#38bdf8', // Biru / Hijau Muda 🔵
+          diffMinutes: -totalMinutes
+        };
+      }
+    }
+
     function updateRundownVsActualUI() {
       if (!rvaTrackerBadge) return;
+
+      const currentList = getCurrentRundownList() || [];
+
+      // Default sesi pertama jika belum ada yang terpilih
+      if (!currentActiveSession && currentList.length > 0) {
+        currentActiveSession = {
+          index: 0,
+          title: currentList[0].title,
+          planSeconds: currentList[0].sec || (currentList[0].durMin * 60) || 300,
+          timeLabel: currentList[0].time || '-'
+        };
+      }
 
       const planSec = (currentActiveSession && currentActiveSession.planSeconds) 
         ? currentActiveSession.planSeconds 
@@ -483,8 +862,8 @@
       if (rvaPlanVal) rvaPlanVal.textContent = planFormatted;
 
       if (rvaSessionName) {
-        rvaSessionName.textContent = currentActiveSession.title || 'Sesi Acara';
-        rvaSessionName.title = `Sesi: ${currentActiveSession.title}`;
+        rvaSessionName.textContent = currentActiveSession ? currentActiveSession.title : 'Sesi Acara';
+        rvaSessionName.title = `Sesi: ${currentActiveSession ? currentActiveSession.title : ''}`;
       }
 
       // Hitung sisa detik aktif
@@ -495,63 +874,65 @@
         remainingSec = Math.max(0, Math.ceil(diffMs / 1000));
       }
 
-      // Actual elapsed time
-      const actualElapsedSec = Math.max(0, planSec - remainingSec);
+      // Actual elapsed time timer sesi saat ini
+      let actualElapsedSec = 0;
+      if (activeTimerState.remainingSeconds < 0) {
+        actualElapsedSec = planSec + Math.abs(activeTimerState.remainingSeconds);
+      } else {
+        actualElapsedSec = Math.max(0, planSec - remainingSec);
+      }
       if (rvaActualVal) rvaActualVal.textContent = formatTime(actualElapsedSec);
 
-      // Hitung Overall Progress Keseluruhan Rundown
-      try {
-        const currentList = getCurrentRundownList() || [];
-        let totalRundownSec = 0;
-        let cumulativeElapsedSec = 0;
-        
-        const activeIdx = (currentActiveSession && typeof currentActiveSession.index === 'number')
-          ? currentActiveSession.index
-          : currentList.findIndex(it => currentActiveSession && currentActiveSession.title === it.title);
+      // Hitung Overall Selisih Waktu (Schedule Pace / Drift Clock)
+      const activeIdx = (currentActiveSession && typeof currentActiveSession.index === 'number')
+        ? currentActiveSession.index
+        : currentList.findIndex(it => currentActiveSession && currentActiveSession.title === it.title);
 
-        currentList.forEach((it, idx) => {
-          const itemSec = it.sec || (it.durMin * 60) || 300;
-          totalRundownSec += itemSec;
+      const plannedStartSec = getPlannedStartSecondsForSession(currentList, activeIdx >= 0 ? activeIdx : 0);
+      const rvaPulseDot = rvaTrackerBadge.querySelector('.rva-pulse-dot');
 
-          if (activeIdx !== -1) {
-            if (idx < activeIdx) {
-              cumulativeElapsedSec += itemSec;
-            } else if (idx === activeIdx) {
-              cumulativeElapsedSec += actualElapsedSec;
-            }
-          }
-        });
+      if (plannedStartSec !== null) {
+        // Waktu sekarang jam dinding (NTP synced) dalam detik hari ini
+        const now = new Date(Date.now() + clockOffset);
+        const nowSec = (now.getHours() * 3600) + (now.getMinutes() * 60) + now.getSeconds();
 
-        if (activeIdx === -1) {
-          cumulativeElapsedSec = actualElapsedSec;
+        // Target jam dinding rencana: Jam Mulai Rencana Sesi + durasi timer yang sudah dihabiskan
+        const targetPlanClockSec = plannedStartSec + actualElapsedSec;
+
+        let diffSec = nowSec - targetPlanClockSec;
+        // Koreksi pergantian hari (midnight)
+        if (diffSec > 43200) diffSec -= 86400;
+        else if (diffSec < -43200) diffSec += 86400;
+
+        const drift = formatRundownDriftTime(diffSec);
+
+        if (rvaOverallPct) {
+          rvaOverallPct.textContent = drift.formatted;
+          rvaOverallPct.className = `rva-val ${drift.status}`;
+          rvaOverallPct.style.color = drift.color;
         }
 
-        if (totalRundownSec > 0 && rvaOverallPct) {
-          const pct = Math.min(100, Math.max(0, Math.round((cumulativeElapsedSec / totalRundownSec) * 100)));
-          rvaOverallPct.textContent = `${pct}%`;
-        }
-      } catch (e) {
-        if (rvaOverallPct) rvaOverallPct.textContent = '0%';
-      }
-
-      // Status deviasi vs schedule
-      // Jika timer habis tapi masih jalan / timeout -> Overrun
-      if (activeTimerState.status === 'TIME_OUT' || (activeTimerState.status === 'RUNNING' && remainingSec === 0)) {
         if (rvaDiffBadge) {
-          rvaDiffBadge.className = 'rva-diff-badge over';
-          rvaDiffText.textContent = 'OVERRUN (+LEWAT)';
+          rvaDiffBadge.className = `rva-diff-badge ${drift.status}`;
+          if (rvaDiffText) rvaDiffText.textContent = drift.badgeText;
         }
-      } else if (remainingSec === planSec) {
-        if (rvaDiffBadge) {
-          rvaDiffBadge.className = 'rva-diff-badge ontime';
-          rvaDiffText.textContent = 'TEPAT WAKTU';
+
+        if (rvaPulseDot) {
+          rvaPulseDot.className = `rva-pulse-dot ${drift.status}`;
         }
+
+        const nowClockStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const planStartFmt = `${String(Math.floor(plannedStartSec / 3600)).padStart(2, '0')}:${String(Math.floor((plannedStartSec % 3600) / 60)).padStart(2, '0')}`;
+        rvaTrackerBadge.title = `Rundown Pace: ${drift.badgeText}\n• Jam Realtime: ${nowClockStr}\n• Rencana Sesi: ${planStartFmt}\n• Sesi Berjalan: ${formatTime(actualElapsedSec)}`;
       } else {
-        // Sedang berjalan normal
-        const pacePercent = Math.round((actualElapsedSec / planSec) * 100);
+        // Fallback jika tidak ada informasi waktu sama sekali
+        if (rvaOverallPct) {
+          rvaOverallPct.textContent = '00:00';
+          rvaOverallPct.className = 'rva-val ontime';
+        }
         if (rvaDiffBadge) {
           rvaDiffBadge.className = 'rva-diff-badge ontime';
-          rvaDiffText.textContent = `${pacePercent}% ON TRACK`;
+          if (rvaDiffText) rvaDiffText.textContent = 'TEPAT WAKTU';
         }
       }
     }
@@ -595,8 +976,42 @@
     const chkAllowOvertime = document.getElementById('chk-allow-overtime');
 
     let isCurrentlyOvertime = false;
+    let isCustomDurationSelected = false; // Flag apakah durasi dipilih dari preset custom cepat (30s, 1m, dll)
     let lastActiveSeparatorMessageId = null; // ID separator sesi yang sedang dimainkan
     let lastActiveSeparatorBaseTitle = 'Sesi Acara'; // Judul dasar tanpa info actual
+    let latestChatHistoryList = []; // Cache riwayat chat terkini untuk validasi realtime
+
+    function getCleanSeparatorTitle(raw) {
+      if (!raw) return '';
+      return String(raw).split(' - Aktual (')[0].split(' • Actual:')[0].trim().toLowerCase();
+    }
+
+    function isSeparatorTitleAlreadyExists(titleToCheck) {
+      const cleanTarget = getCleanSeparatorTitle(titleToCheck);
+      if (!cleanTarget) return false;
+
+      // 1. Cek dari elemen DOM separator di chat
+      const sepElements = document.querySelectorAll('.chat-session-separator');
+      for (const el of sepElements) {
+        const textEl = el.querySelector('.sep-text') || el.querySelector('.separator-title-text');
+        if (textEl) {
+          const cleanCurrent = getCleanSeparatorTitle(textEl.textContent);
+          if (cleanCurrent === cleanTarget) {
+            return true;
+          }
+        }
+      }
+
+      // 2. Cek dari memori cache chat
+      if (Array.isArray(latestChatHistoryList)) {
+        const found = latestChatHistoryList.find(m => 
+          m.isSeparator && !m.isDeleted && getCleanSeparatorTitle(m.sessionTitle || m.message || m.text) === cleanTarget
+        );
+        if (found) return true;
+      }
+
+      return false;
+    }
 
     if (chkAllowOvertime) {
       chkAllowOvertime.addEventListener('change', () => {
@@ -677,11 +1092,31 @@
         currentActiveEvent = state.activeEvent;
         updateEventLabels(currentActiveEvent);
       }
+      if (state.overlayConfig && typeof updateOverlayChatToggleUI === 'function') {
+        updateOverlayChatToggleUI(state.overlayConfig.showChat);
+      }
       if (state.chatHistory) {
-        renderChatMessages(state.chatHistory);
+        latestChatHistoryList = Array.isArray(state.chatHistory) ? state.chatHistory.slice() : [];
+        const evId = state.activeEvent ? state.activeEvent.id : (currentActiveEvent ? currentActiveEvent.id : null);
+        if (shouldRerenderChat(state.chatHistory, evId)) {
+          renderChatMessages(state.chatHistory, evId);
+        }
+        // Inisialisasi lastActiveSeparatorMessageId dari separator terakhir yang aktif
+        const lastSep = state.chatHistory.slice().reverse().find(m => m.isSeparator && !m.isDeleted);
+        if (lastSep) {
+          lastActiveSeparatorMessageId = lastSep.id;
+          const rawTitle = lastSep.sessionTitle || lastSep.message || lastSep.text || 'Sesi Acara';
+          lastActiveSeparatorBaseTitle = rawTitle.split(' - Aktual (')[0].split(' • Actual:')[0].trim();
+        }
       }
       updateRundownVsActualUI();
       renderTimerControlsStateMachine();
+    });
+
+    socket.on('TC_OVERLAY_CHAT_VISIBILITY_CHANGED', (data) => {
+      if (data && typeof data.visible === 'boolean' && typeof updateOverlayChatToggleUI === 'function') {
+        updateOverlayChatToggleUI(data.visible);
+      }
     });
 
     socket.on('TC_TIMER_STARTED', (data) => {
@@ -694,6 +1129,17 @@
 
     // Helper untuk sinkronisasi waktu aktual sesi ke separator obrolan saat timer di-stop/pause
     function syncActualTimeToSeparator() {
+      if (!lastActiveSeparatorMessageId) {
+        const sepEl = Array.from(document.querySelectorAll('.chat-session-separator-row')).pop();
+        if (sepEl && sepEl.dataset.msgId) {
+          lastActiveSeparatorMessageId = sepEl.dataset.msgId;
+          const textEl = sepEl.querySelector('.separator-title-text');
+          if (textEl) {
+            const raw = textEl.textContent || '';
+            lastActiveSeparatorBaseTitle = raw.split(' - Aktual (')[0].split(' • Actual:')[0].trim();
+          }
+        }
+      }
       if (!lastActiveSeparatorMessageId) return;
 
       const planSec = (currentActiveSession && currentActiveSession.planSeconds) 
@@ -710,12 +1156,11 @@
       if (actualSec <= 0) return;
 
       const actualFmt = formatTime(actualSec);
-      const planFmt = formatTime(planSec);
-      let updatedTitle = `${lastActiveSeparatorBaseTitle} • Actual: ${actualFmt} (Plan: ${planFmt})`;
+      let updatedTitle = `${lastActiveSeparatorBaseTitle} - Aktual (${actualFmt})`;
 
       if (activeTimerState.remainingSeconds < 0) {
         const overSec = Math.abs(activeTimerState.remainingSeconds);
-        updatedTitle = `${lastActiveSeparatorBaseTitle} • Actual: ${actualFmt} (Overtime +${formatTime(overSec)})`;
+        updatedTitle = `${lastActiveSeparatorBaseTitle} - Aktual (${actualFmt} • Overtime +${formatTime(overSec)})`;
       }
 
       socket.emit('TC_UPDATE_MESSAGE', {
@@ -737,6 +1182,19 @@
       syncActualTimeToSeparator();
     });
 
+    socket.on('TC_TIMER_STOPPED', (data) => {
+      activeTimerState.status = 'STOPPED';
+      activeTimerState.remainingSeconds = data.remainingSeconds;
+      activeTimerState.durationSeconds = data.durationSeconds;
+      if (currentActiveSession && currentActiveSession.title) {
+        markSessionAsCompleted(currentActiveSession.title, true);
+      }
+      updateRundownVsActualUI();
+      renderTimerControlsStateMachine();
+      syncActualTimeToSeparator();
+      renderRundownItems();
+    });
+
     socket.on('TC_TIMER_RESET', (data) => {
       activeTimerState.status = 'IDLE';
       activeTimerState.remainingSeconds = data.remainingSeconds;
@@ -747,16 +1205,18 @@
     });
 
     socket.on('TC_NEW_MESSAGE', (msg) => {
+      if (msg) latestChatHistoryList.push(msg);
       appendChatMessage(msg, true);
       if (msg && msg.isSeparator) {
         lastActiveSeparatorMessageId = msg.id;
         // Bersihkan title dari format sebelumnya jika ada
         const rawTitle = msg.sessionTitle || msg.message || 'Sesi Acara';
-        lastActiveSeparatorBaseTitle = rawTitle.split(' • Actual:')[0].trim();
+        lastActiveSeparatorBaseTitle = rawTitle.split(' - Aktual (')[0].split(' • Actual:')[0].trim();
       }
     });
 
     socket.on('TC_MESSAGE_DELETED', ({ messageId, isPermanent, updatedMessage }) => {
+      latestChatHistoryList = latestChatHistoryList.filter(m => m.id !== messageId);
       const el = document.querySelector(`[data-msg-id="${messageId}"]`);
       if (el) {
         if (isPermanent) {
@@ -889,7 +1349,7 @@
       const status = activeTimerState ? activeTimerState.status : 'IDLE';
 
       if (status === 'RUNNING') {
-        // State 2: Running -> Primary: Pause (Amber), Secondary: Stop / Reset (Red)
+        // State 2: Running -> HANYA BUTTON JEDA SAJA YANG MUNCUL
         btnTimerPrimary.className = 'btn-action btn-pause';
         btnTimerPrimary.title = 'Jeda Timer (Spasi)';
         btnTimerPrimary.innerHTML = `
@@ -898,16 +1358,11 @@
         `;
         btnTimerPrimary.style.display = 'inline-flex';
 
-        btnTimerSecondary.className = 'btn-action btn-reset';
-        btnTimerSecondary.title = 'Stop Timer (Esc)';
-        btnTimerSecondary.innerHTML = `
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h12v12H6z"/></svg>
-          <span>Stop</span>
-        `;
-        btnTimerSecondary.style.display = 'inline-flex';
+        // Sembunyikan tombol Stop saat running agar tidak rancu
+        btnTimerSecondary.style.display = 'none';
 
       } else if (status === 'PAUSED') {
-        // State 3: Paused -> Primary: Resume (Green), Secondary: Stop / Reset (Red)
+        // State 3: Paused -> Muncul Button Lanjut (Resume) dan Button Stop
         btnTimerPrimary.className = 'btn-action btn-start';
         btnTimerPrimary.title = 'Lanjutkan Timer (Spasi)';
         btnTimerPrimary.innerHTML = `
@@ -917,15 +1372,27 @@
         btnTimerPrimary.style.display = 'inline-flex';
 
         btnTimerSecondary.className = 'btn-action btn-reset';
-        btnTimerSecondary.title = 'Stop / Reset Timer (Esc)';
+        btnTimerSecondary.title = 'Stop / Selesaikan Sesi (Esc)';
         btnTimerSecondary.innerHTML = `
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h12v12H6z"/></svg>
           <span>Stop</span>
         `;
         btnTimerSecondary.style.display = 'inline-flex';
 
+      } else if (status === 'STOPPED') {
+        // State 4: Selesai / Stopped -> Primary: Mulai Sesi Baru, Secondary: Hidden
+        btnTimerPrimary.className = 'btn-action btn-start';
+        btnTimerPrimary.title = 'Mulai Timer (Spasi)';
+        btnTimerPrimary.innerHTML = `
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          <span>Mulai</span>
+        `;
+        btnTimerPrimary.style.display = 'inline-flex';
+
+        btnTimerSecondary.style.display = 'none';
+
       } else if (status === 'TIME_OUT') {
-        // State 4: Completed/Timeout -> Primary: Mulai Lagi (Green), Secondary: Reset (Red)
+        // State 5: Completed/Timeout -> Primary: Mulai Lagi, Secondary: Stop
         btnTimerPrimary.className = 'btn-action btn-start';
         btnTimerPrimary.title = 'Mulai Sesi Ulang (Spasi)';
         btnTimerPrimary.innerHTML = `
@@ -935,10 +1402,10 @@
         btnTimerPrimary.style.display = 'inline-flex';
 
         btnTimerSecondary.className = 'btn-action btn-reset';
-        btnTimerSecondary.title = 'Reset Timer (Esc)';
+        btnTimerSecondary.title = 'Stop / Selesaikan Sesi (Esc)';
         btnTimerSecondary.innerHTML = `
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
-          <span>Reset</span>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h12v12H6z"/></svg>
+          <span>Stop</span>
         `;
         btnTimerSecondary.style.display = 'inline-flex';
 
@@ -966,14 +1433,70 @@
           socket.emit('TC_PAUSE_TIMER', {
             userEmail: currentUser ? currentUser.email : ''
           });
-        } else {
-          // Sedang Idle, Paused, atau Timeout -> Klik akan Mulai / Lanjut
-          if (pendingSessionSeparator) {
-            socket.emit('TC_ADD_SEPARATOR', pendingSessionSeparator);
-            pendingSessionSeparator = null;
-          }
+        } else if (status === 'PAUSED') {
+          // Sedang Jeda -> Klik akan Lanjut (Resume)
           socket.emit('TC_START_TIMER', {
-            userEmail: currentUser ? currentUser.email : ''
+            userEmail: currentUser ? currentUser.email : '',
+            allowOvertime: chkAllowOvertime ? chkAllowOvertime.checked : true
+          });
+        } else {
+          // Sedang Idle, Stopped, atau Timeout -> Klik Mulai Sesi Baru
+          // Validasi: timer boleh jalan jika ada separator kecuali dipilih dari durasi custom (30s, 1m, dll)
+          if (!isCustomDurationSelected) {
+            if (!pendingSessionSeparator) {
+              if (currentActiveSession && currentActiveSession.title && currentActiveSession.title !== 'Opening / Standby') {
+                const durMin = Math.round((currentActiveSession.planSeconds || activeTimerState.durationSeconds || 300) / 60);
+                pendingSessionSeparator = {
+                  eventId: currentActiveEvent ? currentActiveEvent.id : null,
+                  sessionTitle: `${currentActiveSession.title} (${durMin}m)`,
+                  sessionDuration: currentActiveSession.planSeconds || activeTimerState.durationSeconds || 300,
+                  userEmail: currentUser ? currentUser.email : ''
+                };
+              } else {
+                showAlertDialog({
+                  title: 'Pilih Sesi Terlebih Dahulu',
+                  message: 'Silakan klik salah satu sesi di Rundown Acara terlebih dahulu agar separator otomatis tercatat di chat live, atau pilih tombol preset durasi cepat (30s, 1m, 5m, dll).'
+                });
+                return;
+              }
+            }
+
+            // Validasi keras: Jangan izinkan separator ganda muncul! Harus hapus separator lama terlebih dahulu
+            if (pendingSessionSeparator && isSeparatorTitleAlreadyExists(pendingSessionSeparator.sessionTitle)) {
+              showAlertDialog({
+                title: 'Separator Sudah Ada di Chat',
+                message: `Separator untuk sesi "${pendingSessionSeparator.sessionTitle}" sudah ada di riwayat obrolan! Tidak diperbolehkan ada separator ganda. Silakan hapus terlebih dahulu separator lama dari chat (klik tombol tong sampah pada separator tersebut) sebelum dapat menambahkan separator yang sama kembali.`
+              });
+              return;
+            }
+
+            if (pendingSessionSeparator) {
+              socket.emit('TC_ADD_SEPARATOR', pendingSessionSeparator);
+              lastActiveSeparatorBaseTitle = pendingSessionSeparator.sessionTitle;
+              pendingSessionSeparator = null;
+            }
+          }
+
+          isCustomDurationSelected = false; // Reset flag custom setelah start
+
+          if (currentActiveSession && currentActiveSession.title && currentActiveSession.title !== 'Opening / Standby') {
+            const currentList = getCurrentRundownList();
+            const activeIdx = currentList.findIndex(it => it.title === currentActiveSession.title);
+            if (activeIdx > 0) {
+              const completedSet = getCompletedSessions();
+              for (let i = 0; i < activeIdx; i++) {
+                if (currentList[i] && currentList[i].title) {
+                  completedSet.add(currentList[i].title);
+                }
+              }
+              saveCompletedSessions(completedSet);
+              renderRundownItems();
+            }
+          }
+
+          socket.emit('TC_START_TIMER', {
+            userEmail: currentUser ? currentUser.email : '',
+            allowOvertime: chkAllowOvertime ? chkAllowOvertime.checked : true
           });
         }
       });
@@ -982,8 +1505,13 @@
     if (btnTimerSecondary) {
       btnTimerSecondary.addEventListener('click', () => {
         if (!checkTimerControlPermission()) return;
-        // Klik Stop / Reset
-        socket.emit('TC_RESET_TIMER', {
+        // Klik Stop: Tandai sesi ini dan sesi sebelumnya sebagai selesai/terlewat
+        if (currentActiveSession && currentActiveSession.title) {
+          markSessionAsCompleted(currentActiveSession.title, true);
+        }
+        // Sinkronkan waktu aktual final ke separator dan freeze timer di menit/detik terakhir
+        syncActualTimeToSeparator();
+        socket.emit('TC_STOP_TIMER', {
           userEmail: currentUser ? currentUser.email : ''
         });
       });
@@ -1059,6 +1587,34 @@
       });
     }
 
+    // Overlay Broadcast Chat Live Toggle (Admin Control)
+    const btnToggleOverlayChat = document.getElementById('btn-toggle-overlay-chat');
+    const statusOverlayChatText = document.getElementById('status-overlay-chat-text');
+    let currentOverlayChatVisible = false;
+
+    function updateOverlayChatToggleUI(visible) {
+      currentOverlayChatVisible = !!visible;
+      if (btnToggleOverlayChat) {
+        btnToggleOverlayChat.classList.toggle('active', currentOverlayChatVisible);
+      }
+      if (statusOverlayChatText) {
+        statusOverlayChatText.textContent = currentOverlayChatVisible ? 'Status: TAMPIL (AKTIF)' : 'Status: HIDE';
+      }
+    }
+
+    if (btnToggleOverlayChat) {
+      btnToggleOverlayChat.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!checkTimerControlPermission()) return;
+        const newVisible = !currentOverlayChatVisible;
+        socket.emit('TC_SET_OVERLAY_CHAT_VISIBILITY', {
+          visible: newVisible,
+          userEmail: currentUser ? currentUser.email : ''
+        });
+        updateOverlayChatToggleUI(newVisible);
+      });
+    }
+
     // Preset pills click (baik yang di luar maupun di dalam dropdown)
     document.querySelectorAll('.preset-pill[data-sec]').forEach(pill => {
       pill.addEventListener('click', () => {
@@ -1075,10 +1631,19 @@
         }
 
         const sec = parseInt(pill.dataset.sec, 10);
+        isCustomDurationSelected = true;
+        pendingSessionSeparator = null;
+        currentActiveSession = null;
+        document.querySelectorAll('.rundown-row').forEach(r => r.classList.remove('is-current-playing'));
+
         socket.emit('TC_SET_DURATION', {
           durationSeconds: sec,
           userEmail: currentUser ? currentUser.email : ''
         });
+
+        // Feedback visual aktif pada pill yang diklik
+        document.querySelectorAll('.preset-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
       });
     });
 
@@ -1132,7 +1697,15 @@
         totalSec = parseInt(val, 10) * 60;
       }
       if (totalSec > 0) {
-        socket.emit('TC_SET_DURATION', { durationSeconds: totalSec });
+        isCustomDurationSelected = true;
+        pendingSessionSeparator = null;
+        currentActiveSession = null;
+        document.querySelectorAll('.rundown-row').forEach(r => r.classList.remove('is-current-playing'));
+
+        socket.emit('TC_SET_DURATION', {
+          durationSeconds: totalSec,
+          userEmail: currentUser ? currentUser.email : ''
+        });
         closeCustomDurationModal();
       } else {
         showAlertDialog({ title: 'Format Tidak Valid', message: 'Format durasi tidak valid. Gunakan format seperti 7m atau 45s.' });
@@ -1189,7 +1762,15 @@
           return;
         }
         const sec = parseInt(item.dataset.sec, 10);
-        socket.emit('TC_SET_DURATION', { durationSeconds: sec });
+        isCustomDurationSelected = true;
+        pendingSessionSeparator = null;
+        currentActiveSession = null;
+        document.querySelectorAll('.rundown-row').forEach(r => r.classList.remove('is-current-playing'));
+
+        socket.emit('TC_SET_DURATION', {
+          durationSeconds: sec,
+          userEmail: currentUser ? currentUser.email : ''
+        });
         ctxMenu.classList.remove('active');
       });
     });
@@ -1438,6 +2019,7 @@
         chatInput.style.overflowY = 'hidden';
       }
     }
+    autoResizeChatInput();
 
     // Update Chat Input Character Counter
     function updateCharCounter() {
@@ -2258,16 +2840,71 @@
       });
     }
 
-    function renderChatMessages(messages) {
-      if (!chatContainer) return;
-      chatContainer.innerHTML = '';
-      lastRenderedMessage = null;
-      messages.forEach(msg => appendChatMessage(msg, false, false));
-      updateMessagesGrouping();
+    let currentRenderedEventId = null;
+
+    function shouldRerenderChat(newHistory, eventId) {
+      if (!chatContainer) return true;
+      if (!Array.isArray(newHistory)) return false;
+
+      // 1. Jika active event berubah, wajib render ulang
+      if (eventId && currentRenderedEventId && currentRenderedEventId !== eventId) {
+        return true;
+      }
+
+      // 2. Ambil list ID pesan yang saat ini ter-render di DOM
+      const renderedElements = chatContainer.querySelectorAll('[data-msg-id]');
+      if (renderedElements.length !== newHistory.length) {
+        return true;
+      }
+
+      if (newHistory.length === 0) return false;
+
+      // 3. Bandingkan ID urutan pertama dan terakhir secara cepat
+      if (renderedElements[0].dataset.msgId !== newHistory[0].id ||
+          renderedElements[renderedElements.length - 1].dataset.msgId !== newHistory[newHistory.length - 1].id) {
+        return true;
+      }
+
+      // 4. Periksa apakah ada pesan yang status deleted-nya berbeda
+      for (let i = 0; i < newHistory.length; i++) {
+        const domEl = renderedElements[i];
+        const msg = newHistory[i];
+        if (domEl.dataset.msgId !== msg.id) {
+          return true;
+        }
+        if (msg.isDeleted && !domEl.classList.contains('is-deleted')) {
+          return true;
+        }
+      }
+
+      return false;
     }
 
-    function appendChatMessage(msg, isNew = false, triggerGrouping = true) {
+    function renderChatMessages(messages, eventId = null) {
       if (!chatContainer) return;
+      const targetEventId = eventId || (currentActiveEvent ? currentActiveEvent.id : null);
+      currentRenderedEventId = targetEventId;
+
+      const fragment = document.createDocumentFragment();
+      lastRenderedMessage = null;
+      messages.forEach(msg => appendChatMessage(msg, false, false, fragment));
+
+      // Sinkronkan separator aktif terakhir jika ada
+      const lastSep = [...messages].reverse().find(m => m.isSeparator);
+      if (lastSep) {
+        lastActiveSeparatorMessageId = lastSep.id;
+        const rawTitle = lastSep.sessionTitle || lastSep.message || 'Sesi Acara';
+        lastActiveSeparatorBaseTitle = rawTitle.split(' • Actual:')[0].trim();
+      }
+
+      chatContainer.innerHTML = '';
+      chatContainer.appendChild(fragment);
+      updateMessagesGrouping();
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    function appendChatMessage(msg, isNew = false, triggerGrouping = true, targetParent = chatContainer) {
+      if (!chatContainer || !targetParent) return;
 
       // Handle Sesi Separator Khusus
       if (msg.isSeparator) {
@@ -2318,8 +2955,10 @@
           });
         }
 
-        chatContainer.appendChild(sep);
-        chatContainer.scrollTop = chatContainer.scrollHeight;
+        targetParent.appendChild(sep);
+        if (isNew) {
+          chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
         return;
       }
 
@@ -2649,21 +3288,19 @@
 
       row.dataset.senderKey = msgEmail || msgName || 'peserta';
 
-      chatContainer.appendChild(row);
+      targetParent.appendChild(row);
 
       if (triggerGrouping) {
         updateMessagesGrouping();
       }
       
-      // Auto-scroll ke pesan terbaru dengan timeout agar rendering layout & font scale tuntas
-      setTimeout(() => {
-        chatContainer.scrollTop = chatContainer.scrollHeight + 120;
-        row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }, 50);
-
-      // Jika pesan baru yang masuk (live), tandai highlight NEW
+      // Auto-scroll dan highlight hanya untuk pesan baru yang masuk (live)
       if (isNew) {
         markMessageAsNew(row, msg.id);
+        setTimeout(() => {
+          chatContainer.scrollTop = chatContainer.scrollHeight + 120;
+          row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 50);
       }
     }
 
@@ -2836,24 +3473,135 @@
       }
     }
 
+    let currentAppTheme = localStorage.getItem('tc_app_theme') || 'dark';
+    let globalApplyTheme = null;
+
     function renderAuthUI(user) {
       const authBox = document.getElementById('auth-box');
+      const btnThemeStandalone = document.getElementById('btn-theme-switcher');
+      const themeMenuStandalone = document.getElementById('theme-dropdown-menu');
+
       if (!authBox) return;
+
       if (user) {
+        // Sembunyikan switcher tema standalone saat login (karena sudah menyatu di profile context menu)
+        if (btnThemeStandalone) btnThemeStandalone.style.display = 'none';
+        if (themeMenuStandalone) themeMenuStandalone.classList.remove('active');
+
+        // Nama panggilan pendek
+        const rawName = user.displayName || user.email || 'User';
+        const firstName = user.displayName ? user.displayName.split(' ')[0] : (user.email ? user.email.split('@')[0] : 'User');
+        const roleLabel = isSuperAdmin ? 'SUPER ADMIN' : (isUserAdmin ? 'ADMIN MODERATOR' : 'VIEWER');
+        const roleBadgeClass = isSuperAdmin ? 'badge-super' : (isUserAdmin ? 'badge-admin' : 'badge-viewer');
+
         authBox.innerHTML = `
-          <div class="user-profile">
-            <img src="${user.photoURL || '/images/Logo%20Educamp%202026.png'}" alt="${user.displayName || 'User'}" referrerpolicy="no-referrer" onerror="this.onerror=null; this.src='/images/Logo%20Educamp%202026.png';">
-            <span class="user-name-label">${user.displayName || user.email}</span>
-            ${isUserAdmin ? '<span class="admin-badge-indicator" title="Admin Moderator">ADMIN</span>' : ''}
-            <button class="btn-logout" id="btn-logout" title="Keluar">
-              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+          <div class="user-profile-wrapper" id="user-profile-wrapper">
+            <button class="user-profile-btn" id="btn-user-profile" title="Akun & Pengaturan (${escapeHtml(rawName)})" type="button">
+              <img src="${user.photoURL || '/images/Logo%20Educamp%202026.png'}" alt="${escapeHtml(rawName)}" referrerpolicy="no-referrer" onerror="this.onerror=null; this.src='/images/Logo%20Educamp%202026.png';">
+              <span class="user-name-label">${escapeHtml(firstName)}</span>
+              ${isSuperAdmin ? '<span class="admin-badge-indicator" title="Super Admin">SUPER</span>' : (isUserAdmin ? '<span class="admin-badge-indicator" title="Admin Moderator">ADMIN</span>' : '')}
+              <svg class="profile-chevron" width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
             </button>
+
+            <!-- Profile Dropdown Context Menu -->
+            <div class="profile-context-menu" id="profile-context-menu">
+              <div class="pcm-header">
+                <img src="${user.photoURL || '/images/Logo%20Educamp%202026.png'}" alt="Avatar" class="pcm-avatar" referrerpolicy="no-referrer" onerror="this.onerror=null; this.src='/images/Logo%20Educamp%202026.png';">
+                <div class="pcm-userinfo">
+                  <div class="pcm-name">${escapeHtml(user.displayName || 'Pengguna')}</div>
+                  <div class="pcm-email">${escapeHtml(user.email || '')}</div>
+                  <div class="pcm-role">
+                    <span class="pcm-badge ${roleBadgeClass}">${roleLabel}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="pcm-divider"></div>
+
+              <div class="pcm-section-label">Mode Tampilan</div>
+              <div class="pcm-theme-grid">
+                <button type="button" class="pcm-theme-btn ${currentAppTheme === 'dark' ? 'active' : ''}" data-theme="dark" title="Dark Studio">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3a9 9 0 109 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 01-4.4 2.26 5.403 5.403 0 01-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
+                  <span>Dark</span>
+                </button>
+                <button type="button" class="pcm-theme-btn ${currentAppTheme === 'light' ? 'active' : ''}" data-theme="light" title="Light Mode">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1z"/></svg>
+                  <span>Light</span>
+                </button>
+                <button type="button" class="pcm-theme-btn ${currentAppTheme === 'oled' ? 'active' : ''}" data-theme="oled" title="Pitch OLED">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="9"/></svg>
+                  <span>OLED</span>
+                </button>
+              </div>
+
+              ${isSuperAdmin ? `
+                <div class="pcm-divider"></div>
+                <button type="button" class="pcm-menu-item" id="btn-pcm-user-mgmt">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="color: #c084fc;"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+                  <span>Kelola Hak Akses</span>
+                </button>
+              ` : ''}
+
+              <div class="pcm-divider"></div>
+
+              <button type="button" class="pcm-menu-item pcm-logout-item" id="btn-logout">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+                <span>Keluar dari Akun</span>
+              </button>
+            </div>
           </div>
         `;
-        document.getElementById('btn-logout').addEventListener('click', () => {
-          firebase.auth().signOut();
+
+        const userProfileBtn = document.getElementById('btn-user-profile');
+        const profileContextMenu = document.getElementById('profile-context-menu');
+        const profileWrapper = document.getElementById('user-profile-wrapper');
+
+        if (userProfileBtn && profileContextMenu) {
+          userProfileBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = profileContextMenu.classList.toggle('active');
+            if (profileWrapper) profileWrapper.classList.toggle('active', isOpen);
+          });
+        }
+
+        // Listener tombol ganti tema di profile context menu
+        authBox.querySelectorAll('.pcm-theme-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const chosen = btn.dataset.theme;
+            if (globalApplyTheme) {
+              globalApplyTheme(chosen);
+            }
+          });
         });
+
+        // Listener tombol Kelola Hak Akses di profile context menu
+        const btnPcmUserMgmt = document.getElementById('btn-pcm-user-mgmt');
+        if (btnPcmUserMgmt) {
+          btnPcmUserMgmt.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (profileContextMenu) profileContextMenu.classList.remove('active');
+            if (profileWrapper) profileWrapper.classList.remove('active');
+            const btnOpenUserMgmt = document.getElementById('btn-open-user-mgmt');
+            if (btnOpenUserMgmt) {
+              btnOpenUserMgmt.click();
+            } else {
+              openUserMgmtModal();
+            }
+          });
+        }
+
+        // Listener logout
+        const btnLogout = document.getElementById('btn-logout');
+        if (btnLogout) {
+          btnLogout.addEventListener('click', () => {
+            firebase.auth().signOut();
+          });
+        }
       } else {
+        // User logout: Tampilkan kembali tombol tema standalone
+        if (btnThemeStandalone) btnThemeStandalone.style.display = 'inline-flex';
+
         authBox.innerHTML = `
           <button class="btn-google-login" id="btn-google-login">
             <svg width="12" height="12" viewBox="0 0 24 24"><path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.7 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.3 9 5 12 5z"/><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.6h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.9z"/><path fill="#FBBC05" d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3s.2-1.6.4-2.3L1.9 7.3C.7 9.7 0 12.3 0 15s.7 5.3 1.9 7.7l3.7-2.9z"/><path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.3-6.4-5.2L1.9 16C3.7 19.7 7.5 23 12 23z"/></svg>
@@ -2866,6 +3614,19 @@
         });
       }
     }
+
+    // Listener global untuk menutup Profile Context Menu saat klik di luar
+    document.addEventListener('click', (e) => {
+      const profileContextMenu = document.getElementById('profile-context-menu');
+      const profileWrapper = document.getElementById('user-profile-wrapper');
+      const userProfileBtn = document.getElementById('btn-user-profile');
+      if (profileContextMenu && profileContextMenu.classList.contains('active')) {
+        if (!profileContextMenu.contains(e.target) && e.target !== userProfileBtn && !userProfileBtn?.contains(e.target)) {
+          profileContextMenu.classList.remove('active');
+          if (profileWrapper) profileWrapper.classList.remove('active');
+        }
+      }
+    });
 
     // === 11. MODAL KONFIRMASI CUSTOM ELEGAN (Pengganti confirm / prompt jelek) ===
     const confirmModal = document.getElementById('confirm-dialog-modal');
@@ -3232,6 +3993,8 @@
 
       function applyTheme(themeKey) {
         const theme = THEMES[themeKey] ? themeKey : 'dark';
+        currentAppTheme = theme;
+
         if (theme === 'dark') {
           document.documentElement.removeAttribute('data-theme');
         } else {
@@ -3249,10 +4012,23 @@
           }
         });
 
+        // Sinkronkan juga active indicator pada Profile Context Menu
+        document.querySelectorAll('.pcm-theme-btn').forEach(btn => {
+          if (btn.dataset.theme === theme) {
+            btn.classList.add('active');
+          } else {
+            btn.classList.remove('active');
+          }
+        });
+
         try {
           localStorage.setItem('tc_app_theme', theme);
         } catch (e) {}
       }
+
+      globalApplyTheme = (themeKey) => {
+        applyTheme(themeKey);
+      };
 
       // Restore stored theme
       try {

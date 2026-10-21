@@ -183,15 +183,22 @@ app.use(express.static(path.join(__dirname, '../public')));
 
 // Standalone Windows Executable & Python Overlay App Routes
 app.get('/TimerOverlay.exe', (req, res) => {
-  const filePath = path.join(__dirname, '../../dist/TimerOverlay.exe');
-  res.download(filePath, 'TimerOverlay.exe', (err) => {
-    if (err) {
-      console.error('Error downloading TimerOverlay.exe:', err);
-      if (!res.headersSent) {
+  const candidates = [
+    path.join(__dirname, '../../dist/TimerOverlay.exe'),
+    path.join(__dirname, '../public/TimerOverlay.exe'),
+    path.join(__dirname, '../../TimerOverlay.exe')
+  ];
+  const found = candidates.find(p => fs.existsSync(p));
+  if (found) {
+    res.setHeader('Content-Type', 'application/octet-stream');
+    return res.download(found, 'TimerOverlay.exe', (err) => {
+      if (err && !res.headersSent) {
+        console.error('Error downloading TimerOverlay.exe:', err);
         res.status(500).send('File download error');
       }
-    }
-  });
+    });
+  }
+  res.status(404).send('TimerOverlay.exe sedang disiapkan di server. Harap tunggu proses build selesai.');
 });
 app.get('/TimerOverlay_Windows.zip', (req, res) => {
   res.download(path.join(__dirname, '../../dist/TimerOverlay_Windows.zip'), 'TimerOverlay_Windows.zip');
@@ -1545,6 +1552,24 @@ app.post('/api/timer-chat/chat/clear', (req, res) => {
   }
 });
 
+app.post('/api/timer-chat/overlay-chat', (req, res) => {
+  try {
+    const { visible, userEmail } = req.body;
+    if (userEmail) {
+      const role = authManager.resolveRole(userEmail);
+      if (!role) {
+        return res.status(403).json({ error: 'Akses ditolak.' });
+      }
+    }
+    const updated = timerChatEngine.setOverlayChatVisibility(!!visible);
+    io.emit('TC_OVERLAY_CHAT_VISIBILITY_CHANGED', { visible: updated.showChat });
+    io.emit('TC_STATE_UPDATE', timerChatEngine.getState());
+    res.json({ success: true, overlayConfig: updated });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // === REALTIME SOCKET.IO DISPATCHER ===
 io.on('connection', (socket) => {
   console.log(`[Socket Connected] ID: ${socket.id}`);
@@ -1924,6 +1949,11 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Client requesting full state (anti-stuck on reconnect / cloud view)
+  socket.on('TC_REQUEST_STATE', () => {
+    socket.emit('TC_STATE_UPDATE', timerChatEngine.getState());
+  });
+
   // Helper verifikasi hak akses timer
   function verifyTimerAccess(data = {}) {
     const email = data.userEmail || data.email;
@@ -1972,6 +2002,21 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('TC_STOP_TIMER', (data = {}) => {
+    try {
+      verifyTimerAccess(data);
+      const state = timerChatEngine.stopTimer();
+      io.emit('TC_STATE_UPDATE', state);
+      io.emit('TC_TIMER_STOPPED', {
+        remainingSeconds: state.timer.remainingSeconds,
+        durationSeconds: state.timer.durationSeconds,
+        status: state.timer.status
+      });
+    } catch (err) {
+      socket.emit('TC_ERROR', { message: err.message });
+    }
+  });
+
   socket.on('TC_RESET_TIMER', (data = {}) => {
     try {
       verifyTimerAccess(data);
@@ -2001,6 +2046,18 @@ io.on('connection', (socket) => {
       verifyTimerAccess(data);
       const state = timerChatEngine.setOvertimeToggle(data.allowOvertime);
       io.emit('TC_STATE_UPDATE', state);
+    } catch (err) {
+      socket.emit('TC_ERROR', { message: err.message });
+    }
+  });
+
+  socket.on('TC_SET_OVERLAY_CHAT_VISIBILITY', (data = {}) => {
+    try {
+      verifyTimerAccess(data);
+      const visible = !!data.visible;
+      const updated = timerChatEngine.setOverlayChatVisibility(visible);
+      io.emit('TC_OVERLAY_CHAT_VISIBILITY_CHANGED', { visible: updated.showChat });
+      io.emit('TC_STATE_UPDATE', timerChatEngine.getState());
     } catch (err) {
       socket.emit('TC_ERROR', { message: err.message });
     }

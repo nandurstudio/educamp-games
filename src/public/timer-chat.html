@@ -43,8 +43,8 @@
         <span id="sync-latency-label">0ms</span>
       </div>
 
-      <!-- User Management Access Button (Super Admin Only) -->
-      <button class="user-mgmt-btn" id="btn-open-user-mgmt" style="display: none;" title="Kelola Hak Akses Pengguna (Super Admin)">
+      <!-- User Management Access Button (Super Admin Only - Accessible via Profile Context Menu) -->
+      <button class="user-mgmt-btn" id="btn-open-user-mgmt" style="display: none !important;" title="Kelola Hak Akses Pengguna (Super Admin)">
         <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
         <span>Kelola Akses</span>
       </button>
@@ -138,10 +138,36 @@
                 <span>Overlay ▾</span>
               </button>
               <div class="overlay-dropdown-menu" id="overlay-dropdown-menu">
-                <a href="/timer-overlay.html" target="_blank" class="overlay-dropdown-item" title="Buka Browser Source Transparan untuk vMix / OBS">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="color: #60a5fa;"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55 1 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
-                  <span>vMix / OBS Source (Web)</span>
+                <div class="overlay-dropdown-section-title">Mode Layar & Monitor</div>
+                <a href="/timer-overlay.html?view=timer&chroma=green" target="_blank" class="overlay-dropdown-item" title="Timer Otsuka (Chroma Green, Khusus Timer)">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="color: #22c55e;"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+                  <span>Timer Otsuka (Hanya Timer)</span>
                 </a>
+                <a href="/timer-overlay.html?view=presenter&chroma=black" target="_blank" class="overlay-dropdown-item" title="Timer Presenter (Timer + 5 Chat Read-Only)">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="color: #38bdf8;"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
+                  <span>Timer Presenter (Timer + 5 Chat)</span>
+                </a>
+                <a href="/timer-overlay.html?chroma=green" target="_blank" class="overlay-dropdown-item" title="vMix / OBS Source (Chroma Green)">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="color: #60a5fa;"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55 1 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+                  <span>vMix / OBS (Chroma Green)</span>
+                </a>
+
+                <div class="overlay-dropdown-divider"></div>
+
+                <div class="overlay-dropdown-section-title">Kontrol Siaran Overlay</div>
+                <div class="overlay-dropdown-control-item" id="item-control-overlay-chat" title="Nyalakan / Matikan Tampilan 5 Chat di Layar Overlay">
+                  <div class="control-label-box">
+                    <span class="control-label-title">5 Chat di Overlay</span>
+                    <span class="control-label-desc" id="status-overlay-chat-text">Status: HIDE</span>
+                  </div>
+                  <button type="button" class="toggle-switch-btn" id="btn-toggle-overlay-chat" title="Toggle Broadcast Chat ke Layar Overlay">
+                    <span class="toggle-switch-slider"></span>
+                  </button>
+                </div>
+
+                <div class="overlay-dropdown-divider"></div>
+
+                <div class="overlay-dropdown-section-title">Aplikasi Standalone Windows</div>
                 <a href="/TimerOverlay.exe" download="TimerOverlay.exe" target="_blank" class="overlay-dropdown-item" title="Unduh Standalone Windows (.EXE) Desktop App">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="color: #38bdf8;"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>
                   <span>Desktop App (.EXE)</span>
@@ -170,12 +196,12 @@
             <span class="rva-label">Actual:</span>
             <span class="rva-val actual" id="rva-actual-val">00:00</span>
           </div>
-          <div class="rva-item" id="rva-overall-item" title="Progress keseluruhan total rundown acara">
+          <div class="rva-item" id="rva-overall-item" title="Perbandingan waktu aktual jam dinding vs jadwal rencana rundown (Pace / Drift)">
             <span class="rva-label">Overall:</span>
-            <span class="rva-val" id="rva-overall-pct" style="color: #fef08a;">0%</span>
+            <span class="rva-val ontime" id="rva-overall-pct">00:00</span>
           </div>
           <div class="rva-diff-badge ontime" id="rva-diff-badge">
-            <span id="rva-diff-text">READY</span>
+            <span id="rva-diff-text">TEPAT WAKTU</span>
           </div>
         </div>
 
