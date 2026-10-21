@@ -14,7 +14,3 @@ serviceAccountKey.json
 
 # Local Backups
 backups/
-
-# PyInstaller Build Artifacts
-build/
-*.spec

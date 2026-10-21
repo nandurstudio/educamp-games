@@ -11,10 +11,10 @@ const VALID_KEYWORDS = {
   'commitment-3': 'Online / Virtual Learning',
   'commitment-4': 'Lean Manufacturing',
   'commitment-5': 'Lead Time Efficiency',
-  'commitment-6': 'Quality Digital Transformation'
+  'commitment-6': 'Digital Transformation'
 };
 
-const ALL_PERSONS = ['Andy Chendra', 'Fajar Fauzan', 'Dyanza Aria', 'Verdiana'];
+const ALL_PERSONS = ['Dyanza Aria', 'Fajar Fauzan', 'Yudha Agus', 'Verdiana'];
 
 class CommitmentEngine {
   constructor() {
@@ -78,8 +78,15 @@ class CommitmentEngine {
   applyData(data) {
     if (!data || typeof data !== 'object') return;
     this.commitments = data.commitments && typeof data.commitments === 'object' ? data.commitments : {};
+    if (this.commitments['commitment-6'] === 'Quality Digital Transformation') {
+      this.commitments['commitment-6'] = 'Digital Transformation';
+    }
     this.selectedPersons = Array.isArray(data.selectedPersons)
-      ? data.selectedPersons.map(p => p === 'Yuswa Slamet' ? 'Dyanza Aria' : p)
+      ? data.selectedPersons.map(p => {
+          if (p === 'Andy Chendra') return 'Dyanza Aria';
+          if (p === 'Yuswa Slamet') return 'Yudha Agus';
+          return p;
+        })
       : [];
     this.celebrationTriggered = !!data.celebrationTriggered;
     this.history = Array.isArray(data.history) ? data.history : [];
@@ -126,6 +133,7 @@ class CommitmentEngine {
     return {
       commitments: this.commitments,
       selectedPersons: this.selectedPersons,
+      allPersons: ALL_PERSONS,
       isAllCommitmentsFilled,
       isAllPersonsSelected,
       celebrationTriggered: this.celebrationTriggered || (isAllCommitmentsFilled && isAllPersonsSelected),
@@ -143,7 +151,11 @@ class CommitmentEngine {
       throw new Error(`ID Komitmen '${commitmentId}' tidak dikenali`);
     }
 
-    if (!inputKeyword || typeof inputKeyword !== 'string' || inputKeyword.trim().toLowerCase() !== expected.toLowerCase()) {
+    const cleaned = (inputKeyword || '').trim().toLowerCase();
+    const isMatch = cleaned === expected.toLowerCase() ||
+      (commitmentId === 'commitment-6' && cleaned === 'quality digital transformation');
+
+    if (!inputKeyword || typeof inputKeyword !== 'string' || !isMatch) {
       throw new Error('Salah input : Kata kunci salah');
     }
 
@@ -169,7 +181,11 @@ class CommitmentEngine {
    * Catat pilihan figur / penandatangan komitmen
    */
   togglePerson(personName, submitter = 'LEADER') {
-    if (!ALL_PERSONS.includes(personName)) {
+    let normalizedName = personName;
+    if (normalizedName === 'Andy Chendra') normalizedName = 'Dyanza Aria';
+    if (normalizedName === 'Yuswa Slamet') normalizedName = 'Yudha Agus';
+
+    if (!ALL_PERSONS.includes(normalizedName)) {
       throw new Error(`Nama person '${personName}' tidak valid dalam daftar pimpinan`);
     }
 
@@ -181,11 +197,11 @@ class CommitmentEngine {
       throw new Error('Seluruh 6 komitmen harus diselesaikan terlebih dahulu sebelum menandatangani komitmen');
     }
 
-    if (!this.selectedPersons.includes(personName)) {
-      this.selectedPersons.push(personName);
+    if (!this.selectedPersons.includes(normalizedName)) {
+      this.selectedPersons.push(normalizedName);
       this.history.unshift({
         action: 'PERSON_SIGNED',
-        personName,
+        personName: normalizedName,
         submitter: submitter || 'LEADER',
         timestamp: new Date().toISOString()
       });
