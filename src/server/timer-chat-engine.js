@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const firebaseService = require('./firebase-service');
 
 const STORAGE_FILE = path.join(__dirname, '../../data/timer-chat-storage.json');
 
@@ -7,6 +8,7 @@ class TimerChatEngine {
   constructor() {
     this.events = {};
     this.activeEventId = null;
+    this.updatedAt = new Date().toISOString();
     this.loadStorage();
   }
 
@@ -15,12 +17,7 @@ class TimerChatEngine {
       if (fs.existsSync(STORAGE_FILE)) {
         const raw = fs.readFileSync(STORAGE_FILE, 'utf-8');
         const data = JSON.parse(raw);
-        if (data.events && typeof data.events === 'object') {
-          this.events = data.events;
-        }
-        if (data.activeEventId && this.events[data.activeEventId]) {
-          this.activeEventId = data.activeEventId;
-        }
+        this.applyData(data);
       }
 
       // Inisialisasi default event jika belum ada
@@ -57,12 +54,48 @@ class TimerChatEngine {
         this.activeEventId = Object.keys(this.events)[0];
       }
     } catch (err) {
-      console.error('[TimerChatEngine] Gagal memuat storage:', err.message);
+      console.error('[TimerChatEngine] Gagal memuat storage lokal:', err.message);
       this.events = {};
+    }
+
+    // Sinkronkan dari Cloud Firestore jika tersedia
+    if (firebaseService.isAvailable()) {
+      this.reloadFromFirebase().then(success => {
+        if (!success) {
+          this.saveStorage();
+        }
+      });
     }
   }
 
-  saveStorage() {
+  applyData(data) {
+    if (!data || typeof data !== 'object') return;
+    if (data.events && typeof data.events === 'object') {
+      this.events = data.events;
+    }
+    if (data.activeEventId && this.events[data.activeEventId]) {
+      this.activeEventId = data.activeEventId;
+    }
+    this.updatedAt = data.updatedAt || new Date().toISOString();
+  }
+
+  async reloadFromFirebase() {
+    if (!firebaseService.isAvailable()) return false;
+    try {
+      const cloudData = await firebaseService.loadDoc('timer_chat');
+      if (cloudData && typeof cloudData === 'object' && cloudData.events) {
+        this.applyData(cloudData);
+        this.saveLocalDisk();
+        console.log(`[TimerChatEngine] State berhasil disinkronkan dari Cloud Firestore (${Object.keys(this.events).length} acara)!`);
+        return true;
+      }
+    } catch (err) {
+      console.warn('[TimerChatEngine] Firestore sync warning:', err.message);
+    }
+    return false;
+  }
+
+  saveLocalDisk() {
     try {
       const dir = path.dirname(STORAGE_FILE);
       if (!fs.existsSync(dir)) {
@@ -71,11 +104,28 @@ class TimerChatEngine {
       const data = {
         activeEventId: this.activeEventId,
         events: this.events,
-        updatedAt: new Date().toISOString()
+        updatedAt: this.updatedAt
       };
       fs.writeFileSync(STORAGE_FILE, JSON.stringify(data, null, 2), 'utf-8');
     } catch (err) {
-      console.error('[TimerChatEngine] Gagal menyimpan storage:', err.message);
+      console.error('[TimerChatEngine] Gagal menyimpan storage lokal:', err.message);
+    }
+  }
+
+  saveStorage() {
+    this.updatedAt = new Date().toISOString();
+    this.saveLocalDisk();
+
+    // Simpan persisten ke Cloud Firestore
+    if (firebaseService.isAvailable()) {
+      const payload = {
+        activeEventId: this.activeEventId,
+        events: this.events,
+        updatedAt: this.updatedAt
+      };
+      firebaseService.saveDoc('timer_chat', payload).catch(err => {
+        console.warn('[TimerChatEngine] Firestore async save warning:', err.message);
+      });
     }
   }
 

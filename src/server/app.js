@@ -2099,7 +2099,8 @@ server.listen(PORT, '0.0.0.0', async () => {
       commitmentEngine.reloadFromFirebase(),
       gameEngine.reloadFromFirebase(),
       tugEngine.reloadFromFirebase(),
-      authManager.reloadFromFirebase()
+      authManager.reloadFromFirebase(),
+      timerChatEngine.reloadFromFirebase()
     ]);
     console.log(`[Boot Sync] Cloud Firestore sync complete: ${doorprizeEngine.participants.length} peserta doorprize terdaftar.`);
   } catch (err) {
