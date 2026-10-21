@@ -72,6 +72,11 @@ class FirestoreSyncService {
   constructor() {
     this.config = firebaseConfig;
     this.enabled = !!(firebaseConfig && firebaseConfig.projectId && firebaseConfig.apiKey && firebaseConfig.firestoreDatabaseId);
+    this.cooldownUntil = new Map(); // docId -> timestamp
+    this.globalCooldownUntil = 0;
+    this.pendingSaves = new Map(); // docId -> { data, timeoutId }
+    this.saveDebounceMs = 1500; // Debounce rapid writes to prevent hitting Firestore rate limits
+
     if (this.enabled) {
       this.baseUrl = `https://firestore.googleapis.com/v1/projects/${this.config.projectId}/databases/${this.config.firestoreDatabaseId}/documents/educamp_data`;
       console.log(`[Firebase Service] Cloud Firestore sync active (Project: ${this.config.projectId}, DB: ${this.config.firestoreDatabaseId})`);
@@ -89,12 +94,48 @@ class FirestoreSyncService {
   }
 
   /**
-   * Save a JSON payload to a specific document in Firestore
+   * Save a JSON payload to a specific document in Firestore with debouncing and 429 backoff
    * @param {string} docId 
    * @param {object} data 
+   * @param {boolean} immediate Whether to skip debounce (e.g. on shutdown)
    */
-  async saveDoc(docId, data) {
+  async saveDoc(docId, data, immediate = false) {
     if (!this.enabled) return null;
+
+    // Check if in active cooldown due to recent 429 Rate Limit
+    const now = Date.now();
+    const docCooldown = this.cooldownUntil.get(docId) || 0;
+    if (now < this.globalCooldownUntil || now < docCooldown) {
+      // Store latest data so it can be flushed once cooldown ends
+      this.pendingSaves.set(docId, { data, timestamp: now });
+      return true; // Local storage already saved, suppress redundant remote failures
+    }
+
+    if (immediate) {
+      return this._executeSave(docId, data);
+    }
+
+    // Debounce writes to avoid spamming REST endpoints during rapid edits/ticks
+    return new Promise((resolve) => {
+      const existing = this.pendingSaves.get(docId);
+      if (existing && existing.timeoutId) {
+        clearTimeout(existing.timeoutId);
+      }
+
+      const timeoutId = setTimeout(async () => {
+        this.pendingSaves.delete(docId);
+        const result = await this._executeSave(docId, data);
+        resolve(result);
+      }, this.saveDebounceMs);
+
+      this.pendingSaves.set(docId, { data, timeoutId, timestamp: now });
+    });
+  }
+
+  /**
+   * Internal direct write executor to Firestore REST API
+   */
+  async _executeSave(docId, data) {
     try {
       const url = `${this.baseUrl}/${encodeURIComponent(docId)}?key=${this.config.apiKey}`;
       const payloadString = JSON.stringify(data);
@@ -111,12 +152,23 @@ class FirestoreSyncService {
 
       if (!res.ok) {
         const text = await res.text();
-        console.error(`[Firebase Service] Failed to save '${docId}': ${res.status} ${text}`);
+        if (res.status === 429) {
+          // Rate limit / Quota exceeded: set 60s cooldown to protect project quota
+          const cooldownDuration = 60000;
+          this.globalCooldownUntil = Date.now() + cooldownDuration;
+          this.cooldownUntil.set(docId, Date.now() + cooldownDuration);
+          console.warn(`[Firebase Service] Quota limit reached (429) saving '${docId}'. Local storage is active. Cooling down cloud sync for 60s.`);
+        } else {
+          console.warn(`[Firebase Service] Remote sync status ${res.status} for '${docId}': ${text.slice(0, 150)}`);
+        }
         return null;
       }
+
+      // Success - clear any cooldown
+      this.cooldownUntil.delete(docId);
       return true;
     } catch (err) {
-      console.error(`[Firebase Service] Network error saving '${docId}':`, err.message);
+      console.warn(`[Firebase Service] Network notice saving '${docId}':`, err.message);
       return null;
     }
   }
@@ -135,7 +187,11 @@ class FirestoreSyncService {
       }
       if (!res.ok) {
         const text = await res.text();
-        console.error(`[Firebase Service] Failed to load '${docId}': ${res.status} ${text}`);
+        if (res.status === 429) {
+          console.warn(`[Firebase Service] Quota limit reached (429) loading '${docId}'. Using local cache.`);
+        } else {
+          console.warn(`[Firebase Service] Remote status ${res.status} loading '${docId}': ${text.slice(0, 150)}`);
+        }
         return null;
       }
       const data = await res.json();
@@ -144,7 +200,7 @@ class FirestoreSyncService {
       }
       return null;
     } catch (err) {
-      console.error(`[Firebase Service] Network error loading '${docId}':`, err.message);
+      console.warn(`[Firebase Service] Network notice loading '${docId}':`, err.message);
       return null;
     }
   }

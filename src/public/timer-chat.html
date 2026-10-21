@@ -131,41 +131,22 @@
           </button>
 
           <div class="timer-overlay-actions">
-            <!-- Standalone Windows BAT Script Launcher Link (Anti Gagal Ekstensi) -->
-            <a href="/start_timer_overlay.bat" download="start_timer_overlay.bat" class="vmix-pill overlay-desktop-pill" style="border-color: rgba(245, 158, 11, 0.4); color: #fef08a; background: rgba(245, 158, 11, 0.15);" title="Unduh Launcher Script BAT (Langsung jalan jika ada Python)">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14v-4H8l4-4 4 4h-3v4h-2z"/></svg>
-              <span>Overlay (BAT)</span>
-            </a>
-
-            <!-- Standalone Windows EXE Desktop Overlay Link -->
-            <a href="/TimerOverlay.exe" download="TimerOverlay.exe" target="_blank" class="vmix-pill python-pill overlay-desktop-pill" id="btn-download-exe" title="Unduh Standalone Windows (.EXE) Borderless Transparent App (Langsung Run tanpa install Python!)">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>
-              <span>Overlay (EXE)</span>
-            </a>
-
-            <!-- vMix Transparent Browser Source Link -->
-            <a href="/timer-overlay.html" target="_blank" class="vmix-pill overlay-desktop-pill" title="Buka Browser Source Transparan untuk vMix / OBS">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55 1 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
-              <span>vMix Overlay Source</span>
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>
-            </a>
-
-            <!-- Mobile Overlay Dropdown Toggle (Visible only on mobile <= 920px) -->
+            <!-- Unified Compact Overlay Dropdown for All Screens -->
             <div class="overlay-dropdown-wrapper" id="overlay-dropdown-wrapper">
-              <button class="vmix-pill overlay-dropdown-toggle" id="btn-overlay-dropdown" type="button" title="Opsi Overlay vMix / OBS / Windows">
+              <button class="vmix-pill overlay-dropdown-toggle" id="btn-overlay-dropdown" type="button" title="Opsi Overlay vMix / OBS / Windows Transparan">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55 1 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
                 <span>Overlay ▾</span>
               </button>
               <div class="overlay-dropdown-menu" id="overlay-dropdown-menu">
-                <a href="/timer-overlay.html" target="_blank" class="overlay-dropdown-item">
+                <a href="/timer-overlay.html" target="_blank" class="overlay-dropdown-item" title="Buka Browser Source Transparan untuk vMix / OBS">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="color: #60a5fa;"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55 1 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
                   <span>vMix / OBS Source (Web)</span>
                 </a>
-                <a href="/TimerOverlay.exe" download="TimerOverlay.exe" target="_blank" class="overlay-dropdown-item">
+                <a href="/TimerOverlay.exe" download="TimerOverlay.exe" target="_blank" class="overlay-dropdown-item" title="Unduh Standalone Windows (.EXE) Desktop App">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="color: #38bdf8;"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>
                   <span>Desktop App (.EXE)</span>
                 </a>
-                <a href="/start_timer_overlay.bat" download="start_timer_overlay.bat" class="overlay-dropdown-item">
+                <a href="/start_timer_overlay.bat" download="start_timer_overlay.bat" class="overlay-dropdown-item" title="Unduh Script Launcher Windows (.BAT)">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="color: #fbbf24;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14v-4H8l4-4 4 4h-3v4h-2z"/></svg>
                   <span>Script Launcher (.BAT)</span>
                 </a>
@@ -198,20 +179,25 @@
           </div>
         </div>
 
-        <!-- Compact Icon Action Controls (Tanpa Emoji) -->
+        <!-- Compact State Machine Action Controls: 2 Slots Morphing -->
         <div class="timer-controls-bar" id="timer-controls-bar">
-          <button class="btn-action btn-start" id="btn-timer-start" title="Mulai Timer">
+          <!-- Slot 1: Primary Action Button (Start / Pause / Resume) -->
+          <button class="btn-action btn-start" id="btn-timer-primary" title="Mulai Timer (Spasi)">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
             <span>Mulai</span>
           </button>
-          <button class="btn-action btn-pause" id="btn-timer-pause" title="Jeda Timer">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-            <span>Jeda</span>
+
+          <!-- Slot 2: Secondary Action Button (Stop / Reset) -->
+          <button class="btn-action btn-reset" id="btn-timer-secondary" title="Stop / Reset Timer (Esc)" style="display: none;">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h12v12H6z"/></svg>
+            <span>Stop</span>
           </button>
-          <button class="btn-action btn-reset" id="btn-timer-reset" title="Reset Timer">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
-            <span>Reset</span>
-          </button>
+
+          <!-- Hidden compatibility aliases -->
+          <button id="btn-timer-start" style="display: none;" aria-hidden="true"></button>
+          <button id="btn-timer-pause" style="display: none;" aria-hidden="true"></button>
+          <button id="btn-timer-reset" style="display: none;" aria-hidden="true"></button>
+
           <div class="timer-overtime-toggle" id="timer-overtime-toggle" title="Mode Overtime: Jika aktif, setelah 00:00 timer akan terus berjalan maju (+00:01, +00:02...) dengan warna merah kedip. Saat di-Stop, waktu aktual otomatis dicatat ke separator live chat.">
             <input type="checkbox" id="chk-allow-overtime" checked>
             <label for="chk-allow-overtime" class="overtime-toggle-label">

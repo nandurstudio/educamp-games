@@ -249,7 +249,37 @@ app.get('/api/auth/status', (req, res) => {
   }
 });
 
-// Check user role by email / token info - Non-authorized users are placed in Pending Admission queue instead of rejected!
+// Record Google Login: otomatis mendaftarkan semua pengguna Google login ke dalam daftar Kelola Akses
+app.post('/api/auth/record-login', (req, res) => {
+  try {
+    const { email, name, photoURL } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email wajib disertakan' });
+    }
+    const cleanEmail = email.trim().toLowerCase();
+    const user = authManager.recordGoogleLogin({ email: cleanEmail, name, photoURL });
+    if (io) {
+      io.emit('AUTH_USER_ADMITTED', {
+        email: user.email,
+        role: user.role,
+        name: user.name
+      });
+      io.emit('AUTH_ACCESS_UPDATED', {
+        users: authManager.getAdminUsers()
+      });
+    }
+    res.json({
+      success: true,
+      user,
+      isAdmin: user.role === 'SUPER_ADMIN' || user.role === 'ADMIN' || user.role === 'GAME_MASTER' || !!user.isOwner,
+      isSuperAdmin: user.role === 'SUPER_ADMIN' || !!user.isOwner
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Check user role by email / token info - Pengguna yang login Google otomatis masuk ke Kelola Akses
 app.post('/api/auth/check-role', (req, res) => {
   try {
     const { email, name, photoURL } = req.body;
@@ -257,33 +287,22 @@ app.post('/api/auth/check-role', (req, res) => {
       return res.status(400).json({ error: 'Email wajib disertakan' });
     }
     const cleanEmail = email.trim().toLowerCase();
-    const roleInfo = authManager.resolveRole(cleanEmail);
-    if (roleInfo) {
-      return res.json({
-        authorized: true,
-        status: 'APPROVED',
-        user: roleInfo
-      });
-    }
-
-    // Tempatkan ke antrean Pending Admission
-    const pendingResult = authManager.registerOrUpdatePending({ email: cleanEmail, name, photoURL });
-    
-    // Broadcast pembaruan antrean secara real-time ke Super Admin
+    const userResult = authManager.recordGoogleLogin({ email: cleanEmail, name, photoURL });
     if (io) {
-      io.emit('AUTH_PENDING_UPDATED', {
-        pendingCount: authManager.getPendingRequests().length,
-        requests: authManager.getPendingRequests()
+      io.emit('AUTH_USER_ADMITTED', {
+        email: userResult.email,
+        role: userResult.role,
+        name: userResult.name
+      });
+      io.emit('AUTH_ACCESS_UPDATED', {
+        users: authManager.getAdminUsers()
       });
     }
 
-    res.json({
-      authorized: false,
-      status: 'PENDING',
-      message: 'Akun Anda sedang ditahan di ruang tunggu. Menunggu konfirmasi persetujuan (Admit) dari Super Admin.',
-      email: cleanEmail,
-      name: name || cleanEmail.split('@')[0],
-      photoURL: photoURL || ''
+    return res.json({
+      authorized: userResult.role !== 'AUDIENCE',
+      status: 'APPROVED',
+      user: userResult
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -439,10 +458,39 @@ app.post('/api/auth/admins', (req, res) => {
   }
 });
 
+// Update user role (Super Admin only: SUPER_ADMIN, GAME_MASTER, AUDIENCE)
+app.put('/api/auth/admins/:email/role', (req, res) => {
+  try {
+    const { role, updatedBy } = req.body;
+    const updated = authManager.updateUserRole({ email: req.params.email, role, updatedBy });
+    if (io) {
+      io.emit('AUTH_ACCESS_UPDATED', {
+        users: authManager.getAdminUsers()
+      });
+      io.emit('AUTH_USER_ADMITTED', {
+        email: updated.email,
+        role: updated.role,
+        name: updated.name
+      });
+    }
+    res.json({ success: true, user: updated, message: `Hak akses untuk ${updated.email} berhasil diubah ke ${updated.role}!` });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // Remove authorized admin user (Super Admin only)
 app.delete('/api/auth/admins/:email', (req, res) => {
   try {
     const removed = authManager.removeAdminUser(req.params.email);
+    if (io) {
+      io.emit('AUTH_ACCESS_UPDATED', {
+        users: authManager.getAdminUsers()
+      });
+      io.emit('AUTH_USER_REJECTED', {
+        email: req.params.email
+      });
+    }
     res.json({ success: true, removed, message: `Akses untuk ${removed.email} berhasil dicabut!` });
   } catch (err) {
     res.status(400).json({ error: err.message });

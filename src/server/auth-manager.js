@@ -279,6 +279,104 @@ class AuthManager {
     return newUser;
   }
 
+  /**
+   * Catat & daftarkan setiap pengguna yang login via Google ke dalam daftar Kelola Akses
+   */
+  recordGoogleLogin({ email, name, photoURL }) {
+    if (!email || !email.includes('@')) return null;
+    const cleanEmail = email.trim().toLowerCase();
+    const now = new Date().toISOString();
+
+    // Cek jika permanent super admin
+    const perm = PERMANENT_SUPER_ADMINS.find(p => p.email.toLowerCase() === cleanEmail);
+    if (perm) {
+      let existing = this.adminUsers.find(u => u.email.toLowerCase() === cleanEmail);
+      if (!existing) {
+        existing = {
+          email: cleanEmail,
+          role: 'SUPER_ADMIN',
+          name: perm.name,
+          isOwner: true,
+          photoURL: photoURL || '',
+          addedAt: now,
+          lastLogin: now,
+          admittedBy: 'PERMANENT'
+        };
+        this.adminUsers.push(existing);
+      } else {
+        existing.lastLogin = now;
+        if (photoURL) existing.photoURL = photoURL;
+        if (name && (!existing.name || existing.name === cleanEmail.split('@')[0])) {
+          existing.name = name;
+        }
+      }
+      this.saveAdminUsers();
+      return existing;
+    }
+
+    // Cek jika sudah terdaftar sebelumnya di adminUsers
+    let existing = this.adminUsers.find(u => u.email.toLowerCase() === cleanEmail);
+    if (existing) {
+      existing.lastLogin = now;
+      if (photoURL) existing.photoURL = photoURL;
+      if (name && (!existing.name || existing.name === cleanEmail.split('@')[0])) {
+        existing.name = name;
+      }
+      this.saveAdminUsers();
+      return existing;
+    }
+
+    // Pengguna Google baru: Otomatis masuk ke daftar Kelola Akses dengan role GAME_MASTER
+    const newUser = {
+      email: cleanEmail,
+      role: 'GAME_MASTER',
+      name: (name || cleanEmail.split('@')[0]).trim(),
+      photoURL: photoURL || '',
+      addedAt: now,
+      lastLogin: now,
+      admittedBy: 'GOOGLE_LOGIN'
+    };
+
+    // Bersihkan dari pendingRequests jika ada
+    const pIdx = this.pendingRequests.findIndex(p => p.email.toLowerCase() === cleanEmail);
+    if (pIdx !== -1) {
+      this.pendingRequests.splice(pIdx, 1);
+    }
+
+    this.adminUsers.push(newUser);
+    this.saveAdminUsers();
+    return newUser;
+  }
+
+  /**
+   * Update role user di Kelola Akses (SUPER_ADMIN, GAME_MASTER, AUDIENCE)
+   */
+  updateUserRole({ email, role, updatedBy }) {
+    if (!email) throw new Error('Email wajib disertakan');
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (PERMANENT_SUPER_ADMINS.some(p => p.email.toLowerCase() === cleanEmail)) {
+      throw new Error('Hak akses Super Admin Owner tidak dapat diubah');
+    }
+
+    const user = this.adminUsers.find(u => u.email.toLowerCase() === cleanEmail);
+    if (!user) {
+      throw new Error(`Pengguna ${cleanEmail} tidak ditemukan di daftar hak akses`);
+    }
+
+    const validRoles = ['SUPER_ADMIN', 'GAME_MASTER', 'AUDIENCE'];
+    if (!validRoles.includes(role)) {
+      throw new Error(`Role ${role} tidak valid. Pilihan: SUPER_ADMIN, GAME_MASTER, AUDIENCE`);
+    }
+
+    user.role = role;
+    user.updatedAt = new Date().toISOString();
+    user.updatedBy = updatedBy || 'SUPER_ADMIN';
+
+    this.saveAdminUsers();
+    return user;
+  }
+
   removeAdminUser(email) {
     const cleanEmail = email.trim().toLowerCase();
     if (PERMANENT_SUPER_ADMINS.some(p => p.email.toLowerCase() === cleanEmail)) {

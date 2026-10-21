@@ -144,6 +144,15 @@
 
           if (!checkTimerControlPermission()) return;
 
+          // Jangan langsung berubah jika timer sedang berjalan! Harus di-stop/pause terlebih dahulu
+          if (activeTimerState.status === 'RUNNING') {
+            showAlertDialog({
+              title: 'Timer Sedang Berjalan',
+              message: `Timer sesi saat ini sedang aktif berjalan! Mohon jeda atau hentikan (Stop / Pause) timer terlebih dahulu sebelum berpindah ke sesi "${item.title}".`
+            });
+            return;
+          }
+
           const totalSec = item.sec || (item.durMin * 60);
           
           currentActiveSession = {
@@ -935,6 +944,16 @@
       pill.addEventListener('click', () => {
         if (presetDropdownWrapper) presetDropdownWrapper.classList.remove('active');
         if (!checkTimerControlPermission()) return;
+
+        // Cegah perubahan waktu saat timer sedang aktif berjalan
+        if (activeTimerState.status === 'RUNNING') {
+          showAlertDialog({
+            title: 'Timer Sedang Berjalan',
+            message: 'Timer saat ini sedang aktif berjalan! Mohon jeda atau hentikan (Stop / Pause) timer terlebih dahulu sebelum memilih preset durasi lain.'
+          });
+          return;
+        }
+
         const sec = parseInt(pill.dataset.sec, 10);
         socket.emit('TC_SET_DURATION', {
           durationSeconds: sec,
@@ -952,6 +971,14 @@
     const btnConfirmCustomDuration = document.getElementById('btn-confirm-custom-duration');
 
     function openCustomDurationModal() {
+      if (!checkTimerControlPermission()) return;
+      if (activeTimerState.status === 'RUNNING') {
+        showAlertDialog({
+          title: 'Timer Sedang Berjalan',
+          message: 'Timer saat ini sedang aktif berjalan! Mohon jeda atau hentikan (Stop / Pause) timer terlebih dahulu sebelum mengatur durasi kustom.'
+        });
+        return;
+      }
       customDurationInput.value = '';
       customDurationModal.classList.add('active');
       setTimeout(() => customDurationInput.focus(), 150);
@@ -966,6 +993,14 @@
     btnCancelCustomDuration.addEventListener('click', closeCustomDurationModal);
 
     function submitCustomDuration() {
+      if (!checkTimerControlPermission()) return;
+      if (activeTimerState.status === 'RUNNING') {
+        showAlertDialog({
+          title: 'Timer Sedang Berjalan',
+          message: 'Timer saat ini sedang aktif berjalan! Mohon jeda atau hentikan (Stop / Pause) timer terlebih dahulu sebelum mengatur durasi kustom.'
+        });
+        return;
+      }
       const val = customDurationInput.value.trim();
       if (!val) return;
       let totalSec = 0;
@@ -1025,6 +1060,14 @@
 
     ctxMenu.querySelectorAll('.context-item[data-sec]').forEach(item => {
       item.addEventListener('click', () => {
+        if (activeTimerState.status === 'RUNNING') {
+          showAlertDialog({
+            title: 'Timer Sedang Berjalan',
+            message: 'Timer saat ini sedang aktif berjalan! Mohon jeda atau hentikan (Stop / Pause) timer terlebih dahulu sebelum memilih preset durasi.'
+          });
+          ctxMenu.classList.remove('active');
+          return;
+        }
         const sec = parseInt(item.dataset.sec, 10);
         socket.emit('TC_SET_DURATION', { durationSeconds: sec });
         ctxMenu.classList.remove('active');
@@ -2617,13 +2660,30 @@
             currentUser = user;
             if (user && user.email) {
               try {
-                const roleRes = await fetch(`/api/auth/status?email=${encodeURIComponent(user.email)}`);
-                const roleData = await roleRes.json();
-                isUserAdmin = !!(roleData && (roleData.role === 'SUPER_ADMIN' || roleData.role === 'ADMIN' || roleData.role === 'GAME_MASTER' || roleData.isOwner));
-                isSuperAdmin = !!(roleData && (roleData.role === 'SUPER_ADMIN' || roleData.isOwner));
+                // Catat & daftarkan pengguna Google login ke Kelola Akses secara otomatis
+                const regRes = await fetch('/api/auth/record-login', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    email: user.email,
+                    name: user.displayName || user.email.split('@')[0],
+                    photoURL: user.photoURL || ''
+                  })
+                });
+                const regData = await regRes.json();
+                const role = regData.user ? regData.user.role : 'GAME_MASTER';
+                isUserAdmin = !!regData.isAdmin || role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'GAME_MASTER' || !!regData.user?.isOwner;
+                isSuperAdmin = !!regData.isSuperAdmin || role === 'SUPER_ADMIN' || !!regData.user?.isOwner;
               } catch (e) {
-                isUserAdmin = false;
-                isSuperAdmin = false;
+                try {
+                  const roleRes = await fetch(`/api/auth/status?email=${encodeURIComponent(user.email)}`);
+                  const roleData = await roleRes.json();
+                  isUserAdmin = !!(roleData && (roleData.role === 'SUPER_ADMIN' || roleData.role === 'ADMIN' || roleData.role === 'GAME_MASTER' || roleData.isOwner));
+                  isSuperAdmin = !!(roleData && (roleData.role === 'SUPER_ADMIN' || roleData.isOwner));
+                } catch (err) {
+                  isUserAdmin = false;
+                  isSuperAdmin = false;
+                }
               }
             } else {
               isUserAdmin = false;
@@ -3268,23 +3328,68 @@
           const isSuper = u.role === 'SUPER_ADMIN' || u.isOwner;
           const isOwnerPermanent = u.email.toLowerCase() === 'nandang.dhe@gmail.com' || u.isOwner;
 
+          let avatarHtml = `<div class="user-mgmt-avatar">${(u.name || u.email).charAt(0).toUpperCase()}</div>`;
+          if (u.photoURL) {
+            avatarHtml = `<img src="${escapeHtml(u.photoURL)}" alt="" class="user-mgmt-avatar" style="object-fit: cover;" referrerpolicy="no-referrer" onerror="this.onerror=null; this.src='/images/Logo%20Educamp%202026.png';">`;
+          }
+
           item.innerHTML = `
             <div class="user-mgmt-info">
-              <div class="user-mgmt-avatar">${(u.name || u.email).charAt(0).toUpperCase()}</div>
+              ${avatarHtml}
               <div class="user-mgmt-details">
                 <span class="user-mgmt-name">${escapeHtml(u.name || u.email)}</span>
-                <span class="user-mgmt-email">${escapeHtml(u.email)}</span>
+                <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                  <span class="user-mgmt-email">${escapeHtml(u.email)}</span>
+                  ${u.admittedBy === 'GOOGLE_LOGIN' || u.photoURL ? `
+                    <span class="user-source-tag" title="Pengguna terdaftar otomatis via Google Sign-In">
+                      <svg width="10" height="10" viewBox="0 0 24 24"><path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.7 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.3 9 5 12 5z"/><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.6h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.9z"/><path fill="#FBBC05" d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3s.2-1.6.4-2.3L1.9 7.3C.7 9.7 0 12.3 0 15s.7 5.3 1.9 7.7l3.7-2.9z"/><path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.3-6.4-5.2L1.9 16C3.7 19.7 7.5 23 12 23z"/></svg>
+                      Google
+                    </span>
+                  ` : ''}
+                </div>
               </div>
             </div>
             <div class="user-mgmt-actions">
-              <span class="role-badge ${isSuper ? 'super' : 'admin'}">${isSuper ? 'SUPER ADMIN' : 'GAME MASTER'}</span>
-              ${!isOwnerPermanent ? `
-              <button class="btn-revoke-user" data-email="${u.email}" title="Cabut Akses">
-                <svg viewBox="0 0 24 24" fill="currentColor" style="width: 12px; height: 12px; margin-right: 4px;"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-                <span>Hapus</span>
-              </button>` : ''}
+              ${isOwnerPermanent ? `
+                <span class="role-badge super">👑 OWNER / SUPER ADMIN</span>
+              ` : `
+                <select class="user-role-select" data-email="${escapeHtml(u.email)}" title="Ubah hak akses pengguna">
+                  <option value="SUPER_ADMIN" ${u.role === 'SUPER_ADMIN' ? 'selected' : ''}>Super Admin</option>
+                  <option value="GAME_MASTER" ${u.role === 'GAME_MASTER' || (!u.role || u.role === 'ADMIN') ? 'selected' : ''}>Game Master (Akses Timer)</option>
+                  <option value="AUDIENCE" ${u.role === 'AUDIENCE' ? 'selected' : ''}>Audience (Terkunci)</option>
+                </select>
+                <button class="btn-revoke-user" data-email="${escapeHtml(u.email)}" title="Cabut Akses Pengguna">
+                  <svg viewBox="0 0 24 24" fill="currentColor" style="width: 12px; height: 12px; margin-right: 4px;"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                  <span>Hapus</span>
+                </button>
+              `}
             </div>
           `;
+
+          const roleSelect = item.querySelector('.user-role-select');
+          if (roleSelect) {
+            roleSelect.addEventListener('change', async (e) => {
+              const newRole = e.target.value;
+              try {
+                const res = await fetch(`/api/auth/admins/${encodeURIComponent(u.email)}/role`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    role: newRole,
+                    updatedBy: currentUser ? currentUser.email : 'Super Admin'
+                  })
+                });
+                const data = await res.json();
+                if (!data.success) {
+                  showAlertDialog({ title: 'Gagal Mengubah Akses', message: data.error || 'Terjadi kesalahan' });
+                  await loadUserMgmtList();
+                }
+              } catch (err) {
+                showAlertDialog({ title: 'Gagal Mengubah Akses', message: err.message });
+                await loadUserMgmtList();
+              }
+            });
+          }
 
           const revokeBtn = item.querySelector('.btn-revoke-user');
           if (revokeBtn) {
@@ -3317,6 +3422,34 @@
         console.error('Gagal memuat user admin:', err);
       }
     }
+
+    // Socket realtime listener untuk pembaruan Kelola Akses & hak pengguna
+    socket.on('AUTH_ACCESS_UPDATED', (data) => {
+      if (currentUser && currentUser.email && Array.isArray(data.users)) {
+        const me = data.users.find(u => u.email.toLowerCase() === currentUser.email.toLowerCase());
+        if (me) {
+          isUserAdmin = me.role === 'SUPER_ADMIN' || me.role === 'ADMIN' || me.role === 'GAME_MASTER' || !!me.isOwner;
+          isSuperAdmin = me.role === 'SUPER_ADMIN' || !!me.isOwner;
+          updateTimerPermissionUI();
+          renderAuthUI(currentUser);
+        }
+      }
+      if (userMgmtModal && userMgmtModal.classList.contains('active')) {
+        loadUserMgmtList();
+      }
+    });
+
+    socket.on('AUTH_USER_ADMITTED', (data) => {
+      if (currentUser && currentUser.email && data && data.email && data.email.toLowerCase() === currentUser.email.toLowerCase()) {
+        isUserAdmin = data.role === 'SUPER_ADMIN' || data.role === 'ADMIN' || data.role === 'GAME_MASTER';
+        isSuperAdmin = data.role === 'SUPER_ADMIN';
+        updateTimerPermissionUI();
+        renderAuthUI(currentUser);
+      }
+      if (userMgmtModal && userMgmtModal.classList.contains('active')) {
+        loadUserMgmtList();
+      }
+    });
 
     if (btnSubmitNewUser) {
       btnSubmitNewUser.addEventListener('click', async () => {

@@ -263,11 +263,11 @@ class TimerChatEngine {
     };
   }
 
-  setDuration(durationSeconds, eventId) {
-    return this.setTimerDuration(durationSeconds, eventId);
+  setDuration(durationSeconds, eventId, options = {}) {
+    return this.setTimerDuration(durationSeconds, eventId, options);
   }
 
-  setTimerDuration(durationSeconds, eventId) {
+  setTimerDuration(durationSeconds, eventId, options = {}) {
     // Toleran: jika argumen pertama adalah string ID atau object
     let sec = durationSeconds;
     let targetId = eventId;
@@ -278,6 +278,11 @@ class TimerChatEngine {
     targetId = targetId || this.activeEventId;
     const ev = this.events[targetId];
     if (!ev) throw new Error('Event tidak ditemukan.');
+
+    // Cegah penggantian durasi timer saat timer sedang aktif berjalan
+    if (ev.timer.isRunning && !(options && options.force)) {
+      throw new Error('Timer sedang berjalan aktif. Harap hentikan (Stop / Pause) timer terlebih dahulu sebelum mengganti durasi.');
+    }
 
     const parsedSec = Math.max(1, parseInt(sec, 10) || 300);
     ev.timer.durationSeconds = parsedSec;
