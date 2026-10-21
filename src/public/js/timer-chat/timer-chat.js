@@ -314,6 +314,75 @@
 
     renderRundownItems();
 
+    // === MINIMIZED RUNDOWN ACCORDION & DOCKING LOGIC (MOBILE VIEW) ===
+    const stageRundownCard = document.getElementById('stage-rundown-card');
+    const btnToggleRundown = document.getElementById('btn-toggle-rundown');
+    const rundownToggleLabel = document.getElementById('rundown-toggle-label');
+    const rundownToggleIcon = document.getElementById('rundown-toggle-icon');
+    const rundownHeader = document.getElementById('rundown-header');
+
+    function syncMobileRundownDocking() {
+      const isMobile = window.innerWidth <= 920;
+      const workspace = document.querySelector('.studio-workspace');
+      const timerColumn = document.querySelector('.timer-stage-column');
+      if (!workspace || !timerColumn || !stageRundownCard) return;
+
+      if (isMobile) {
+        // Pada mobile: pastikan rundown div berada di urutan paling bawah (setelah live chat)
+        if (stageRundownCard.parentElement !== workspace) {
+          workspace.appendChild(stageRundownCard);
+        }
+      } else {
+        // Pada desktop: kembalikan rundown card ke dalam kolom kiri timer
+        if (stageRundownCard.parentElement !== timerColumn) {
+          timerColumn.appendChild(stageRundownCard);
+        }
+      }
+    }
+
+    function toggleRundownAccordion(forceState) {
+      if (!stageRundownCard) return;
+      const willBeCollapsed = (typeof forceState === 'boolean')
+        ? forceState
+        : !stageRundownCard.classList.contains('is-collapsed');
+
+      stageRundownCard.classList.toggle('is-collapsed', willBeCollapsed);
+      if (rundownToggleLabel) {
+        rundownToggleLabel.textContent = willBeCollapsed ? 'Buka Rundown' : 'Tutup';
+      }
+      if (rundownToggleIcon) {
+        rundownToggleIcon.style.transform = willBeCollapsed ? 'rotate(180deg)' : 'rotate(0deg)';
+      }
+
+      // Saat ditutup (collapsed), otomatis scroll chat ke bawah agar area chat yang melebar terisi pesan
+      if (willBeCollapsed) {
+        const chatContainer = document.getElementById('chat-messages');
+        if (chatContainer) {
+          setTimeout(() => {
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+          }, 60);
+        }
+      }
+    }
+
+    if (btnToggleRundown) {
+      btnToggleRundown.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleRundownAccordion();
+      });
+    }
+
+    if (rundownHeader) {
+      rundownHeader.addEventListener('click', (e) => {
+        if (window.innerWidth <= 920 && !e.target.closest('#btn-add-rundown-item') && !e.target.closest('.rundown-tabs')) {
+          toggleRundownAccordion();
+        }
+      });
+    }
+
+    window.addEventListener('resize', syncMobileRundownDocking);
+    syncMobileRundownDocking();
+
     // === 2. GLOBAL STATE & NTP SYNC VARIABLES ===
     const socket = io();
     let clockOffset = 0;
@@ -844,6 +913,23 @@
       });
     }
 
+    // Overlay dropdown toggle & click outside (Mobile & Desktop)
+    const overlayDropdownWrapper = document.getElementById('overlay-dropdown-wrapper');
+    const btnOverlayDropdown = document.getElementById('btn-overlay-dropdown');
+
+    if (btnOverlayDropdown && overlayDropdownWrapper) {
+      btnOverlayDropdown.addEventListener('click', (e) => {
+        e.stopPropagation();
+        overlayDropdownWrapper.classList.toggle('active');
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!overlayDropdownWrapper.contains(e.target)) {
+          overlayDropdownWrapper.classList.remove('active');
+        }
+      });
+    }
+
     // Preset pills click (baik yang di luar maupun di dalam dropdown)
     document.querySelectorAll('.preset-pill[data-sec]').forEach(pill => {
       pill.addEventListener('click', () => {
@@ -952,11 +1038,36 @@
 
     // === 8. CHAT & FONT RESIZER ===
     const fontResizerButtons = document.querySelectorAll('.btn-font-scale');
+    const fontResizerDropdownWrapper = document.getElementById('font-resizer-dropdown-wrapper');
+    const btnFontDropdownToggle = document.getElementById('btn-font-dropdown-toggle');
+    const fontDropdownCurrentLabel = document.getElementById('font-dropdown-current-label');
+
+    if (btnFontDropdownToggle && fontResizerDropdownWrapper) {
+      btnFontDropdownToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        fontResizerDropdownWrapper.classList.toggle('active');
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!fontResizerDropdownWrapper.contains(e.target)) {
+          fontResizerDropdownWrapper.classList.remove('active');
+        }
+      });
+    }
+
     fontResizerButtons.forEach(btn => {
       btn.addEventListener('click', () => {
+        const size = btn.dataset.size;
         fontResizerButtons.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        document.documentElement.style.setProperty('--chat-font-size', btn.dataset.size);
+        document.querySelectorAll(`.btn-font-scale[data-size="${size}"]`).forEach(b => b.classList.add('active'));
+        document.documentElement.style.setProperty('--chat-font-size', size);
+        if (fontDropdownCurrentLabel) {
+          const rawText = btn.textContent.trim().split(' ')[0] || 'Aa';
+          fontDropdownCurrentLabel.textContent = `Aa (${rawText})`;
+        }
+        if (fontResizerDropdownWrapper) {
+          fontResizerDropdownWrapper.classList.remove('active');
+        }
       });
     });
 
@@ -1146,6 +1257,25 @@
       });
     }
 
+    // === AUTO-RESIZING CHAT TEXTAREA (MAX 3 LINES + SCROLLING) ===
+    function autoResizeChatInput() {
+      if (!chatInput) return;
+      chatInput.style.height = 'auto';
+      const isMobile = window.innerWidth <= 920;
+      const minSingleLine = isMobile ? 34 : 36;
+      const maxThreeLines = isMobile ? 68 : 72;
+      const scrollH = chatInput.scrollHeight;
+
+      if (scrollH > maxThreeLines) {
+        chatInput.style.height = `${maxThreeLines}px`;
+        chatInput.style.overflowY = 'auto';
+        chatInput.scrollTop = chatInput.scrollHeight;
+      } else {
+        chatInput.style.height = `${Math.max(minSingleLine, scrollH)}px`;
+        chatInput.style.overflowY = 'hidden';
+      }
+    }
+
     // Update Chat Input Character Counter
     function updateCharCounter() {
       if (!chatInput || !charLimitCount) return;
@@ -1159,9 +1289,41 @@
       }
     }
 
+    chatInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        if (!e.shiftKey) {
+          e.preventDefault();
+          if (typeof chatForm.requestSubmit === 'function') {
+            chatForm.requestSubmit();
+          } else {
+            chatForm.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+          }
+        } else {
+          // Shift + Enter: new line
+          setTimeout(() => {
+            autoResizeChatInput();
+            chatInput.scrollTop = chatInput.scrollHeight;
+          }, 0);
+        }
+      }
+    });
+
     chatInput.addEventListener('input', () => {
+      autoResizeChatInput();
       updateCharCounter();
       updateSendButtonState();
+    });
+
+    chatInput.addEventListener('keyup', () => {
+      chatInput.scrollTop = chatInput.scrollHeight;
+    });
+
+    chatInput.addEventListener('paste', () => {
+      setTimeout(() => {
+        autoResizeChatInput();
+        updateCharCounter();
+        updateSendButtonState();
+      }, 10);
     });
 
     // Apply Permissions based on Auth state
@@ -1237,6 +1399,7 @@
         item.textContent = em;
         item.addEventListener('click', () => {
           chatInput.value += em;
+          autoResizeChatInput();
           chatInput.focus();
           updateCharCounter();
           updateSendButtonState();
@@ -1787,6 +1950,8 @@
 
       // 3. Reset Input
       chatInput.value = '';
+      chatInput.style.height = '';
+      autoResizeChatInput();
       clearAttachedMedia();
       clearQuoteReply();
       updateCharCounter();
@@ -2425,6 +2590,17 @@
         showAlertDialog({ title: 'Gagal Membuat Acara', message: err.message });
       }
     });
+
+    const newEventNameInput = document.getElementById('new-event-name');
+    if (newEventNameInput) {
+      newEventNameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const submitBtn = document.getElementById('btn-submit-new-event');
+          if (submitBtn) submitBtn.click();
+        }
+      });
+    }
 
     // === 10. FIREBASE GOOGLE AUTH & ROLE VERIFICATION ===
     async function initFirebaseAuth() {

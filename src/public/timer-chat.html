@@ -15,7 +15,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 
-  <link rel="stylesheet" href="/css/timer-chat.css?v=1.5.0">
+  <link rel="stylesheet" href="/css/timer-chat.css?v=1.5.1">
 </head>
 <body>
 
@@ -130,25 +130,47 @@
             <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
           </button>
 
-          <div class="timer-overlay-actions" style="display: flex; align-items: center; gap: 6px; position: relative; z-index: 18;">
+          <div class="timer-overlay-actions">
             <!-- Standalone Windows BAT Script Launcher Link (Anti Gagal Ekstensi) -->
-            <a href="/start_timer_overlay.bat" download="start_timer_overlay.bat" class="vmix-pill" style="border-color: rgba(245, 158, 11, 0.4); color: #fef08a; background: rgba(245, 158, 11, 0.15);" title="Unduh Launcher Script BAT (Langsung jalan jika ada Python)">
+            <a href="/start_timer_overlay.bat" download="start_timer_overlay.bat" class="vmix-pill overlay-desktop-pill" style="border-color: rgba(245, 158, 11, 0.4); color: #fef08a; background: rgba(245, 158, 11, 0.15);" title="Unduh Launcher Script BAT (Langsung jalan jika ada Python)">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14v-4H8l4-4 4 4h-3v4h-2z"/></svg>
               <span>Overlay (BAT)</span>
             </a>
 
             <!-- Standalone Windows EXE Desktop Overlay Link -->
-            <a href="/TimerOverlay.exe" download="TimerOverlay.exe" target="_blank" class="vmix-pill python-pill" id="btn-download-exe" title="Unduh Standalone Windows (.EXE) Borderless Transparent App (Langsung Run tanpa install Python!)">
+            <a href="/TimerOverlay.exe" download="TimerOverlay.exe" target="_blank" class="vmix-pill python-pill overlay-desktop-pill" id="btn-download-exe" title="Unduh Standalone Windows (.EXE) Borderless Transparent App (Langsung Run tanpa install Python!)">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>
               <span>Overlay (EXE)</span>
             </a>
 
             <!-- vMix Transparent Browser Source Link -->
-            <a href="/timer-overlay.html" target="_blank" class="vmix-pill" title="Buka Browser Source Transparan untuk vMix / OBS">
+            <a href="/timer-overlay.html" target="_blank" class="vmix-pill overlay-desktop-pill" title="Buka Browser Source Transparan untuk vMix / OBS">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55 1 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
               <span>vMix Overlay Source</span>
               <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>
             </a>
+
+            <!-- Mobile Overlay Dropdown Toggle (Visible only on mobile <= 920px) -->
+            <div class="overlay-dropdown-wrapper" id="overlay-dropdown-wrapper">
+              <button class="vmix-pill overlay-dropdown-toggle" id="btn-overlay-dropdown" type="button" title="Opsi Overlay vMix / OBS / Windows">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55 1 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+                <span>Overlay ▾</span>
+              </button>
+              <div class="overlay-dropdown-menu" id="overlay-dropdown-menu">
+                <a href="/timer-overlay.html" target="_blank" class="overlay-dropdown-item">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="color: #60a5fa;"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55 1 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+                  <span>vMix / OBS Source (Web)</span>
+                </a>
+                <a href="/TimerOverlay.exe" download="TimerOverlay.exe" target="_blank" class="overlay-dropdown-item">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="color: #38bdf8;"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>
+                  <span>Desktop App (.EXE)</span>
+                </a>
+                <a href="/start_timer_overlay.bat" download="start_timer_overlay.bat" class="overlay-dropdown-item">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="color: #fbbf24;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14v-4H8l4-4 4 4h-3v4h-2z"/></svg>
+                  <span>Script Launcher (.BAT)</span>
+                </a>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -210,9 +232,9 @@
       <!-- Draggable Dynamic Horizontal Resizer (Atas / Bawah) -->
       <div class="horizontal-resizer" id="horizontal-resizer" title="Geser ke atas / bawah untuk mengatur pembagian tinggi timer dan rundown secara dinamis"></div>
 
-      <!-- Sesi & Rundown Acara Cepat (Mengisi Space Desktop Kiri Bawah) -->
-      <section class="stage-rundown-card">
-        <div class="rundown-header">
+      <!-- Sesi & Rundown Acara Cepat (Mengisi Space Desktop Kiri Bawah & Minimized Accordion on Mobile) -->
+      <section class="stage-rundown-card is-collapsed" id="stage-rundown-card">
+        <div class="rundown-header" id="rundown-header">
           <div class="rundown-title-group">
             <div class="rundown-title">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" style="color: #38bdf8;"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>
@@ -226,7 +248,12 @@
           </div>
           <div class="rundown-header-actions">
             <button class="btn-add-session" id="btn-add-rundown-item" title="Tambah sesi baru ke rundown">
-              <span>+ Tambah Sesi</span>
+              <span>+ Sesi</span>
+            </button>
+            <!-- Mobile Minimized Rundown Accordion Toggle -->
+            <button class="btn-toggle-rundown" id="btn-toggle-rundown" type="button" title="Buka / Tutup Rundown Sesi">
+              <span id="rundown-toggle-label">Buka Rundown</span>
+              <svg id="rundown-toggle-icon" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="transform: rotate(180deg);"><path d="M7 10l5 5 5-5z"/></svg>
             </button>
           </div>
         </div>
@@ -253,7 +280,7 @@
           <span class="chat-event-name-tag" id="chat-header-event">Event...</span>
         </div>
 
-        <!-- Scalable Font Controls -->
+        <!-- Scalable Font Controls (Desktop Bar & Mobile Compact Dropdown) -->
         <div class="font-resizer-bar">
           <span class="font-resizer-label">Font:</span>
           <button class="btn-font-scale" data-size="13px">A-</button>
@@ -261,6 +288,19 @@
           <button class="btn-font-scale" data-size="20px">A+</button>
           <button class="btn-font-scale" data-size="28px">A++</button>
           <button class="btn-font-scale" data-size="36px">A+++</button>
+        </div>
+
+        <div class="font-resizer-dropdown-wrapper" id="font-resizer-dropdown-wrapper">
+          <button class="btn-font-scale font-dropdown-toggle" id="btn-font-dropdown-toggle" type="button" title="Ukuran Font Chat">
+            <span id="font-dropdown-current-label">Aa ▾</span>
+          </button>
+          <div class="font-resizer-dropdown-menu" id="font-resizer-dropdown-menu">
+            <button class="font-dropdown-item btn-font-scale" type="button" data-size="13px">Kecil (13px)</button>
+            <button class="font-dropdown-item btn-font-scale active" type="button" data-size="15px">Normal (15px)</button>
+            <button class="font-dropdown-item btn-font-scale" type="button" data-size="20px">Besar (20px)</button>
+            <button class="font-dropdown-item btn-font-scale" type="button" data-size="28px">Sangat Besar (28px)</button>
+            <button class="font-dropdown-item btn-font-scale" type="button" data-size="36px">Maksimal (36px)</button>
+          </div>
         </div>
       </div>
 
@@ -361,7 +401,7 @@
             </button>
           </div>
 
-          <input type="text" class="chat-input-field" id="chat-input" placeholder="Tulis pertanyaan atau tanggapan sesi..." maxlength="150" autocomplete="off">
+          <textarea class="chat-input-field" id="chat-input" placeholder="Tulis pertanyaan atau tanggapan sesi..." maxlength="150" rows="1" autocomplete="off"></textarea>
           <button type="submit" class="btn-send-chat" id="btn-send-chat" title="Kirim Pesan">
             <span id="btn-send-label">Kirim</span>
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
@@ -457,11 +497,11 @@
       </div>
 
       <div class="new-event-form">
-        <div style="font-size: 11px; font-weight: 700; color: #94a3b8;">+ Buat Acara Baru</div>
-        <div class="input-group-row">
-          <input type="text" class="input-text" id="new-event-name" placeholder="Nama Acara (cth: TPM Assessment)">
-          <input type="date" class="input-text" id="new-event-date" style="max-width: 140px;">
-          <button class="btn-create-event" id="btn-submit-new-event">Simpan</button>
+        <div class="new-event-title-badge">+ Buat Acara Baru</div>
+        <div class="input-group-row event-creation-row">
+          <input type="text" class="input-text input-event-name" id="new-event-name" placeholder="Nama Acara (cth: TPM Assessment)">
+          <input type="date" class="input-text input-event-date" id="new-event-date">
+          <button type="button" class="btn-create-event" id="btn-submit-new-event">Simpan</button>
         </div>
       </div>
     </div>
@@ -685,6 +725,6 @@
   </footer>
 
   <!-- Application Logic -->
-  <script src="/js/timer-chat/timer-chat.js?v=1.5.0" defer></script>
+  <script src="/js/timer-chat/timer-chat.js?v=1.5.1" defer></script>
 </body>
 </html>
