@@ -681,6 +681,7 @@
         renderChatMessages(state.chatHistory);
       }
       updateRundownVsActualUI();
+      renderTimerControlsStateMachine();
     });
 
     socket.on('TC_TIMER_STARTED', (data) => {
@@ -688,6 +689,7 @@
       activeTimerState.targetEndTime = data.targetEndTime;
       activeTimerState.durationSeconds = data.durationSeconds;
       updateRundownVsActualUI();
+      renderTimerControlsStateMachine();
     });
 
     // Helper untuk sinkronisasi waktu aktual sesi ke separator obrolan saat timer di-stop/pause
@@ -731,6 +733,7 @@
       activeTimerState.status = 'PAUSED';
       activeTimerState.remainingSeconds = data.remainingSeconds;
       updateRundownVsActualUI();
+      renderTimerControlsStateMachine();
       syncActualTimeToSeparator();
     });
 
@@ -739,6 +742,7 @@
       activeTimerState.remainingSeconds = data.remainingSeconds;
       activeTimerState.durationSeconds = data.durationSeconds;
       updateRundownVsActualUI();
+      renderTimerControlsStateMachine();
       syncActualTimeToSeparator();
     });
 
@@ -868,7 +872,7 @@
       if (err && err.message) showAlertDialog({ title: 'Terjadi Kesalahan', message: err.message });
     });
 
-    // === 5. TIMER CONTROLS ===
+    // === 5. TIMER CONTROLS (STATE MACHINE: 2 SLOTS MORPHING) ===
     function checkTimerControlPermission() {
       if (!isUserAdmin) {
         showAlertDialog({ title: 'Akses Ditolak', message: 'Hanya pengguna terotorisasi yang dapat mengubah atau mengontrol timer.' });
@@ -877,32 +881,148 @@
       return true;
     }
 
-    document.getElementById('btn-timer-start').addEventListener('click', () => {
-      if (!checkTimerControlPermission()) return;
+    const btnTimerPrimary = document.getElementById('btn-timer-primary');
+    const btnTimerSecondary = document.getElementById('btn-timer-secondary');
 
-      // Jika ada separator sesi yang siap (pending), kirimkan ke chat sekarang saat sesi dimulai
-      if (pendingSessionSeparator) {
-        socket.emit('TC_ADD_SEPARATOR', pendingSessionSeparator);
-        pendingSessionSeparator = null;
+    function renderTimerControlsStateMachine() {
+      if (!btnTimerPrimary || !btnTimerSecondary) return;
+      const status = activeTimerState ? activeTimerState.status : 'IDLE';
+
+      if (status === 'RUNNING') {
+        // State 2: Running -> Primary: Pause (Amber), Secondary: Stop / Reset (Red)
+        btnTimerPrimary.className = 'btn-action btn-pause';
+        btnTimerPrimary.title = 'Jeda Timer (Spasi)';
+        btnTimerPrimary.innerHTML = `
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+          <span>Jeda</span>
+        `;
+        btnTimerPrimary.style.display = 'inline-flex';
+
+        btnTimerSecondary.className = 'btn-action btn-reset';
+        btnTimerSecondary.title = 'Stop Timer (Esc)';
+        btnTimerSecondary.innerHTML = `
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h12v12H6z"/></svg>
+          <span>Stop</span>
+        `;
+        btnTimerSecondary.style.display = 'inline-flex';
+
+      } else if (status === 'PAUSED') {
+        // State 3: Paused -> Primary: Resume (Green), Secondary: Stop / Reset (Red)
+        btnTimerPrimary.className = 'btn-action btn-start';
+        btnTimerPrimary.title = 'Lanjutkan Timer (Spasi)';
+        btnTimerPrimary.innerHTML = `
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          <span>Lanjut</span>
+        `;
+        btnTimerPrimary.style.display = 'inline-flex';
+
+        btnTimerSecondary.className = 'btn-action btn-reset';
+        btnTimerSecondary.title = 'Stop / Reset Timer (Esc)';
+        btnTimerSecondary.innerHTML = `
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h12v12H6z"/></svg>
+          <span>Stop</span>
+        `;
+        btnTimerSecondary.style.display = 'inline-flex';
+
+      } else if (status === 'TIME_OUT') {
+        // State 4: Completed/Timeout -> Primary: Mulai Lagi (Green), Secondary: Reset (Red)
+        btnTimerPrimary.className = 'btn-action btn-start';
+        btnTimerPrimary.title = 'Mulai Sesi Ulang (Spasi)';
+        btnTimerPrimary.innerHTML = `
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          <span>Mulai</span>
+        `;
+        btnTimerPrimary.style.display = 'inline-flex';
+
+        btnTimerSecondary.className = 'btn-action btn-reset';
+        btnTimerSecondary.title = 'Reset Timer (Esc)';
+        btnTimerSecondary.innerHTML = `
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+          <span>Reset</span>
+        `;
+        btnTimerSecondary.style.display = 'inline-flex';
+
+      } else {
+        // State 1: Idle -> Primary: Start (Green), Secondary: Hidden/Disabled
+        btnTimerPrimary.className = 'btn-action btn-start';
+        btnTimerPrimary.title = 'Mulai Timer (Spasi)';
+        btnTimerPrimary.innerHTML = `
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          <span>Mulai</span>
+        `;
+        btnTimerPrimary.style.display = 'inline-flex';
+
+        btnTimerSecondary.style.display = 'none';
       }
+    }
 
-      socket.emit('TC_START_TIMER', {
-        userEmail: currentUser ? currentUser.email : ''
-      });
-    });
+    if (btnTimerPrimary) {
+      btnTimerPrimary.addEventListener('click', () => {
+        if (!checkTimerControlPermission()) return;
+        const status = activeTimerState ? activeTimerState.status : 'IDLE';
 
-    document.getElementById('btn-timer-pause').addEventListener('click', () => {
-      if (!checkTimerControlPermission()) return;
-      socket.emit('TC_PAUSE_TIMER', {
-        userEmail: currentUser ? currentUser.email : ''
+        if (status === 'RUNNING') {
+          // Sedang berjalan -> Klik akan Jeda (Pause)
+          socket.emit('TC_PAUSE_TIMER', {
+            userEmail: currentUser ? currentUser.email : ''
+          });
+        } else {
+          // Sedang Idle, Paused, atau Timeout -> Klik akan Mulai / Lanjut
+          if (pendingSessionSeparator) {
+            socket.emit('TC_ADD_SEPARATOR', pendingSessionSeparator);
+            pendingSessionSeparator = null;
+          }
+          socket.emit('TC_START_TIMER', {
+            userEmail: currentUser ? currentUser.email : ''
+          });
+        }
       });
-    });
+    }
 
-    document.getElementById('btn-timer-reset').addEventListener('click', () => {
-      if (!checkTimerControlPermission()) return;
-      socket.emit('TC_RESET_TIMER', {
-        userEmail: currentUser ? currentUser.email : ''
+    if (btnTimerSecondary) {
+      btnTimerSecondary.addEventListener('click', () => {
+        if (!checkTimerControlPermission()) return;
+        // Klik Stop / Reset
+        socket.emit('TC_RESET_TIMER', {
+          userEmail: currentUser ? currentUser.email : ''
+        });
       });
+    }
+
+    // Hidden compatibility aliases trigger handlers
+    const legacyStart = document.getElementById('btn-timer-start');
+    if (legacyStart) {
+      legacyStart.addEventListener('click', () => {
+        if (btnTimerPrimary) btnTimerPrimary.click();
+      });
+    }
+    const legacyPause = document.getElementById('btn-timer-pause');
+    if (legacyPause) {
+      legacyPause.addEventListener('click', () => {
+        if (!checkTimerControlPermission()) return;
+        socket.emit('TC_PAUSE_TIMER', { userEmail: currentUser ? currentUser.email : '' });
+      });
+    }
+    const legacyReset = document.getElementById('btn-timer-reset');
+    if (legacyReset) {
+      legacyReset.addEventListener('click', () => {
+        if (btnTimerSecondary) btnTimerSecondary.click();
+      });
+    }
+
+    // Keyboard Shortcuts (Spacebar: Start/Pause/Resume, Esc: Stop/Reset)
+    document.addEventListener('keydown', (e) => {
+      // Jangan trigger shortcut jika user sedang mengetik di input chat, pencarian, dsb
+      if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (btnTimerPrimary) btnTimerPrimary.click();
+      } else if (e.code === 'Escape') {
+        if (btnTimerSecondary && btnTimerSecondary.style.display !== 'none') {
+          e.preventDefault();
+          btnTimerSecondary.click();
+        }
+      }
     });
 
     // Preset dropdown toggle & click outside
@@ -2725,7 +2845,9 @@
             <img src="${user.photoURL || '/images/Logo%20Educamp%202026.png'}" alt="${user.displayName || 'User'}" referrerpolicy="no-referrer" onerror="this.onerror=null; this.src='/images/Logo%20Educamp%202026.png';">
             <span class="user-name-label">${user.displayName || user.email}</span>
             ${isUserAdmin ? '<span class="admin-badge-indicator" title="Admin Moderator">ADMIN</span>' : ''}
-            <button class="btn-logout" id="btn-logout" title="Keluar">⎋</button>
+            <button class="btn-logout" id="btn-logout" title="Keluar">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+            </button>
           </div>
         `;
         document.getElementById('btn-logout').addEventListener('click', () => {
