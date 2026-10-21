@@ -184,6 +184,9 @@
     .badge-pinang { background: #ef444422; color: #ef4444; border: 1px solid #ef4444; }
     .badge-tug { background: #3b82f622; color: #38bdf8; border: 1px solid #38bdf8; }
     .badge-doorprize { background: #f59e0b22; color: #f59e0b; border: 1px solid #f59e0b; }
+    .badge-timer { background: #10b98122; color: #34d399; border: 1px solid #34d399; }
+    .btn-timer-main { background: linear-gradient(135deg, #059669, #10b981); color: white; }
+    .btn-timer-vmix { background: #1e3a8a; color: #93c5fd; border: 1px solid #3b82f6; }
     .game-title {
       font-family: var(--font-heading);
       font-size: 21px;
@@ -408,6 +411,30 @@
         </a>
         <a href="/doorprize-admin.html" target="_blank" class="btn-link btn-doorprize-admin">
           <span>🔐 Game Master / Admin Panel</span>
+          <span>➔</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- App 4: Standalone Timer & Live Chat (vMix Ready) -->
+    <div class="game-card">
+      <div>
+        <span class="game-badge badge-timer">BROADCAST & STAGE COMPANION</span>
+        <div class="game-title" style="color: #34d399;">
+          <span>⏱️</span> Timer & Live Chat
+        </div>
+        <p class="game-desc">
+          Timer presisi tinggi dengan sinkronisasi 0ms NTP, preset durasi klik kanan (30s, 1m, 5m, 10m, 15m), alert berkedip di 10 detik terakhir, multi-acara, font resizer, dan overlay vMix transparan.
+        </p>
+      </div>
+
+      <div class="button-group">
+        <a href="/timer-chat.html" target="_blank" class="btn-link btn-timer-main">
+          <span>⏱️ Buka Aplikasi Timer & Chat</span>
+          <span>➔</span>
+        </a>
+        <a href="/timer-overlay.html" target="_blank" class="btn-link btn-timer-vmix">
+          <span>🎥 vMix / OBS Overlay Source</span>
           <span>➔</span>
         </a>
       </div>

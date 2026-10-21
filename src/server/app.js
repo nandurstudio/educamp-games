@@ -13,6 +13,7 @@ const backupManager = require('./backup-manager');
 const authManager = require('./auth-manager');
 const commitmentEngine = require('./commitment-engine');
 const doorprizeEngine = require('./doorprize-engine');
+const timerChatEngine = require('./timer-chat-engine');
 const firebaseService = require('./firebase-service');
 const { generateQuizQuestions } = require('./gemini-service');
 const pkg = require('../../package.json');
@@ -180,6 +181,28 @@ app.get('/fonts/:fontname', (req, res, next) => {
 
 app.use(express.static(path.join(__dirname, '../public')));
 
+// Standalone Windows Executable & Python Overlay App Routes
+app.get('/TimerOverlay.exe', (req, res) => {
+  const filePath = path.join(__dirname, '../../dist/TimerOverlay.exe');
+  res.download(filePath, 'TimerOverlay.exe', (err) => {
+    if (err) {
+      console.error('Error downloading TimerOverlay.exe:', err);
+      if (!res.headersSent) {
+        res.status(500).send('File download error');
+      }
+    }
+  });
+});
+app.get('/TimerOverlay_Windows.zip', (req, res) => {
+  res.download(path.join(__dirname, '../../dist/TimerOverlay_Windows.zip'), 'TimerOverlay_Windows.zip');
+});
+app.get('/timer_overlay.py', (req, res) => {
+  res.download(path.join(__dirname, '../../timer_overlay.py'), 'timer_overlay.py');
+});
+app.get('/start_timer_overlay.bat', (req, res) => {
+  res.download(path.join(__dirname, '../../start_timer_overlay.bat'), 'start_timer_overlay.bat');
+});
+
 // Favicon route
 app.get('/favicon.ico', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/images/Logo Educamp 2026.png'));
@@ -201,6 +224,29 @@ app.get('/api/auth/firebase-config', (req, res) => {
     });
   }
   res.status(404).json({ error: 'Firebase config not found or inactive' });
+});
+
+// Quick check user role & admin status by email (GET)
+app.get('/api/auth/status', (req, res) => {
+  try {
+    const email = req.query.email;
+    if (!email) return res.json({ role: 'AUDIENCE', isAdmin: false, isOwner: false });
+    const cleanEmail = email.trim().toLowerCase();
+    const roleInfo = authManager.resolveRole(cleanEmail);
+    if (roleInfo) {
+      return res.json({
+        authorized: true,
+        email: cleanEmail,
+        role: roleInfo.role,
+        name: roleInfo.name,
+        isOwner: !!roleInfo.isOwner,
+        isAdmin: roleInfo.role === 'SUPER_ADMIN' || roleInfo.role === 'ADMIN' || roleInfo.role === 'GAME_MASTER' || !!roleInfo.isOwner
+      });
+    }
+    res.json({ authorized: false, role: 'AUDIENCE', isAdmin: false, isOwner: false });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Check user role by email / token info - Non-authorized users are placed in Pending Admission queue instead of rejected!
@@ -1309,6 +1355,148 @@ app.get('/api/doorprize/export-csv', (req, res) => {
   }
 });
 
+// === REST API STANDALONE TIMER & CHAT (MULTI-EVENT & VMIX READY) ===
+
+// 1. Ambil state timer, event aktif, dan info sync
+app.get('/api/timer-chat/state', (req, res) => {
+  try {
+    res.json(timerChatEngine.getState());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 2. vMix Data Feed (JSON, Plain Text, XML)
+app.get('/api/timer-chat/vmix', (req, res) => {
+  try {
+    const format = (req.query.format || 'json').toLowerCase();
+    const data = timerChatEngine.getVmixData();
+    if (format === 'text' || format === 'txt') {
+      res.setHeader('Content-Type', 'text/plain');
+      return res.send(data.remainingFormatted);
+    }
+    if (format === 'xml') {
+      res.setHeader('Content-Type', 'application/xml');
+      const xml = `<?xml version="1.0" encoding="utf-8"?>
+<vmix>
+  <timer>
+    <remaining>${data.remainingSeconds}</remaining>
+    <formatted>${data.remainingFormatted}</formatted>
+    <status>${data.status}</status>
+    <isBlinking>${data.isBlinking}</isBlinking>
+    <eventName><![CDATA[${data.eventName}]]></eventName>
+    <lastChatMessage><![CDATA[${data.lastChatMessage}]]></lastChatMessage>
+  </timer>
+</vmix>`;
+      return res.send(xml);
+    }
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 3. Events Management
+app.get('/api/timer-chat/events', (req, res) => {
+  try {
+    res.json({
+      events: timerChatEngine.getAllEvents(),
+      activeEvent: timerChatEngine.getActiveEvent()
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/timer-chat/events', (req, res) => {
+  try {
+    const event = timerChatEngine.createEvent(req.body);
+    io.emit('TC_EVENT_CREATED', event);
+    io.emit('TC_EVENTS_UPDATE', timerChatEngine.getAllEvents());
+    res.json({ success: true, event });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/timer-chat/events/select', (req, res) => {
+  try {
+    const { eventId } = req.body;
+    const active = timerChatEngine.setActiveEvent(eventId);
+    io.emit('TC_EVENT_SELECTED', active);
+    io.emit('TC_STATE_UPDATE', timerChatEngine.getState());
+    res.json({ success: true, activeEvent: active });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.delete('/api/timer-chat/events/:id', (req, res) => {
+  try {
+    const deleted = timerChatEngine.deleteEvent(req.params.id);
+    io.emit('TC_EVENTS_UPDATE', timerChatEngine.getAllEvents());
+    io.emit('TC_STATE_UPDATE', timerChatEngine.getState());
+    res.json({ success: true, deletedEvent: deleted });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// 4. Chat Endpoints
+app.get('/api/timer-chat/chat', (req, res) => {
+  try {
+    const eventId = req.query.eventId || null;
+    res.json(timerChatEngine.getChatHistory(eventId));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/timer-chat/chat', (req, res) => {
+  try {
+    const message = timerChatEngine.addChatMessage(req.body);
+    io.emit('TC_NEW_MESSAGE', message);
+    res.json({ success: true, message });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.delete('/api/timer-chat/chat/:id', (req, res) => {
+  try {
+    const { requesterEmail, requesterName, requesterRole, isAdmin, eventId } = req.body;
+    const result = timerChatEngine.deleteChatMessage(req.params.id, {
+      requesterEmail,
+      requesterName,
+      requesterRole,
+      isAdmin,
+      eventId
+    });
+    io.emit('TC_MESSAGE_DELETED', {
+      messageId: req.params.id,
+      eventId: result.eventId,
+      isPermanent: result.isPermanent,
+      updatedMessage: result.updatedMessage,
+      deletedBy: result.deletedBy,
+      deleteNotice: result.deleteNotice
+    });
+    res.json(result);
+  } catch (err) {
+    res.status(403).json({ error: err.message });
+  }
+});
+
+app.post('/api/timer-chat/chat/clear', (req, res) => {
+  try {
+    const { eventId } = req.body;
+    timerChatEngine.clearChatHistory(eventId);
+    io.emit('TC_CHAT_CLEARED', { eventId });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // === REALTIME SOCKET.IO DISPATCHER ===
 io.on('connection', (socket) => {
   console.log(`[Socket Connected] ID: ${socket.id}`);
@@ -1319,6 +1507,7 @@ io.on('connection', (socket) => {
   socket.emit('MASTER_TEAMS_UPDATE', superAdminEngine.getMasterTeams());
   socket.emit('COMMITMENT_STATE_UPDATE', commitmentEngine.getPublicState());
   socket.emit('DOORPRIZE_STATE_UPDATE', doorprizeEngine.getState());
+  socket.emit('TC_STATE_UPDATE', timerChatEngine.getState());
 
   // Bergabung ke room role tertentu (arena, controller-team1, controller-team2, admin)
   socket.on('JOIN_ROLE', ({ role, teamId }) => {
@@ -1677,6 +1866,203 @@ io.on('connection', (socket) => {
     }
   });
 
+  // === SOCKET.IO: STANDALONE TIMER & CHAT DISPATCHER ===
+
+  // 1. High Precision NTP Time Sync (Ping - Pong)
+  socket.on('TC_TIME_SYNC', (clientData) => {
+    socket.emit('TC_TIME_PONG', {
+      clientTimestamp: clientData?.clientTimestamp || Date.now(),
+      serverTimestamp: Date.now()
+    });
+  });
+
+  // Helper verifikasi hak akses timer
+  function verifyTimerAccess(data = {}) {
+    const email = data.userEmail || data.email;
+    if (!email) {
+      throw new Error('Akses ditolak: Anda harus login dengan akun terotorisasi untuk mengontrol timer.');
+    }
+    const roleInfo = authManager.resolveRole(email);
+    if (!roleInfo) {
+      throw new Error(`Akses ditolak: Akun ${email} belum diberikan izin untuk mengontrol timer.`);
+    }
+    return roleInfo;
+  }
+
+  // 2. Timer Controls
+  socket.on('TC_START_TIMER', (data = {}) => {
+    try {
+      verifyTimerAccess(data);
+      const state = timerChatEngine.startTimer(data.durationSeconds, null, {
+        allowOvertime: data.allowOvertime !== undefined ? data.allowOvertime : true
+      });
+      io.emit('TC_STATE_UPDATE', state);
+      io.emit('TC_TIMER_STARTED', {
+        targetEndTime: state.timer.targetEndTime,
+        durationSeconds: state.timer.durationSeconds,
+        allowOvertime: state.timer.allowOvertime,
+        serverTime: Date.now()
+      });
+    } catch (err) {
+      socket.emit('TC_ERROR', { message: err.message });
+    }
+  });
+
+  socket.on('TC_PAUSE_TIMER', (data = {}) => {
+    try {
+      verifyTimerAccess(data);
+      const state = timerChatEngine.pauseTimer();
+      io.emit('TC_STATE_UPDATE', state);
+      io.emit('TC_TIMER_PAUSED', {
+        remainingSeconds: state.timer.remainingSeconds,
+        overtimeSeconds: state.timer.overtimeSeconds,
+        isOvertime: state.timer.isOvertime,
+        serverTime: Date.now()
+      });
+    } catch (err) {
+      socket.emit('TC_ERROR', { message: err.message });
+    }
+  });
+
+  socket.on('TC_RESET_TIMER', (data = {}) => {
+    try {
+      verifyTimerAccess(data);
+      const state = timerChatEngine.resetTimer(data.durationSeconds);
+      io.emit('TC_STATE_UPDATE', state);
+      io.emit('TC_TIMER_RESET', {
+        remainingSeconds: state.timer.remainingSeconds,
+        durationSeconds: state.timer.durationSeconds
+      });
+    } catch (err) {
+      socket.emit('TC_ERROR', { message: err.message });
+    }
+  });
+
+  socket.on('TC_SET_DURATION', (data = {}) => {
+    try {
+      verifyTimerAccess(data);
+      const state = timerChatEngine.setDuration(data.durationSeconds);
+      io.emit('TC_STATE_UPDATE', state);
+    } catch (err) {
+      socket.emit('TC_ERROR', { message: err.message });
+    }
+  });
+
+  socket.on('TC_SET_OVERTIME_TOGGLE', (data = {}) => {
+    try {
+      verifyTimerAccess(data);
+      const state = timerChatEngine.setOvertimeToggle(data.allowOvertime);
+      io.emit('TC_STATE_UPDATE', state);
+    } catch (err) {
+      socket.emit('TC_ERROR', { message: err.message });
+    }
+  });
+
+  // 3. Chat Controls
+  socket.on('TC_USER_TYPING', (data = {}) => {
+    try {
+      socket.broadcast.emit('TC_USER_TYPING', {
+        userName: data.userName || 'Peserta',
+        userEmail: data.userEmail || '',
+        isTyping: !!data.isTyping
+      });
+    } catch (err) {
+      // Ignore typing broadcast errors
+    }
+  });
+
+  socket.on('TC_SEND_MESSAGE', (data = {}) => {
+    try {
+      const message = timerChatEngine.addChatMessage(data);
+      io.emit('TC_NEW_MESSAGE', message);
+    } catch (err) {
+      socket.emit('TC_ERROR', { message: err.message });
+    }
+  });
+
+  socket.on('TC_DELETE_MESSAGE', (data = {}) => {
+    try {
+      const result = timerChatEngine.deleteChatMessage(data.messageId, {
+        requesterEmail: data.requesterEmail,
+        requesterName: data.requesterName,
+        requesterRole: data.requesterRole,
+        isAdmin: !!data.isAdmin,
+        eventId: data.eventId
+      });
+      io.emit('TC_MESSAGE_DELETED', {
+        messageId: data.messageId,
+        eventId: result.eventId,
+        isPermanent: result.isPermanent,
+        updatedMessage: result.updatedMessage,
+        deletedBy: result.deletedBy,
+        deleteNotice: result.deleteNotice
+      });
+    } catch (err) {
+      socket.emit('TC_ERROR', { message: err.message });
+    }
+  });
+
+  socket.on('TC_TOGGLE_REACTION', (data = {}) => {
+    try {
+      const result = timerChatEngine.toggleReaction(data.messageId, {
+        emoji: data.emoji,
+        userName: data.userName,
+        userEmail: data.userEmail,
+        eventId: data.eventId
+      });
+      io.emit('TC_REACTION_UPDATED', result);
+    } catch (err) {
+      socket.emit('TC_ERROR', { message: err.message });
+    }
+  });
+
+  socket.on('TC_CLEAR_CHAT', (data = {}) => {
+    try {
+      timerChatEngine.clearChatHistory(data.eventId);
+      io.emit('TC_CHAT_CLEARED', { eventId: data.eventId });
+    } catch (err) {
+      socket.emit('TC_ERROR', { message: err.message });
+    }
+  });
+
+  socket.on('TC_ADD_SEPARATOR', (data = {}) => {
+    try {
+      verifyTimerAccess(data);
+      const sep = timerChatEngine.addSessionSeparator(data.eventId, data.sessionTitle, data.sessionDuration);
+      io.emit('TC_NEW_MESSAGE', sep);
+    } catch (err) {
+      socket.emit('TC_ERROR', { message: err.message });
+    }
+  });
+
+  socket.on('TC_UPDATE_MESSAGE', (data = {}) => {
+    try {
+      const result = timerChatEngine.updateChatMessage(data.messageId, {
+        text: data.text,
+        sessionTitle: data.sessionTitle,
+        sessionDuration: data.sessionDuration,
+        requesterEmail: data.requesterEmail,
+        requesterName: data.requesterName,
+        isAdmin: !!data.isAdmin,
+        eventId: data.eventId
+      });
+      io.emit('TC_MESSAGE_UPDATED', result.updatedMessage);
+    } catch (err) {
+      socket.emit('TC_ERROR', { message: err.message });
+    }
+  });
+
+  // 4. Event Selector via Socket
+  socket.on('TC_SELECT_EVENT', (data = {}) => {
+    try {
+      const active = timerChatEngine.setActiveEvent(data.eventId);
+      io.emit('TC_EVENT_SELECTED', active);
+      io.emit('TC_STATE_UPDATE', timerChatEngine.getState());
+    } catch (err) {
+      socket.emit('TC_ERROR', { message: err.message });
+    }
+  });
+
   socket.on('disconnect', () => {
     console.log(`[Socket Disconnected] ID: ${socket.id}`);
   });
@@ -1698,6 +2084,10 @@ server.listen(PORT, '0.0.0.0', async () => {
   console.log(`----------------------------------------------------`);
   console.log(`🎁 Doorprize Arena      : http://localhost:${PORT}/doorprize-arena.html`);
   console.log(`⚙️  Doorprize Admin      : http://localhost:${PORT}/doorprize-admin.html`);
+  console.log(`----------------------------------------------------`);
+  console.log(`⏱️  Timer & Chat Standalone: http://localhost:${PORT}/timer-chat.html`);
+  console.log(`🎥 vMix Overlay Source   : http://localhost:${PORT}/timer-overlay.html`);
+  console.log(`📡 vMix Data Feed API   : http://localhost:${PORT}/api/timer-chat/vmix`);
   console.log(`====================================================`);
 
   // Asynchronous sync dari Cloud Firestore saat startup
