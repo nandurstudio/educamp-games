@@ -16,6 +16,7 @@ const doorprizeEngine = require('./doorprize-engine');
 const timerChatEngine = require('./timer-chat-engine');
 const firebaseService = require('./firebase-service');
 const { generateQuizQuestions } = require('./gemini-service');
+const QRCode = require('qrcode');
 const pkg = require('../../package.json');
 
 const app = express();
@@ -682,6 +683,9 @@ app.all(['/api/system/reload', '/api/system/sync-cloud'], async (req, res) => {
     if (typeof questionBank.reloadFromFirebase === 'function') {
       results.questions = await questionBank.reloadFromFirebase();
     }
+    if (typeof timerChatEngine.reloadFromFirebase === 'function') {
+      results.timerChat = await timerChatEngine.reloadFromFirebase();
+    }
 
     io.emit('SUPER_LEADERBOARD_UPDATE', superAdminEngine.getUnifiedLeaderboard());
     io.emit('CUSTOM_GAMES_UPDATE', superAdminEngine.getCustomGames());
@@ -690,6 +694,7 @@ app.all(['/api/system/reload', '/api/system/sync-cloud'], async (req, res) => {
     io.emit('STATE_UPDATE', gameEngine.getPublicState());
     io.emit('TUG_STATE_UPDATE', tugEngine.getPublicState());
     io.emit('COMMITMENT_STATE_UPDATE', commitmentEngine.getPublicState());
+    io.emit('TC_STATE_UPDATE', timerChatEngine.getState());
 
     res.json({
       success: true,
@@ -960,7 +965,8 @@ app.post('/api/system/reload-from-firebase', async (req, res) => {
       commitmentEngine.reloadFromFirebase(),
       gameEngine.reloadFromFirebase(),
       tugEngine.reloadFromFirebase(),
-      authManager.reloadFromFirebase()
+      authManager.reloadFromFirebase(),
+      timerChatEngine.reloadFromFirebase()
     ]);
 
     // Broadcast update state serentak ke semua client
@@ -971,6 +977,7 @@ app.post('/api/system/reload-from-firebase', async (req, res) => {
     io.emit('COMMITMENT_STATE_UPDATE', commitmentEngine.getPublicState());
     io.emit('STATE_UPDATE', gameEngine.getPublicState());
     io.emit('TUG_STATE_UPDATE', tugEngine.getPublicState());
+    io.emit('TC_STATE_UPDATE', timerChatEngine.getState());
 
     res.json({
       success: true,
@@ -1412,12 +1419,92 @@ app.get('/api/doorprize/export-csv', (req, res) => {
 
 // === REST API STANDALONE TIMER & CHAT (MULTI-EVENT & VMIX READY) ===
 
-// 1. Ambil state timer, event aktif, dan info sync
-app.get('/api/timer-chat/state', (req, res) => {
+// 1. Ambil state timer, event aktif, dan info sync (Mendukung filter session ID / chat ID)
+app.get('/api/timer-chat/state', async (req, res) => {
   try {
-    res.json(timerChatEngine.getState());
+    await timerChatEngine.ensureHydrated();
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    const targetSession = req.query.session || req.query.chat || req.query.id || req.query.eventId || null;
+    res.json(timerChatEngine.getState(targetSession));
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// 1A. Validasi Session ID / Chat ID untuk join via link/parameter
+app.get('/api/timer-chat/session/validate', async (req, res) => {
+  try {
+    await timerChatEngine.ensureHydrated();
+    const queryId = req.query.id || req.query.session || req.query.chat || req.query.eventId || '';
+    if (!queryId) {
+      return res.status(400).json({ valid: false, error: 'Parameter ID atau Session ID wajib disertakan.' });
+    }
+    const ev = timerChatEngine.findEventByIdOrSession(queryId);
+    if (ev) {
+      const cleanSession = ev.sessionId || ev.id.replace(/^event-/, '') || 'educamp-2026';
+      return res.json({
+        valid: true,
+        event: {
+          id: ev.id,
+          sessionId: cleanSession,
+          joinCode: ev.joinCode || cleanSession.toUpperCase(),
+          name: ev.name,
+          date: ev.date,
+          description: ev.description,
+          chatCount: ev.chats ? ev.chats.length : 0
+        }
+      });
+    }
+    res.status(404).json({
+      valid: false,
+      error: `Session ID atau Chat ID "${queryId}" tidak ditemukan. Silakan periksa kembali tautan yang Anda miliki atau hubungi host acara.`
+    });
+  } catch (err) {
+    res.status(500).json({ valid: false, error: err.message });
+  }
+});
+
+// 1B. QR Code Generator untuk Link Sesi & Obrolan
+app.get('/api/timer-chat/qr', async (req, res) => {
+  try {
+    const text = req.query.url || req.query.text || '';
+    if (!text) {
+      return res.status(400).json({ error: 'URL atau text wajib disertakan.' });
+    }
+    const dataUrl = await QRCode.toDataURL(text, {
+      margin: 2,
+      width: 280,
+      color: {
+        dark: '#0f172a',
+        light: '#ffffff'
+      }
+    });
+    res.json({ success: true, qr: dataUrl });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 1C. Simpan / Sinkronkan state sesi rundown & chat ke Firebase
+app.post('/api/timer-chat/session', async (req, res) => {
+  try {
+    await timerChatEngine.ensureHydrated();
+    const sessionState = timerChatEngine.updateSessionState(req.body || {}, req.body?.eventId);
+    io.emit('TC_SESSION_STATE_UPDATED', sessionState);
+    res.json({ success: true, sessionState });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/timer-chat/sync', async (req, res) => {
+  try {
+    await timerChatEngine.ensureHydrated();
+    const state = timerChatEngine.syncClientSessionData(req.body || {});
+    io.emit('TC_STATE_UPDATE', state);
+    res.json({ success: true, state });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 
@@ -1452,8 +1539,10 @@ app.get('/api/timer-chat/vmix', (req, res) => {
 });
 
 // 3. Events Management
-app.get('/api/timer-chat/events', (req, res) => {
+app.get('/api/timer-chat/events', async (req, res) => {
   try {
+    await timerChatEngine.ensureHydrated();
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.json({
       events: timerChatEngine.getAllEvents(),
       activeEvent: timerChatEngine.getActiveEvent()
@@ -1489,19 +1578,24 @@ app.post('/api/timer-chat/events/select', (req, res) => {
 app.delete('/api/timer-chat/events/:id', (req, res) => {
   try {
     const deleted = timerChatEngine.deleteEvent(req.params.id);
+    const active = timerChatEngine.getActiveEvent();
+    io.emit('TC_EVENT_DELETED', { deletedEventId: req.params.id, deletedEvent: deleted, activeEvent: active });
     io.emit('TC_EVENTS_UPDATE', timerChatEngine.getAllEvents());
+    io.emit('TC_EVENT_SELECTED', active);
     io.emit('TC_STATE_UPDATE', timerChatEngine.getState());
-    res.json({ success: true, deletedEvent: deleted });
+    res.json({ success: true, deletedEvent: deleted, activeEvent: active });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
 // 4. Chat Endpoints
-app.get('/api/timer-chat/chat', (req, res) => {
+app.get('/api/timer-chat/chat', async (req, res) => {
   try {
-    const eventId = req.query.eventId || null;
-    res.json(timerChatEngine.getChatHistory(eventId));
+    await timerChatEngine.ensureHydrated();
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    const targetSession = req.query.session || req.query.chat || req.query.id || req.query.eventId || null;
+    res.json(timerChatEngine.getChatHistory(targetSession));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1570,6 +1664,109 @@ app.post('/api/timer-chat/overlay-chat', (req, res) => {
   }
 });
 
+// 5. Timer Action & Audit Log REST Endpoints
+app.get('/api/timer-chat/timer/logs', async (req, res) => {
+  try {
+    await timerChatEngine.ensureHydrated();
+    const eventId = req.query.eventId || null;
+    const timer = timerChatEngine.getTimerState(eventId);
+    res.json({
+      success: true,
+      mode: timer?.mode || 'COUNTDOWN',
+      startedBy: timer?.startedBy || null,
+      stoppedBy: timer?.stoppedBy || null,
+      lastAction: timer?.lastAction || null,
+      logs: timer?.actionLogs || []
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/timer-chat/timer/action', async (req, res) => {
+  try {
+    await timerChatEngine.ensureHydrated();
+    const { action, durationSeconds, mode, allowOvertime, userEmail, userName, sessionTitle, eventId } = req.body || {};
+    let roleInfo = null;
+    if (userEmail) {
+      roleInfo = authManager.resolveRole(userEmail);
+    }
+    const resolvedName = userName || roleInfo?.name || 'Operator';
+    const cleanAction = (action || '').toUpperCase();
+
+    let state = null;
+    if (cleanAction === 'START') {
+      state = timerChatEngine.startTimer(durationSeconds, eventId, {
+        allowOvertime: allowOvertime !== undefined ? allowOvertime : true,
+        mode,
+        userName: resolvedName,
+        userEmail: userEmail || '',
+        sessionTitle: sessionTitle || null
+      });
+      io.emit('TC_TIMER_STARTED', {
+        targetEndTime: state.timer.targetEndTime,
+        durationSeconds: state.timer.durationSeconds,
+        allowOvertime: state.timer.allowOvertime,
+        mode: state.timer.mode,
+        startedBy: state.timer.startedBy,
+        serverTime: Date.now()
+      });
+    } else if (cleanAction === 'PAUSE') {
+      state = timerChatEngine.pauseTimer(eventId, {
+        userName: resolvedName,
+        userEmail: userEmail || ''
+      });
+      io.emit('TC_TIMER_PAUSED', {
+        remainingSeconds: state.timer.remainingSeconds,
+        overtimeSeconds: state.timer.overtimeSeconds,
+        isOvertime: state.timer.isOvertime,
+        mode: state.timer.mode,
+        lastAction: state.timer.lastAction,
+        serverTime: Date.now()
+      });
+    } else if (cleanAction === 'STOP') {
+      state = timerChatEngine.stopTimer(eventId, {
+        userName: resolvedName,
+        userEmail: userEmail || ''
+      });
+      io.emit('TC_TIMER_STOPPED', {
+        remainingSeconds: state.timer.remainingSeconds,
+        durationSeconds: state.timer.durationSeconds,
+        status: state.timer.status,
+        mode: state.timer.mode,
+        stoppedBy: state.timer.stoppedBy
+      });
+    } else if (cleanAction === 'RESET') {
+      state = timerChatEngine.resetTimer(durationSeconds, eventId, {
+        userName: resolvedName,
+        userEmail: userEmail || ''
+      });
+      io.emit('TC_TIMER_RESET', {
+        remainingSeconds: state.timer.remainingSeconds,
+        durationSeconds: state.timer.durationSeconds,
+        mode: state.timer.mode,
+        lastAction: state.timer.lastAction
+      });
+    } else if (cleanAction === 'SET_MODE') {
+      state = timerChatEngine.setTimerMode(mode, eventId, {
+        userName: resolvedName,
+        userEmail: userEmail || ''
+      });
+      io.emit('TC_TIMER_MODE_CHANGED', {
+        mode: state.timer.mode,
+        timer: state.timer
+      });
+    } else {
+      return res.status(400).json({ error: `Action '${action}' tidak dikenali.` });
+    }
+
+    io.emit('TC_STATE_UPDATE', state);
+    res.json({ success: true, timer: state.timer });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // === REALTIME SOCKET.IO DISPATCHER ===
 io.on('connection', (socket) => {
   console.log(`[Socket Connected] ID: ${socket.id}`);
@@ -1580,7 +1777,11 @@ io.on('connection', (socket) => {
   socket.emit('MASTER_TEAMS_UPDATE', superAdminEngine.getMasterTeams());
   socket.emit('COMMITMENT_STATE_UPDATE', commitmentEngine.getPublicState());
   socket.emit('DOORPRIZE_STATE_UPDATE', doorprizeEngine.getState());
-  socket.emit('TC_STATE_UPDATE', timerChatEngine.getState());
+  timerChatEngine.ensureHydrated().then(() => {
+    socket.emit('TC_STATE_UPDATE', timerChatEngine.getState());
+  }).catch(() => {
+    socket.emit('TC_STATE_UPDATE', timerChatEngine.getState());
+  });
 
   // Bergabung ke room role tertentu (arena, controller-team1, controller-team2, admin)
   socket.on('JOIN_ROLE', ({ role, teamId }) => {
@@ -1940,6 +2141,11 @@ io.on('connection', (socket) => {
   });
 
   // === SOCKET.IO: STANDALONE TIMER & CHAT DISPATCHER ===
+  timerChatEngine.ensureHydrated().then(() => {
+    socket.emit('TC_STATE_UPDATE', timerChatEngine.getState());
+  }).catch((err) => {
+    console.warn('[TC Initial State Emit Error]', err.message);
+  });
 
   // 1. High Precision NTP Time Sync (Ping - Pong)
   socket.on('TC_TIME_SYNC', (clientData) => {
@@ -1950,8 +2156,61 @@ io.on('connection', (socket) => {
   });
 
   // Client requesting full state (anti-stuck on reconnect / cloud view)
-  socket.on('TC_REQUEST_STATE', () => {
-    socket.emit('TC_STATE_UPDATE', timerChatEngine.getState());
+  socket.on('TC_REQUEST_STATE', async (data = {}) => {
+    await timerChatEngine.ensureHydrated();
+    const target = data?.sessionId || data?.eventId || data?.id || null;
+    socket.emit('TC_STATE_UPDATE', timerChatEngine.getState(target));
+  });
+
+  // Client joining a specific Session ID / Chat ID
+  socket.on('TC_JOIN_SESSION', async (data = {}) => {
+    try {
+      await timerChatEngine.ensureHydrated();
+      const target = data?.sessionId || data?.eventId || data?.id || '';
+      const ev = timerChatEngine.findEventByIdOrSession(target);
+      if (ev) {
+        socket.join(`tc_session_${ev.id}`);
+        const cleanSession = ev.sessionId || ev.id.replace(/^event-/, '') || 'educamp-2026';
+        socket.emit('TC_SESSION_JOINED', {
+          success: true,
+          event: {
+            id: ev.id,
+            sessionId: cleanSession,
+            joinCode: ev.joinCode || cleanSession.toUpperCase(),
+            name: ev.name,
+            date: ev.date
+          },
+          state: timerChatEngine.getState(ev.id)
+        });
+      } else {
+        socket.emit('TC_SESSION_JOIN_ERROR', {
+          message: `Session ID "${target}" tidak ditemukan. Pastikan link atau parameter ID sudah benar.`
+        });
+      }
+    } catch (err) {
+      socket.emit('TC_SESSION_JOIN_ERROR', { message: err.message });
+    }
+  });
+
+  // Sinkronisasi state sesi rundown & riwayat chat dari session/localStorage client ke server & Firebase
+  socket.on('TC_UPDATE_SESSION_STATE', async (data = {}) => {
+    try {
+      await timerChatEngine.ensureHydrated();
+      const sessionState = timerChatEngine.updateSessionState(data, data.eventId);
+      socket.broadcast.emit('TC_SESSION_STATE_UPDATED', sessionState);
+    } catch (err) {
+      console.warn('[TC_UPDATE_SESSION_STATE]', err.message);
+    }
+  });
+
+  socket.on('TC_SYNC_CLIENT_SESSION', async (data = {}) => {
+    try {
+      await timerChatEngine.ensureHydrated();
+      const state = timerChatEngine.syncClientSessionData(data);
+      io.emit('TC_STATE_UPDATE', state);
+    } catch (err) {
+      console.warn('[TC_SYNC_CLIENT_SESSION]', err.message);
+    }
   });
 
   // Helper verifikasi hak akses timer
@@ -1970,15 +2229,25 @@ io.on('connection', (socket) => {
   // 2. Timer Controls
   socket.on('TC_START_TIMER', (data = {}) => {
     try {
-      verifyTimerAccess(data);
-      const state = timerChatEngine.startTimer(data.durationSeconds, null, {
-        allowOvertime: data.allowOvertime !== undefined ? data.allowOvertime : true
+      const roleInfo = verifyTimerAccess(data);
+      const userName = data.userName || roleInfo?.name || 'Operator';
+      const userEmail = data.userEmail || roleInfo?.email || '';
+      const state = timerChatEngine.startTimer(data.durationSeconds, data.eventId || null, {
+        allowOvertime: data.allowOvertime !== undefined ? data.allowOvertime : true,
+        mode: data.mode,
+        userName,
+        userEmail,
+        sessionTitle: data.sessionTitle || null
       });
       io.emit('TC_STATE_UPDATE', state);
       io.emit('TC_TIMER_STARTED', {
         targetEndTime: state.timer.targetEndTime,
+        startTime: state.timer.startTime || null,
         durationSeconds: state.timer.durationSeconds,
+        remainingSeconds: state.timer.remainingSeconds,
         allowOvertime: state.timer.allowOvertime,
+        mode: state.timer.mode,
+        startedBy: state.timer.startedBy,
         serverTime: Date.now()
       });
     } catch (err) {
@@ -1988,13 +2257,20 @@ io.on('connection', (socket) => {
 
   socket.on('TC_PAUSE_TIMER', (data = {}) => {
     try {
-      verifyTimerAccess(data);
-      const state = timerChatEngine.pauseTimer();
+      const roleInfo = verifyTimerAccess(data);
+      const userName = data.userName || roleInfo?.name || 'Operator';
+      const userEmail = data.userEmail || roleInfo?.email || '';
+      const state = timerChatEngine.pauseTimer(data.eventId || null, {
+        userName,
+        userEmail
+      });
       io.emit('TC_STATE_UPDATE', state);
       io.emit('TC_TIMER_PAUSED', {
         remainingSeconds: state.timer.remainingSeconds,
         overtimeSeconds: state.timer.overtimeSeconds,
         isOvertime: state.timer.isOvertime,
+        mode: state.timer.mode,
+        lastAction: state.timer.lastAction,
         serverTime: Date.now()
       });
     } catch (err) {
@@ -2004,13 +2280,20 @@ io.on('connection', (socket) => {
 
   socket.on('TC_STOP_TIMER', (data = {}) => {
     try {
-      verifyTimerAccess(data);
-      const state = timerChatEngine.stopTimer();
+      const roleInfo = verifyTimerAccess(data);
+      const userName = data.userName || roleInfo?.name || 'Operator';
+      const userEmail = data.userEmail || roleInfo?.email || '';
+      const state = timerChatEngine.stopTimer(data.eventId || null, {
+        userName,
+        userEmail
+      });
       io.emit('TC_STATE_UPDATE', state);
       io.emit('TC_TIMER_STOPPED', {
         remainingSeconds: state.timer.remainingSeconds,
         durationSeconds: state.timer.durationSeconds,
-        status: state.timer.status
+        status: state.timer.status,
+        mode: state.timer.mode,
+        stoppedBy: state.timer.stoppedBy
       });
     } catch (err) {
       socket.emit('TC_ERROR', { message: err.message });
@@ -2019,12 +2302,42 @@ io.on('connection', (socket) => {
 
   socket.on('TC_RESET_TIMER', (data = {}) => {
     try {
-      verifyTimerAccess(data);
-      const state = timerChatEngine.resetTimer(data.durationSeconds);
+      const roleInfo = verifyTimerAccess(data);
+      const userName = data.userName || roleInfo?.name || 'Operator';
+      const userEmail = data.userEmail || roleInfo?.email || '';
+      const state = timerChatEngine.resetTimer(data.durationSeconds, data.eventId || null, {
+        userName,
+        userEmail,
+        sessionTitle: data.sessionTitle || null
+      });
       io.emit('TC_STATE_UPDATE', state);
       io.emit('TC_TIMER_RESET', {
         remainingSeconds: state.timer.remainingSeconds,
-        durationSeconds: state.timer.durationSeconds
+        durationSeconds: state.timer.durationSeconds,
+        mode: state.timer.mode,
+        lastAction: state.timer.lastAction,
+        serverTime: Date.now()
+      });
+    } catch (err) {
+      socket.emit('TC_ERROR', { message: err.message });
+    }
+  });
+
+  socket.on('TC_SET_TIMER_MODE', (data = {}) => {
+    try {
+      const roleInfo = verifyTimerAccess(data);
+      const userName = data.userName || roleInfo?.name || 'Operator';
+      const userEmail = data.userEmail || roleInfo?.email || '';
+      const state = timerChatEngine.setTimerMode(data.mode, data.eventId || null, {
+        userName,
+        userEmail
+      });
+      io.emit('TC_STATE_UPDATE', state);
+      io.emit('TC_TIMER_MODE_CHANGED', {
+        mode: state.timer.mode,
+        durationSeconds: state.timer.durationSeconds,
+        remainingSeconds: state.timer.remainingSeconds,
+        timer: state.timer
       });
     } catch (err) {
       socket.emit('TC_ERROR', { message: err.message });
@@ -2207,6 +2520,7 @@ server.listen(PORT, '0.0.0.0', async () => {
       authManager.reloadFromFirebase(),
       timerChatEngine.reloadFromFirebase()
     ]);
+    io.emit('TC_STATE_UPDATE', timerChatEngine.getState());
     console.log(`[Boot Sync] Cloud Firestore sync complete: ${doorprizeEngine.participants.length} peserta doorprize terdaftar.`);
   } catch (err) {
     console.warn('[Boot Sync Warning]', err.message);

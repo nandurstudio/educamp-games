@@ -9,8 +9,62 @@ class TimerChatEngine {
     this.events = {};
     this.activeEventId = null;
     this.overlayConfig = { showChat: false };
+    this.sessionState = {
+      currentDayTab: 'DAY_1',
+      currentActiveSession: null,
+      rundownDay1: null,
+      rundownDay2: null,
+      completedSessionsDay1: [],
+      completedSessionsDay2: [],
+      lastActiveSeparatorMessageId: null,
+      lastActiveSeparatorBaseTitle: 'Sesi Acara',
+      updatedAt: null
+    };
     this.updatedAt = new Date().toISOString();
+    this.isHydrated = false;
+    this.hydrationPromise = null;
     this.loadStorage();
+  }
+
+  sanitizeChatsList(chats) {
+    if (!Array.isArray(chats)) return [];
+    const legacyWelcomeText = 'Selamat datang di ruang Timer & Chat live! Silakan ajukan pertanyaan atau koordinasi di sini.';
+    return chats.filter(c => {
+      if (!c || typeof c !== 'object') return false;
+      if (c.id === 'chat-init-1') return false;
+      const txt = (c.text || c.message || '').trim();
+      if (txt === legacyWelcomeText && (c.sender === 'Panitia Educamp' || c.email === 'panitia@educamp.local')) {
+        return false;
+      }
+      return true;
+    });
+  }
+
+  initDefaultStructureOnly() {
+    const defaultId = 'event-educamp-2026';
+    if (!this.events[defaultId]) {
+      this.events[defaultId] = {
+        id: defaultId,
+        sessionId: 'educamp-2026',
+        joinCode: 'EDU2026',
+        name: 'Educamp & Team Building 2026',
+        date: '2026-10-25',
+        description: 'Sesi utama Educamp, sharing session, dan live presentation.',
+        createdAt: new Date().toISOString(),
+        timer: {
+          durationSeconds: 300,
+          remainingSeconds: 300,
+          isRunning: false,
+          targetEndTime: null,
+          pausedAt: null
+        },
+        chats: [],
+        sessionState: { ...this.sessionState }
+      };
+    }
+    if (!this.activeEventId || !this.events[this.activeEventId]) {
+      this.activeEventId = Object.keys(this.events)[0] || defaultId;
+    }
   }
 
   loadStorage() {
@@ -21,80 +75,250 @@ class TimerChatEngine {
         this.applyData(data);
       }
 
-      // Inisialisasi default event jika belum ada
       if (Object.keys(this.events).length === 0) {
-        const defaultId = 'event-educamp-2026';
-        this.events[defaultId] = {
-          id: defaultId,
-          name: 'Educamp & Team Building 2026',
-          date: '2026-10-25',
-          description: 'Sesi utama Educamp, sharing session, dan live presentation.',
-          createdAt: new Date().toISOString(),
-          timer: {
-            durationSeconds: 300, // 5 menit default
-            remainingSeconds: 300,
-            isRunning: false,
-            targetEndTime: null, // Epoch ms saat timer berjalan
-            pausedAt: null
-          },
-          chats: [
-            {
-              id: 'chat-init-1',
-              sender: 'Panitia Educamp',
-              photoURL: '',
-              email: 'panitia@educamp.local',
-              text: 'Selamat datang di ruang Timer & Chat live! Silakan ajukan pertanyaan atau koordinasi di sini.',
-              timestamp: new Date().toISOString(),
-              role: 'PANITIA'
-            }
-          ]
-        };
-        this.activeEventId = defaultId;
-        this.saveStorage();
-      } else if (!this.activeEventId) {
+        // Hanya siapkan struktur dasar di memori tanpa menimpa Cloud Firestore!
+        this.initDefaultStructureOnly();
+      } else if (!this.activeEventId || !this.events[this.activeEventId]) {
         this.activeEventId = Object.keys(this.events)[0];
       }
     } catch (err) {
       console.error('[TimerChatEngine] Gagal memuat storage lokal:', err.message);
       this.events = {};
+      this.initDefaultStructureOnly();
     }
 
-    // Sinkronkan dari Cloud Firestore jika tersedia
+    // Sinkronkan dari Cloud Firestore jika tersedia sebelum mengizinkan write ke cloud
     if (firebaseService.isAvailable()) {
-      this.reloadFromFirebase().then(success => {
-        if (!success) {
-          this.saveStorage();
-        }
-      });
+      this.hydrationPromise = this.reloadFromFirebase();
+    } else {
+      this.isHydrated = true;
+      this.saveLocalDisk();
     }
   }
 
-  applyData(data) {
-    if (!data || typeof data !== 'object') return;
-    if (data.events && typeof data.events === 'object') {
-      this.events = data.events;
+  async ensureHydrated() {
+    if (this.isHydrated) return true;
+    if (this.hydrationPromise) {
+      try {
+        await this.hydrationPromise;
+      } catch (_) {}
+      return this.isHydrated;
     }
+    return this.reloadFromFirebase();
+  }
+
+  mergeChatArrays(localChats = [], cloudChats = [], clearedAt = null) {
+    const cleanLocal = this.sanitizeChatsList(localChats);
+    const cleanCloud = this.sanitizeChatsList(cloudChats);
+    const clearTime = clearedAt ? new Date(clearedAt).getTime() : 0;
+
+    const map = new Map();
+    for (const msg of cleanCloud) {
+      if (!msg || !msg.id) continue;
+      const msgTime = msg.timestamp ? new Date(msg.timestamp).getTime() : 0;
+      if (clearTime && msgTime > 0 && msgTime < clearTime) continue;
+      map.set(msg.id, { ...msg });
+    }
+    for (const msg of cleanLocal) {
+      if (!msg || !msg.id) continue;
+      const msgTime = msg.timestamp ? new Date(msg.timestamp).getTime() : 0;
+      if (clearTime && msgTime > 0 && msgTime < clearTime) continue;
+      if (map.has(msg.id)) {
+        const existing = map.get(msg.id);
+        const existingUpd = new Date(existing.updatedAt || existing.deletedAt || existing.timestamp || 0).getTime();
+        const localUpd = new Date(msg.updatedAt || msg.deletedAt || msg.timestamp || 0).getTime();
+        if (localUpd >= existingUpd || (msg.isDeleted && !existing.isDeleted)) {
+          map.set(msg.id, { ...existing, ...msg });
+        }
+      } else {
+        map.set(msg.id, { ...msg });
+      }
+    }
+
+    const merged = Array.from(map.values());
+    merged.sort((a, b) => {
+      const tA = new Date(a.timestamp || 0).getTime();
+      const tB = new Date(b.timestamp || 0).getTime();
+      return tA - tB;
+    });
+    return merged.slice(-1000);
+  }
+
+  mergeSessionStates(localSession, cloudSession) {
+    if (!cloudSession && !localSession) return { ...this.sessionState };
+    if (!cloudSession) return { ...this.sessionState, ...localSession };
+    if (!localSession) return { ...this.sessionState, ...cloudSession };
+
+    const localTime = localSession.updatedAt ? new Date(localSession.updatedAt).getTime() : 0;
+    const cloudTime = cloudSession.updatedAt ? new Date(cloudSession.updatedAt).getTime() : 0;
+    const primary = cloudTime >= localTime ? cloudSession : localSession;
+    const secondary = cloudTime >= localTime ? localSession : cloudSession;
+
+    const completedDay1 = Array.from(new Set([
+      ...(Array.isArray(secondary.completedSessionsDay1) ? secondary.completedSessionsDay1 : []),
+      ...(Array.isArray(primary.completedSessionsDay1) ? primary.completedSessionsDay1 : [])
+    ]));
+    const completedDay2 = Array.from(new Set([
+      ...(Array.isArray(secondary.completedSessionsDay2) ? secondary.completedSessionsDay2 : []),
+      ...(Array.isArray(primary.completedSessionsDay2) ? primary.completedSessionsDay2 : [])
+    ]));
+
+    return {
+      ...this.sessionState,
+      ...secondary,
+      ...primary,
+      currentActiveSession: primary.currentActiveSession || secondary.currentActiveSession || null,
+      rundownDay1: (Array.isArray(primary.rundownDay1) && primary.rundownDay1.length > 0)
+        ? primary.rundownDay1
+        : (Array.isArray(secondary.rundownDay1) && secondary.rundownDay1.length > 0 ? secondary.rundownDay1 : null),
+      rundownDay2: (Array.isArray(primary.rundownDay2) && primary.rundownDay2.length > 0)
+        ? primary.rundownDay2
+        : (Array.isArray(secondary.rundownDay2) && secondary.rundownDay2.length > 0 ? secondary.rundownDay2 : null),
+      completedSessionsDay1: completedDay1,
+      completedSessionsDay2: completedDay2
+    };
+  }
+
+  applyData(data, mergeWithCurrent = false) {
+    if (!data || typeof data !== 'object') return;
+
+    if (data.sessionState && typeof data.sessionState === 'object') {
+      this.sessionState = mergeWithCurrent
+        ? this.mergeSessionStates(this.sessionState, data.sessionState)
+        : { ...this.sessionState, ...data.sessionState };
+    }
+
+    if (data.events && typeof data.events === 'object') {
+      if (!mergeWithCurrent || Object.keys(this.events).length === 0) {
+        const cleanedEvents = {};
+        for (const [evId, evObj] of Object.entries(data.events)) {
+          if (!evObj || typeof evObj !== 'object') continue;
+          const cleanSession = evObj.sessionId || evId.replace(/^event-/, '') || 'educamp-2026';
+          cleanedEvents[evId] = {
+            ...evObj,
+            sessionId: cleanSession,
+            joinCode: evObj.joinCode || cleanSession.toUpperCase(),
+            chats: this.sanitizeChatsList(evObj.chats || []),
+            sessionState: evObj.sessionState
+              ? this.mergeSessionStates(this.sessionState, evObj.sessionState)
+              : { ...this.sessionState }
+          };
+        }
+        if (Object.keys(cleanedEvents).length > 0) {
+          this.events = cleanedEvents;
+        }
+      } else {
+        // Deep merge antara event di memori/lokal dan event dari Cloud Firestore
+        const allEventIds = new Set([...Object.keys(data.events), ...Object.keys(this.events)]);
+        const mergedEvents = {};
+        for (const evId of allEventIds) {
+          const localEv = this.events[evId];
+          const cloudEv = data.events[evId];
+          const baseSession = (cloudEv && cloudEv.sessionId) || (localEv && localEv.sessionId) || evId.replace(/^event-/, '') || 'educamp-2026';
+          const baseJoinCode = (cloudEv && cloudEv.joinCode) || (localEv && localEv.joinCode) || baseSession.toUpperCase();
+
+          if (localEv && cloudEv) {
+            const localClear = localEv.chatsClearedAt ? new Date(localEv.chatsClearedAt).getTime() : 0;
+            const cloudClear = cloudEv.chatsClearedAt ? new Date(cloudEv.chatsClearedAt).getTime() : 0;
+            const latestClearedAt = Math.max(localClear, cloudClear) > 0
+              ? new Date(Math.max(localClear, cloudClear)).toISOString()
+              : null;
+
+            const mergedChats = this.mergeChatArrays(localEv.chats, cloudEv.chats, latestClearedAt);
+            const mergedSession = this.mergeSessionStates(localEv.sessionState, cloudEv.sessionState);
+
+            // Pilih state timer terbaru (jika cloud sedang running atau lebih baru)
+            const cloudTimer = cloudEv.timer || {};
+            const localTimer = localEv.timer || {};
+            const useCloudTimer = cloudTimer.isRunning || (!localTimer.isRunning && (new Date(data.updatedAt || 0).getTime() >= new Date(this.updatedAt || 0).getTime()));
+
+            mergedEvents[evId] = {
+              ...localEv,
+              ...cloudEv,
+              sessionId: baseSession,
+              joinCode: baseJoinCode,
+              timer: useCloudTimer ? { ...localTimer, ...cloudTimer } : { ...cloudTimer, ...localTimer },
+              chats: mergedChats,
+              chatsClearedAt: latestClearedAt,
+              sessionState: mergedSession
+            };
+          } else if (cloudEv) {
+            mergedEvents[evId] = {
+              ...cloudEv,
+              sessionId: baseSession,
+              joinCode: baseJoinCode,
+              chats: this.sanitizeChatsList(cloudEv.chats || []),
+              sessionState: cloudEv.sessionState
+                ? this.mergeSessionStates(this.sessionState, cloudEv.sessionState)
+                : { ...this.sessionState }
+            };
+          } else if (localEv) {
+            mergedEvents[evId] = {
+              ...localEv,
+              sessionId: baseSession,
+              joinCode: baseJoinCode,
+              chats: this.sanitizeChatsList(localEv.chats || []),
+              sessionState: localEv.sessionState
+                ? this.mergeSessionStates(this.sessionState, localEv.sessionState)
+                : { ...this.sessionState }
+            };
+          }
+        }
+        if (Object.keys(mergedEvents).length > 0) {
+          this.events = mergedEvents;
+        }
+      }
+    }
+
     if (data.activeEventId && this.events[data.activeEventId]) {
       this.activeEventId = data.activeEventId;
+    } else if (!this.activeEventId || !this.events[this.activeEventId]) {
+      this.activeEventId = Object.keys(this.events)[0] || null;
     }
+
     if (data.overlayConfig && typeof data.overlayConfig === 'object') {
       this.overlayConfig = { ...this.overlayConfig, ...data.overlayConfig };
     }
     this.updatedAt = data.updatedAt || new Date().toISOString();
   }
 
+  exportData() {
+    return {
+      activeEventId: this.activeEventId,
+      events: this.events,
+      overlayConfig: this.overlayConfig,
+      sessionState: this.sessionState,
+      updatedAt: this.updatedAt
+    };
+  }
+
   async reloadFromFirebase() {
-    if (!firebaseService.isAvailable()) return false;
+    if (!firebaseService.isAvailable()) {
+      this.isHydrated = true;
+      return false;
+    }
     try {
       const cloudData = await firebaseService.loadDoc('timer_chat');
       if (cloudData && typeof cloudData === 'object' && cloudData.events) {
-        this.applyData(cloudData);
+        this.applyData(cloudData, true);
+        this.isHydrated = true;
         this.saveLocalDisk();
-        console.log(`[TimerChatEngine] State berhasil disinkronkan dari Cloud Firestore (${Object.keys(this.events).length} acara)!`);
+        // Simpan kembali hasil merge bersih (tanpa chat-init-1) ke Firestore
+        await firebaseService.saveDoc('timer_chat', this.exportData(), true);
+        const activeEv = this.getActiveEvent();
+        const chatLen = activeEv && Array.isArray(activeEv.chats) ? activeEv.chats.length : 0;
+        console.log(`[TimerChatEngine] State & Session berhasil disinkronkan dari Cloud Firestore (${Object.keys(this.events).length} acara, ${chatLen} chat aktif)!`);
+        return true;
+      } else {
+        // Dokumen timer_chat belum ada di Firestore, inisialisasi dari state lokal saat ini
+        this.isHydrated = true;
+        this.saveLocalDisk();
+        await firebaseService.saveDoc('timer_chat', this.exportData(), true);
         return true;
       }
     } catch (err) {
       console.warn('[TimerChatEngine] Firestore sync warning:', err.message);
+      this.isHydrated = true;
     }
     return false;
   }
@@ -105,47 +329,82 @@ class TimerChatEngine {
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
       }
-      const data = {
-        activeEventId: this.activeEventId,
-        events: this.events,
-        overlayConfig: this.overlayConfig,
-        updatedAt: this.updatedAt
-      };
-      fs.writeFileSync(STORAGE_FILE, JSON.stringify(data, null, 2), 'utf-8');
+      fs.writeFileSync(STORAGE_FILE, JSON.stringify(this.exportData(), null, 2), 'utf-8');
     } catch (err) {
       console.error('[TimerChatEngine] Gagal menyimpan storage lokal:', err.message);
     }
   }
 
-  saveStorage() {
+  saveStorage(immediate = true) {
     this.updatedAt = new Date().toISOString();
     this.saveLocalDisk();
 
-    // Simpan persisten ke Cloud Firestore
+    // Simpan persisten ke Cloud Firestore (pastikan sudah hydrate agar tidak menimpa data cloud!)
     if (firebaseService.isAvailable()) {
-      const payload = {
-        activeEventId: this.activeEventId,
-        events: this.events,
-        overlayConfig: this.overlayConfig,
-        updatedAt: this.updatedAt
-      };
-      firebaseService.saveDoc('timer_chat', payload).catch(err => {
+      if (!this.isHydrated && this.hydrationPromise) {
+        this.hydrationPromise.then(() => {
+          firebaseService.saveDoc('timer_chat', this.exportData(), true).catch(err => {
+            console.warn('[TimerChatEngine] Firestore post-hydration save warning:', err.message);
+          });
+        }).catch(() => {});
+        return;
+      }
+      firebaseService.saveDoc('timer_chat', this.exportData(), immediate).catch(err => {
         console.warn('[TimerChatEngine] Firestore async save warning:', err.message);
       });
     }
   }
 
+  generateCleanSessionSlug(raw) {
+    if (!raw) return `room-${Date.now().toString(36)}`;
+    const slug = String(raw).toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 30);
+    return slug || `room-${Date.now().toString(36)}`;
+  }
+
+  findEventByIdOrSession(identifier) {
+    if (!identifier) return this.getActiveEvent();
+    const raw = String(identifier).trim().toLowerCase();
+
+    // Check direct id match
+    if (this.events[raw]) return this.events[raw];
+    if (this.events[`event-${raw}`]) return this.events[`event-${raw}`];
+
+    // Check by sessionId, joinCode, or normalized id
+    for (const ev of Object.values(this.events)) {
+      if (!ev) continue;
+      const evId = (ev.id || '').toLowerCase();
+      const evSession = (ev.sessionId || '').toLowerCase();
+      const evCode = (ev.joinCode || '').toLowerCase();
+
+      if (evId === raw || evSession === raw || evCode === raw) {
+        return ev;
+      }
+      if (raw.replace(/^event-/, '') === evSession || raw.replace(/^event-/, '') === evId.replace(/^event-/, '')) {
+        return ev;
+      }
+    }
+    return null;
+  }
+
   // === EVENT MANAGEMENT ===
   getAllEvents() {
-    return Object.values(this.events).map(ev => ({
-      id: ev.id,
-      name: ev.name,
-      date: ev.date,
-      description: ev.description,
-      createdAt: ev.createdAt,
-      chatCount: ev.chats ? ev.chats.length : 0,
-      timer: this.getTimerState(ev.id)
-    }));
+    return Object.values(this.events).map(ev => {
+      const cleanSession = ev.sessionId || ev.id.replace(/^event-/, '') || 'educamp-2026';
+      return {
+        id: ev.id,
+        sessionId: cleanSession,
+        joinCode: ev.joinCode || cleanSession.toUpperCase(),
+        name: ev.name,
+        date: ev.date,
+        description: ev.description,
+        createdAt: ev.createdAt,
+        chatCount: ev.chats ? ev.chats.length : 0,
+        timer: this.getTimerState(ev.id)
+      };
+    });
   }
 
   getActiveEvent() {
@@ -154,26 +413,36 @@ class TimerChatEngine {
     }
     const ev = this.events[this.activeEventId];
     if (!ev) return null;
+    const cleanSession = ev.sessionId || ev.id.replace(/^event-/, '') || 'educamp-2026';
     return {
       ...ev,
+      sessionId: cleanSession,
+      joinCode: ev.joinCode || cleanSession.toUpperCase(),
       timer: this.getTimerState(ev.id)
     };
   }
 
-  setActiveEvent(eventId) {
-    if (!this.events[eventId]) {
-      throw new Error(`Event '${eventId}' tidak ditemukan.`);
+  setActiveEvent(eventIdOrSession) {
+    const ev = this.findEventByIdOrSession(eventIdOrSession);
+    if (!ev) {
+      throw new Error(`Event '${eventIdOrSession}' tidak ditemukan.`);
     }
-    this.activeEventId = eventId;
+    this.activeEventId = ev.id;
     this.saveStorage();
     return this.getActiveEvent();
   }
 
-  createEvent({ name, date, description, defaultDuration = 300 }) {
+  createEvent({ name, date, description, defaultDuration = 300, sessionId = null }) {
     if (!name || !name.trim()) throw new Error('Nama acara wajib diisi.');
     const id = `event-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+    let finalSessionId = this.generateCleanSessionSlug(sessionId || name);
+    if (this.findEventByIdOrSession(finalSessionId)) {
+      finalSessionId = `${finalSessionId}-${Math.random().toString(36).substr(2, 3)}`;
+    }
     const newEvent = {
       id,
+      sessionId: finalSessionId,
+      joinCode: finalSessionId.toUpperCase(),
       name: name.trim(),
       date: date || new Date().toISOString().split('T')[0],
       description: description ? description.trim() : '',
@@ -185,7 +454,8 @@ class TimerChatEngine {
         targetEndTime: null,
         pausedAt: null
       },
-      chats: []
+      chats: [],
+      sessionState: { ...this.sessionState }
     };
     this.events[id] = newEvent;
     this.activeEventId = id;
@@ -214,11 +484,45 @@ class TimerChatEngine {
     if (!ev || !ev.timer) return null;
 
     const t = ev.timer;
+    const mode = (t.mode || 'COUNTDOWN').toUpperCase();
     const allowOvertime = t.allowOvertime !== false; // Default true
     let remaining = t.remainingSeconds;
     let isOvertime = false;
     let overtimeSeconds = 0;
+    let elapsed = t.elapsedSeconds || 0;
 
+    if (mode === 'COUNTUP') {
+      if (t.isRunning && t.startTime) {
+        elapsed = Math.max(0, Math.floor((Date.now() - t.startTime) / 1000));
+        t.elapsedSeconds = elapsed;
+        remaining = elapsed;
+        t.remainingSeconds = elapsed;
+      } else {
+        elapsed = t.elapsedSeconds || 0;
+        remaining = elapsed;
+      }
+      return {
+        eventId: targetId,
+        mode: 'COUNTUP',
+        durationSeconds: t.durationSeconds || 300,
+        remainingSeconds: remaining,
+        elapsedSeconds: elapsed,
+        startTime: t.startTime || null,
+        overtimeSeconds: 0,
+        isOvertime: false,
+        allowOvertime: allowOvertime,
+        status: t.isRunning ? 'RUNNING' : (t.status === 'STOPPED' ? 'STOPPED' : (t.pausedAt ? 'PAUSED' : 'IDLE')),
+        isRunning: !!t.isRunning,
+        targetEndTime: null,
+        startedBy: t.startedBy || null,
+        stoppedBy: t.stoppedBy || null,
+        lastAction: t.lastAction || null,
+        actionLogs: Array.isArray(t.actionLogs) ? t.actionLogs.slice(-50) : [],
+        serverTime: Date.now()
+      };
+    }
+
+    // COUNTDOWN MODE
     if (t.isRunning && t.targetEndTime) {
       const diffMs = t.targetEndTime - Date.now();
       if (diffMs >= 0) {
@@ -247,26 +551,115 @@ class TimerChatEngine {
 
     return {
       eventId: targetId,
+      mode: 'COUNTDOWN',
       durationSeconds: t.durationSeconds,
       remainingSeconds: remaining,
+      elapsedSeconds: t.elapsedSeconds || 0,
+      startTime: null,
       overtimeSeconds: overtimeSeconds,
       isOvertime: isOvertime,
       allowOvertime: allowOvertime,
       status: t.isRunning ? (isOvertime ? 'OVERTIME' : 'RUNNING') : (t.status === 'STOPPED' ? 'STOPPED' : (t.pausedAt ? 'PAUSED' : (remaining <= 0 ? 'TIME_OUT' : 'IDLE'))),
       isRunning: t.isRunning,
       targetEndTime: t.targetEndTime,
+      startedBy: t.startedBy || null,
+      stoppedBy: t.stoppedBy || null,
+      lastAction: t.lastAction || null,
+      actionLogs: Array.isArray(t.actionLogs) ? t.actionLogs.slice(-50) : [],
       serverTime: Date.now()
     };
   }
 
-  getState(eventId) {
-    const active = this.getActiveEvent();
-    const targetId = eventId || this.activeEventId;
+  getSessionState(eventId) {
+    let targetId = eventId || this.activeEventId;
+    if (!this.events[targetId]) {
+      targetId = this.activeEventId || Object.keys(this.events)[0];
+    }
+    const ev = this.events[targetId];
+    if (ev && ev.sessionState) {
+      return { ...this.sessionState, ...ev.sessionState };
+    }
+    return { ...this.sessionState };
+  }
+
+  updateSessionState(sessionPatch = {}, eventId = null) {
+    if (!sessionPatch || typeof sessionPatch !== 'object') return this.getSessionState(eventId);
+    let targetId = eventId || sessionPatch.eventId || this.activeEventId;
+    if (!this.events[targetId]) {
+      targetId = this.activeEventId || Object.keys(this.events)[0];
+    }
+    const nowIso = new Date().toISOString();
+
+    const cleanPatch = { ...sessionPatch, updatedAt: nowIso };
+    delete cleanPatch.eventId;
+
+    this.sessionState = {
+      ...this.sessionState,
+      ...cleanPatch
+    };
+
+    const ev = this.events[targetId];
+    if (ev) {
+      ev.sessionState = {
+        ...(ev.sessionState || this.sessionState),
+        ...cleanPatch
+      };
+    }
+
+    this.saveStorage(true);
+    return this.getSessionState(targetId);
+  }
+
+  syncClientSessionData(payload = {}) {
+    if (!payload || typeof payload !== 'object') return this.getState();
+    let targetId = payload.eventId || this.activeEventId;
+    if (!this.events[targetId]) {
+      targetId = this.activeEventId || Object.keys(this.events)[0];
+    }
+    const ev = this.events[targetId];
+    let changed = false;
+
+    if (ev && Array.isArray(payload.chatHistory) && payload.chatHistory.length > 0) {
+      const beforeLen = Array.isArray(ev.chats) ? ev.chats.length : 0;
+      const mergedChats = this.mergeChatArrays(payload.chatHistory, ev.chats || [], ev.chatsClearedAt || null);
+      if (mergedChats.length !== beforeLen) {
+        ev.chats = mergedChats;
+        changed = true;
+      } else {
+        ev.chats = mergedChats;
+      }
+    }
+
+    if (payload.sessionState && typeof payload.sessionState === 'object') {
+      const mergedSession = this.mergeSessionStates(payload.sessionState, ev ? ev.sessionState : this.sessionState);
+      this.sessionState = mergedSession;
+      if (ev) {
+        ev.sessionState = mergedSession;
+      }
+      changed = true;
+    }
+
+    if (changed) {
+      this.saveStorage(true);
+    }
+    return this.getState(targetId);
+  }
+
+  getState(eventIdOrSessionId) {
+    let ev = null;
+    if (eventIdOrSessionId) {
+      ev = this.findEventByIdOrSession(eventIdOrSessionId);
+    }
+    if (!ev) {
+      ev = this.getActiveEvent();
+    }
+    const targetId = ev ? ev.id : this.activeEventId;
     return {
-      activeEvent: active,
+      activeEvent: ev,
       timer: this.getTimerState(targetId),
       chatHistory: this.getChatHistory(targetId),
-      overlayConfig: this.overlayConfig
+      overlayConfig: this.overlayConfig,
+      sessionState: this.getSessionState(targetId)
     };
   }
 
@@ -331,80 +724,192 @@ class TimerChatEngine {
     if (!ev) throw new Error('Event tidak ditemukan.');
 
     const t = ev.timer;
+    if (!t.actionLogs) t.actionLogs = [];
+    if (options.mode) {
+      t.mode = options.mode.toUpperCase() === 'COUNTUP' ? 'COUNTUP' : 'COUNTDOWN';
+    } else if (!t.mode) {
+      t.mode = 'COUNTDOWN';
+    }
+
     if (options.allowOvertime !== undefined) {
       t.allowOvertime = !!options.allowOvertime;
     }
-    if (sec && !isNaN(sec)) {
-      t.durationSeconds = parseInt(sec, 10);
-      t.remainingSeconds = t.durationSeconds;
-    } else if (t.remainingSeconds <= 0 && !t.pausedAt && t.status !== 'STOPPED') {
-      t.remainingSeconds = t.durationSeconds;
+
+    const userName = options.userName || options.requesterName || 'Operator';
+    const userEmail = options.userEmail || options.email || '';
+    const nowIso = new Date().toISOString();
+
+    if (t.mode === 'COUNTUP') {
+      if (sec && !isNaN(sec)) {
+        t.durationSeconds = parseInt(sec, 10);
+      }
+      const currentElapsed = t.pausedAt ? (t.elapsedSeconds || 0) : 0;
+      t.elapsedSeconds = currentElapsed;
+      t.startTime = Date.now() - (currentElapsed * 1000);
+      t.targetEndTime = null;
+      t.remainingSeconds = currentElapsed;
+    } else {
+      if (sec && !isNaN(sec)) {
+        t.durationSeconds = parseInt(sec, 10);
+        t.remainingSeconds = t.durationSeconds;
+      } else if (t.remainingSeconds <= 0 && !t.pausedAt && t.status !== 'STOPPED') {
+        t.remainingSeconds = t.durationSeconds;
+      }
+      t.targetEndTime = Date.now() + (t.remainingSeconds * 1000);
+      t.startTime = null;
     }
 
     t.isRunning = true;
-    t.targetEndTime = Date.now() + (t.remainingSeconds * 1000);
     t.pausedAt = null;
     t.status = 'RUNNING';
 
+    t.startedBy = {
+      name: userName,
+      email: userEmail,
+      time: nowIso
+    };
+    t.lastAction = {
+      type: 'START',
+      mode: t.mode,
+      userName,
+      userEmail,
+      time: nowIso,
+      sessionTitle: options.sessionTitle || null
+    };
+    t.actionLogs.push({
+      id: 'log-' + Date.now(),
+      action: 'START',
+      mode: t.mode,
+      userName,
+      userEmail,
+      timestamp: nowIso,
+      sessionTitle: options.sessionTitle || null
+    });
+    if (t.actionLogs.length > 50) t.actionLogs = t.actionLogs.slice(-50);
+
     this.saveStorage();
     return this.getState(targetId);
   }
 
-  pauseTimer(eventId) {
+  pauseTimer(eventId, options = {}) {
     const targetId = eventId || this.activeEventId;
     const ev = this.events[targetId];
     if (!ev) throw new Error('Event tidak ditemukan.');
 
     const t = ev.timer;
-    const allowOvertime = t.allowOvertime !== false;
-    if (t.isRunning && t.targetEndTime) {
-      const diffMs = t.targetEndTime - Date.now();
-      if (diffMs >= 0) {
-        t.remainingSeconds = Math.max(0, Math.ceil(diffMs / 1000));
-      } else {
-        // Sedang overtime saat di-pause/stop
-        const passedSec = Math.floor(Math.abs(diffMs) / 1000);
-        t.remainingSeconds = allowOvertime ? -passedSec : 0;
+    if (!t.actionLogs) t.actionLogs = [];
+    const userName = options.userName || options.requesterName || 'Operator';
+    const userEmail = options.userEmail || options.email || '';
+    const nowIso = new Date().toISOString();
+
+    if (t.mode === 'COUNTUP') {
+      if (t.isRunning && t.startTime) {
+        t.elapsedSeconds = Math.max(0, Math.floor((Date.now() - t.startTime) / 1000));
+        t.remainingSeconds = t.elapsedSeconds;
       }
+      t.startTime = null;
+    } else {
+      const allowOvertime = t.allowOvertime !== false;
+      if (t.isRunning && t.targetEndTime) {
+        const diffMs = t.targetEndTime - Date.now();
+        if (diffMs >= 0) {
+          t.remainingSeconds = Math.max(0, Math.ceil(diffMs / 1000));
+        } else {
+          const passedSec = Math.floor(Math.abs(diffMs) / 1000);
+          t.remainingSeconds = allowOvertime ? -passedSec : 0;
+        }
+      }
+      t.targetEndTime = null;
     }
 
     t.isRunning = false;
-    t.targetEndTime = null;
     t.pausedAt = Date.now();
     t.status = 'PAUSED';
 
+    t.lastAction = {
+      type: 'PAUSE',
+      mode: t.mode || 'COUNTDOWN',
+      userName,
+      userEmail,
+      time: nowIso
+    };
+    t.actionLogs.push({
+      id: 'log-' + Date.now(),
+      action: 'PAUSE',
+      mode: t.mode || 'COUNTDOWN',
+      userName,
+      userEmail,
+      timestamp: nowIso
+    });
+    if (t.actionLogs.length > 50) t.actionLogs = t.actionLogs.slice(-50);
+
     this.saveStorage();
     return this.getState(targetId);
   }
 
-  stopTimer(eventId) {
+  stopTimer(eventId, options = {}) {
     const targetId = eventId || this.activeEventId;
     const ev = this.events[targetId];
     if (!ev) throw new Error('Event tidak ditemukan.');
 
     const t = ev.timer;
-    const allowOvertime = t.allowOvertime !== false;
-    if (t.isRunning && t.targetEndTime) {
-      const diffMs = t.targetEndTime - Date.now();
-      if (diffMs >= 0) {
-        t.remainingSeconds = Math.max(0, Math.ceil(diffMs / 1000));
-      } else {
-        const passedSec = Math.floor(Math.abs(diffMs) / 1000);
-        t.remainingSeconds = allowOvertime ? -passedSec : 0;
+    if (!t.actionLogs) t.actionLogs = [];
+    const userName = options.userName || options.requesterName || 'Operator';
+    const userEmail = options.userEmail || options.email || '';
+    const nowIso = new Date().toISOString();
+
+    if (t.mode === 'COUNTUP') {
+      if (t.isRunning && t.startTime) {
+        t.elapsedSeconds = Math.max(0, Math.floor((Date.now() - t.startTime) / 1000));
+        t.remainingSeconds = t.elapsedSeconds;
       }
+      t.startTime = null;
+    } else {
+      const allowOvertime = t.allowOvertime !== false;
+      if (t.isRunning && t.targetEndTime) {
+        const diffMs = t.targetEndTime - Date.now();
+        if (diffMs >= 0) {
+          t.remainingSeconds = Math.max(0, Math.ceil(diffMs / 1000));
+        } else {
+          const passedSec = Math.floor(Math.abs(diffMs) / 1000);
+          t.remainingSeconds = allowOvertime ? -passedSec : 0;
+        }
+      }
+      t.targetEndTime = null;
     }
 
-    // Freeze waktu saat di-stop (tidak kembali ke durasi preset!)
+    // Freeze waktu saat di-stop
     t.isRunning = false;
-    t.targetEndTime = null;
     t.pausedAt = null;
     t.status = 'STOPPED';
+
+    t.stoppedBy = {
+      name: userName,
+      email: userEmail,
+      time: nowIso
+    };
+    t.lastAction = {
+      type: 'STOP',
+      mode: t.mode || 'COUNTDOWN',
+      userName,
+      userEmail,
+      time: nowIso
+    };
+    t.actionLogs.push({
+      id: 'log-' + Date.now(),
+      action: 'STOP',
+      mode: t.mode || 'COUNTDOWN',
+      userName,
+      userEmail,
+      timestamp: nowIso
+    });
+    if (t.actionLogs.length > 50) t.actionLogs = t.actionLogs.slice(-50);
 
     this.saveStorage();
     return this.getState(targetId);
   }
 
-  resetTimer(durationSeconds, eventId) {
+  resetTimer(durationSeconds, eventId, options = {}) {
     let sec = durationSeconds;
     let targetId = eventId;
     if (typeof durationSeconds === 'string' && isNaN(durationSeconds)) {
@@ -415,41 +920,115 @@ class TimerChatEngine {
     const ev = this.events[targetId];
     if (!ev) throw new Error('Event tidak ditemukan.');
 
+    const t = ev.timer;
+    if (!t.actionLogs) t.actionLogs = [];
+    const userName = options.userName || options.requesterName || 'Operator';
+    const userEmail = options.userEmail || options.email || '';
+    const nowIso = new Date().toISOString();
+
     if (sec && !isNaN(sec)) {
-      ev.timer.durationSeconds = parseInt(sec, 10);
+      t.durationSeconds = parseInt(sec, 10);
     }
-    ev.timer.isRunning = false;
-    ev.timer.remainingSeconds = ev.timer.durationSeconds;
-    ev.timer.targetEndTime = null;
-    ev.timer.pausedAt = null;
+    t.isRunning = false;
+    t.remainingSeconds = t.mode === 'COUNTUP' ? 0 : (t.durationSeconds || 300);
+    t.elapsedSeconds = 0;
+    t.targetEndTime = null;
+    t.startTime = null;
+    t.pausedAt = null;
+    t.status = 'IDLE';
+
+    t.lastAction = {
+      type: 'RESET',
+      mode: t.mode || 'COUNTDOWN',
+      userName,
+      userEmail,
+      time: nowIso,
+      sessionTitle: options.sessionTitle || null
+    };
+    t.actionLogs.push({
+      id: 'log-' + Date.now(),
+      action: 'RESET',
+      mode: t.mode || 'COUNTDOWN',
+      userName,
+      userEmail,
+      timestamp: nowIso,
+      sessionTitle: options.sessionTitle || null
+    });
+    if (t.actionLogs.length > 50) t.actionLogs = t.actionLogs.slice(-50);
+
+    this.saveStorage();
+    return this.getState(targetId);
+  }
+
+  setTimerMode(mode, eventId, options = {}) {
+    const targetId = eventId || this.activeEventId;
+    const ev = this.events[targetId];
+    if (!ev) throw new Error('Event tidak ditemukan.');
+
+    const newMode = (mode || '').toUpperCase() === 'COUNTUP' ? 'COUNTUP' : 'COUNTDOWN';
+    const t = ev.timer;
+    t.mode = newMode;
+    t.isRunning = false;
+    t.targetEndTime = null;
+    t.startTime = null;
+    t.pausedAt = null;
+    t.status = 'IDLE';
+    if (newMode === 'COUNTUP') {
+      t.elapsedSeconds = 0;
+      t.remainingSeconds = 0;
+    } else {
+      t.remainingSeconds = t.durationSeconds || 300;
+      t.elapsedSeconds = 0;
+    }
+
+    const userName = options.userName || options.requesterName || 'Operator';
+    const userEmail = options.userEmail || options.email || '';
+    const nowIso = new Date().toISOString();
+    if (!t.actionLogs) t.actionLogs = [];
+    t.lastAction = {
+      type: 'SET_MODE',
+      mode: newMode,
+      userName,
+      userEmail,
+      time: nowIso
+    };
+    t.actionLogs.push({
+      id: 'log-' + Date.now(),
+      action: 'SET_MODE',
+      mode: newMode,
+      userName,
+      userEmail,
+      timestamp: nowIso
+    });
+    if (t.actionLogs.length > 50) t.actionLogs = t.actionLogs.slice(-50);
 
     this.saveStorage();
     return this.getState(targetId);
   }
 
   // === CHAT SYSTEM (Multi-Event History) ===
-  getChatHistory(eventId, limit = 100) {
-    const targetId = eventId || this.activeEventId;
-    const ev = this.events[targetId];
+  getChatHistory(eventIdOrSessionId, limit = 100) {
+    const ev = this.findEventByIdOrSession(eventIdOrSessionId) || this.getActiveEvent();
     if (!ev) return [];
     const chats = ev.chats || [];
     return chats.slice(-limit);
   }
 
   addChatMessage(eventIdOrPayload, payloadMaybe) {
-    let targetId = this.activeEventId;
+    let target = this.activeEventId;
     let data = {};
 
     if (typeof eventIdOrPayload === 'string') {
-      targetId = eventIdOrPayload;
+      target = eventIdOrPayload;
       data = payloadMaybe || {};
     } else if (eventIdOrPayload && typeof eventIdOrPayload === 'object') {
       data = eventIdOrPayload;
-      if (data.eventId) targetId = data.eventId;
+      if (data.eventId || data.sessionId) target = data.eventId || data.sessionId;
     }
 
-    const ev = this.events[targetId];
-    if (!ev) throw new Error('Event tidak ditemukan.');
+    const ev = this.findEventByIdOrSession(target) || this.getActiveEvent();
+    if (!ev) throw new Error('Event atau sesi tidak ditemukan.');
+    const targetId = ev.id;
 
     const text = data.text || data.message || '';
     const hasMedia = !!(data.mediaUrl && data.mediaUrl.trim());
@@ -725,7 +1304,8 @@ class TimerChatEngine {
     const ev = this.events[targetId];
     if (!ev) throw new Error('Event tidak ditemukan.');
     ev.chats = [];
-    this.saveStorage();
+    ev.chatsClearedAt = new Date().toISOString();
+    this.saveStorage(true);
     return true;
   }
 
@@ -737,8 +1317,12 @@ class TimerChatEngine {
     if (!ev) return null;
 
     const tState = this.getTimerState(targetId);
-    const sec = tState.remainingSeconds;
-    const isOvertime = tState.isOvertime || sec < 0;
+    let sec = tState.remainingSeconds;
+    const isCountup = (tState.mode === 'COUNTUP');
+    if (isCountup) {
+      sec = tState.elapsedSeconds || tState.remainingSeconds || 0;
+    }
+    const isOvertime = !isCountup && (tState.isOvertime || sec < 0);
     const absSec = Math.abs(sec);
     const m = Math.floor(absSec / 60).toString().padStart(2, '0');
     const s = (absSec % 60).toString().padStart(2, '0');

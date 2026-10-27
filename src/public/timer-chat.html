@@ -15,7 +15,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 
-  <link rel="stylesheet" href="/css/timer-chat.css?v=1.5.2">
+  <link rel="stylesheet" href="/css/timer-chat.css?v=1.6.1">
 </head>
 <body>
 
@@ -35,6 +35,12 @@
         <span class="event-dot"></span>
         <span id="current-event-label">Acara...</span>
         <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
+      </button>
+
+      <!-- Share Session Button (Bagikan Parameter ID Sesi) -->
+      <button class="btn-share-session" id="btn-share-session" title="Bagikan Session ID & Tautan untuk Bergabung">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>
+        <span class="share-btn-label">Bagikan Sesi</span>
       </button>
 
       <!-- Sync Latency Status -->
@@ -123,10 +129,17 @@
             </div>
           </div>
 
+          <!-- Timer Mode Switcher (Countdown vs Count-up) -->
+          <div class="timer-mode-switcher" id="timer-mode-switcher" title="Ganti Mode: Countdown (Hitung Mundur) atau Count-up (Hitung Maju)">
+            <button type="button" class="btn-mode-tab active" id="btn-mode-countdown" data-mode="COUNTDOWN">Countdown</button>
+            <button type="button" class="btn-mode-tab" id="btn-mode-countup" data-mode="COUNTUP">Count-up</button>
+          </div>
+
           <!-- Tombol Mobile Context Trigger untuk Preset Timer -->
           <button class="mobile-preset-btn" id="btn-mobile-preset" title="Pilih preset waktu">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>
-            <span>Preset Waktu</span>
+            <span class="mobile-preset-label-desktop">Preset Waktu</span>
+            <span class="mobile-preset-label-mobile">Preset</span>
             <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
           </button>
 
@@ -219,6 +232,12 @@
             <span>Stop</span>
           </button>
 
+          <!-- Slot 3: Reset Durasi ke Sesi Terpilih (Current Selection) -->
+          <button class="btn-action btn-reset-selection" id="btn-reset-selection" type="button" title="Reset durasi timer kembali ke rencana sesi yang sedang dipilih saat ini">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+            <span>Reset Sesi Terpilih</span>
+          </button>
+
           <!-- Hidden compatibility aliases -->
           <button id="btn-timer-start" style="display: none;" aria-hidden="true"></button>
           <button id="btn-timer-pause" style="display: none;" aria-hidden="true"></button>
@@ -231,6 +250,17 @@
               <span class="overtime-toggle-text">Overtime</span>
             </label>
           </div>
+        </div>
+
+        <!-- Live Timer Operator Notice & Audit Log Modal Button -->
+        <div class="timer-operator-badge" id="timer-operator-badge" title="Informasi operator pengendali timer realtime">
+          <div class="timer-operator-text" id="timer-operator-text">
+            <span>Operator: <strong>Belum ada sesi aktif</strong></span>
+          </div>
+          <button type="button" class="btn-view-timer-logs" id="btn-view-timer-logs" title="Buka Riwayat Siapa yang Memulai & Menghentikan Timer">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+            <span>Log Timer</span>
+          </button>
         </div>
 
         <!-- Timer Permission Lock Notice -->
@@ -250,7 +280,7 @@
           <div class="rundown-title-group">
             <div class="rundown-title">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" style="color: #38bdf8;"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>
-              <span>Rundown Health Check</span>
+              <span id="rundown-header-title-text">Rundown - Educamp 2026</span>
             </div>
             <!-- Tabs Filter Day 1 & Day 2 -->
             <div class="rundown-tabs">
@@ -270,8 +300,22 @@
           </div>
         </div>
 
+        <!-- Realtime Rundown Search Bar (Judul & PIC / Presenter) -->
+        <div class="rundown-search-box" id="rundown-search-box">
+          <div class="rundown-search-inner">
+            <svg class="rundown-search-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+            </svg>
+            <input type="text" id="rundown-search-input" class="rundown-search-input" placeholder="Cari sesi atau nama PIC / presenter..." autocomplete="off">
+            <button type="button" id="btn-clear-rundown-search" class="btn-clear-search" style="display:none;" title="Bersihkan pencarian">✕</button>
+          </div>
+          <span class="rundown-search-count" id="rundown-search-count"></span>
+        </div>
+
         <!-- Dynamic List of Sessions -->
         <div class="rundown-list-container" id="rundown-list">
+          <!-- Rendered dynamically from official rundown tables -->
+        </div>
           <!-- Rendered dynamically from official rundown tables -->
         </div>
       </section>
@@ -290,6 +334,10 @@
             <span>Live Chat</span>
           </div>
           <span class="chat-event-name-tag" id="chat-header-event">Event...</span>
+          <button class="chat-share-quick-btn" id="btn-quick-share-chat" type="button" title="Salin ID atau Link Sesi Obrolan">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>
+            <span id="quick-share-session-id">ID: Sesi</span>
+          </button>
         </div>
 
         <!-- Scalable Font Controls (Desktop Bar & Mobile Compact Dropdown) -->
@@ -413,19 +461,21 @@
             </button>
           </div>
 
-          <textarea class="chat-input-field" id="chat-input" placeholder="Tulis pertanyaan atau tanggapan sesi..." maxlength="150" rows="1" autocomplete="off"></textarea>
+          <div class="chat-input-wrapper" id="chat-input-wrapper">
+            <textarea class="chat-input-field" id="chat-input" placeholder="Tulis pertanyaan atau tanggapan sesi..." maxlength="500" rows="1" autocomplete="off"></textarea>
+            <span class="char-limit-count in-field" id="char-limit-count">0/500</span>
+          </div>
           <button type="submit" class="btn-send-chat" id="btn-send-chat" title="Kirim Pesan">
             <span id="btn-send-label">Kirim</span>
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
           </button>
         </div>
 
-        <div class="chat-status-bar">
+        <div class="chat-status-bar" id="chat-status-bar">
           <div class="cooldown-indicator" id="cooldown-indicator">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.2 3.2.8-1.3-4.5-2.7V7z"/></svg>
             <span>Tunggu <strong id="cooldown-seconds">15</strong>s</span>
           </div>
-          <span class="char-limit-count" id="char-limit-count">0/150</span>
         </div>
       </form>
     </section>
@@ -506,6 +556,18 @@
 
       <div class="event-list" id="modal-event-list">
         <!-- Rendered dynamically -->
+      </div>
+
+      <!-- Quick Join via Custom Session ID or Link -->
+      <div class="modal-quick-session-box">
+        <div class="quick-session-header">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+          <span>Punya Session ID atau Tautan Lain?</span>
+        </div>
+        <div class="quick-session-row">
+          <input type="text" class="input-text quick-input-session-id" id="quick-input-session-id" placeholder="ID cth: educamp-2026 atau tempel tautan..." autocomplete="off">
+          <button type="button" class="btn-quick-join" id="btn-quick-join-session">Gabung</button>
+        </div>
       </div>
 
       <div class="new-event-form">
@@ -717,7 +779,180 @@
       </div>
     </div>
     <div class="lightbox-viewport" id="lightbox-viewport">
-      <img src="" alt="Enlarged Media" class="lightbox-image" id="lightbox-image" draggable="false">
+      <img src="" alt="Lampiran" class="lightbox-image" id="lightbox-image">
+    </div>
+  </div>
+
+  <!-- Modal Elegan: Bagikan Sesi & Chat ID (Share Modal) -->
+  <div class="modal-overlay" id="share-session-modal">
+    <div class="modal-card share-session-card" style="max-width: 520px;">
+      <div class="modal-header">
+        <h3 class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="color: #38bdf8;"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>
+          <span>Bagikan Sesi & Chat ID</span>
+        </h3>
+        <button class="modal-close-btn" id="btn-close-share-modal">&times;</button>
+      </div>
+
+      <div class="share-modal-body">
+        <!-- Event Active Banner -->
+        <div class="share-event-summary">
+          <div class="share-event-badge-active">● SESI AKTIF</div>
+          <h4 class="share-event-title" id="share-modal-event-name">Educamp & Team Building 2026</h4>
+          <p class="share-event-desc" id="share-modal-event-desc">Sesi utama Educamp, sharing session, dan live presentation.</p>
+        </div>
+
+        <!-- Session ID Highlight Box -->
+        <div class="share-id-card">
+          <div class="share-id-label">
+            <span>PARAMETER SESSION ID / CHAT ID:</span>
+            <span class="share-id-hint">(Wajib untuk bergabung)</span>
+          </div>
+          <div class="share-id-content">
+            <code class="share-id-code" id="share-modal-session-id">educamp-2026</code>
+            <button type="button" class="btn-copy-chip" id="btn-copy-session-id" title="Salin ID Saja">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+              <span>Salin ID</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Direct Share Link (With ?session= Parameter) -->
+        <div class="share-link-group">
+          <label class="share-group-label" for="share-modal-link-input">
+            <span>Tautan Langsung (Otomatis Join via URL):</span>
+          </label>
+          <div class="share-input-wrapper">
+            <input type="text" class="input-text share-link-input" id="share-modal-link-input" readonly>
+            <button type="button" class="btn-action-copy-link" id="btn-copy-share-link">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+              <span>Salin Tautan</span>
+            </button>
+          </div>
+          <div class="share-copy-toast" id="share-copy-toast" style="display: none;">
+            ✓ Tautan berhasil disalin ke papan klip!
+          </div>
+        </div>
+
+        <!-- Quick Share Row (WhatsApp, Web Share API, Buka Tab) -->
+        <div class="quick-share-actions">
+          <a href="#" target="_blank" class="btn-quick-share wa" id="btn-share-whatsapp" title="Kirim link undangan via WhatsApp">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91C2.13 13.66 2.59 15.36 3.45 16.86L2.05 22L7.3 20.62C8.75 21.41 10.38 21.83 12.04 21.83C17.5 21.83 21.95 17.38 21.95 11.92C21.95 9.27 20.92 6.78 19.05 4.91C17.18 3.03 14.69 2 12.04 2M12.05 3.67C14.25 3.67 16.31 4.53 17.87 6.09C19.42 7.65 20.28 9.72 20.28 11.92C20.28 16.46 16.58 20.15 12.04 20.15C10.56 20.15 9.11 19.76 7.85 19L7.55 18.83L4.43 19.65L5.26 16.61L5.06 16.29C4.24 15 3.8 13.47 3.8 11.91C3.81 7.37 7.5 3.67 12.05 3.67Z"/></svg>
+            <span>WhatsApp</span>
+          </a>
+
+          <button type="button" class="btn-quick-share native" id="btn-share-native" title="Gunakan menu Share bawaan perangkat">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>
+            <span>Share...</span>
+          </button>
+
+          <a href="#" target="_blank" class="btn-quick-share open-tab" id="btn-share-open-tab" title="Buka sesi di tab baru">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>
+            <span>Buka Tab</span>
+          </a>
+        </div>
+
+        <!-- Live QR Code Section -->
+        <div class="share-qr-section">
+          <div class="share-qr-preview">
+            <img src="" id="share-modal-qr-img" class="share-qr-img" alt="QR Code Sesi" style="display: none;">
+            <div id="share-qr-loading" class="share-qr-loading">Menyiapkan QR...</div>
+          </div>
+          <div class="share-qr-meta">
+            <strong style="color: #f8fafc; font-size: 13px;">Scan QR untuk Langsung Join</strong>
+            <p style="color: #94a3b8; font-size: 11px; line-height: 1.4; margin: 4px 0 8px 0;">
+              Peserta di ruangan dapat memindai kode QR menggunakan kamera ponsel untuk otomatis bergabung ke sesi ini.
+            </p>
+            <a href="#" id="btn-download-qr" download="QR_Session_Educamp.png" class="btn-download-qr-pill" style="display: none;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+              <span>Unduh Gambar QR</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Overlay Source Links (With Session Parameter) -->
+        <div class="share-overlay-sources">
+          <span class="share-sources-title">Tautan Khusus Overlay Broadcast & Monitor:</span>
+          <div class="share-source-row">
+            <span class="source-tag vmix">vMix / OBS (Chroma Green)</span>
+            <button type="button" class="btn-copy-source-link" id="btn-copy-vmix-source">Salin Tautan</button>
+          </div>
+          <div class="share-source-row">
+            <span class="source-tag presenter">Presenter Monitor (Timer + 5 Chat)</span>
+            <button type="button" class="btn-copy-source-link" id="btn-copy-presenter-source">Salin Tautan</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Gateway: Masukkan Session ID / Chat ID untuk Bergabung -->
+  <div class="modal-overlay gateway-modal-overlay" id="join-session-gateway-modal">
+    <div class="modal-card gateway-modal-card" style="max-width: 460px; position: relative;">
+      <button type="button" class="modal-close-btn" id="btn-close-gateway-modal" style="position: absolute; right: 14px; top: 14px; z-index: 10;" title="Tutup">&times;</button>
+      <div class="gateway-header">
+        <div class="gateway-icon-wrap">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" style="color: #f59e0b;"><path d="M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>
+        </div>
+        <h3 class="gateway-title">Masuk ke Ruang Timer & Live Chat</h3>
+        <p class="gateway-desc">
+          Untuk mengakses live timer dan obrolan, Anda dapat menyertakan <strong>Session ID</strong> atau masuk langsung ke sesi utama.
+        </p>
+      </div>
+
+      <div class="gateway-form">
+        <label for="gateway-session-input" class="gateway-input-label">Masukkan Session ID / Chat ID atau Tempel Tautan:</label>
+        <div class="gateway-input-group">
+          <span class="gateway-input-prefix">ID:</span>
+          <input type="text" class="input-text gateway-session-input" id="gateway-session-input" placeholder="Contoh: educamp-2026 atau tempel tautan..." autocomplete="off">
+        </div>
+
+        <div class="gateway-error-notice" id="gateway-error-msg" style="display: none;"></div>
+
+        <button type="button" class="btn-gateway-submit" id="btn-gateway-join">
+          <span>Bergabung ke Sesi</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg>
+        </button>
+
+        <div class="gateway-divider">
+          <span>atau</span>
+        </div>
+
+        <!-- Quick Access for Host / Default Educamp Main Session -->
+        <button type="button" class="btn-gateway-quick-default" id="btn-gateway-default">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="color: #38bdf8;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+          <span>Masuk ke Sesi Utama (Educamp 2026)</span>
+        </button>
+
+        <p class="gateway-tip">
+          💡 <strong>Tips:</strong> Pengguna yang menerima tautan undangan lengkap (contoh: <code>?session=educamp-2026</code>) akan langsung bergabung otomatis tanpa mengisi kolom ini.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Elegan: Riwayat Log Audit Kontrol Timer (Siapa yang Mulai & Stop) -->
+  <div class="modal-overlay" id="timer-logs-modal">
+    <div class="modal-card" style="max-width: 540px;">
+      <div class="modal-header">
+        <h3 class="modal-title" style="display: flex; align-items: center; gap: 8px; color: #38bdf8;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+          <span>Log Audit Pengendali Timer</span>
+        </h3>
+        <button class="modal-close-btn" id="btn-close-timer-logs-modal">&times;</button>
+      </div>
+
+      <div style="font-size: 11px; color: #94a3b8; line-height: 1.4; margin-bottom: 8px;">
+        Catatan riwayat realtime siapa yang memulai (Play), menjeda (Pause), menghentikan (Stop), atau mereset timer.
+      </div>
+
+      <div class="timer-log-list" id="timer-log-list">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
+        <button type="button" class="btn-action btn-start" id="btn-close-timer-logs-action" style="padding: 7px 18px;">Tutup</button>
+      </div>
     </div>
   </div>
 
@@ -731,12 +966,12 @@
       <div class="footer-semver" title="Semantic Versioning">
         <span class="semver-dot"></span>
         <span class="semver-label">SemVer</span>
-        <span>v1.5.2</span>
+        <span>v1.6.1</span>
       </div>
     </div>
   </footer>
 
   <!-- Application Logic -->
-  <script src="/js/timer-chat/timer-chat.js?v=1.5.2" defer></script>
+  <script src="/js/timer-chat/timer-chat.js?v=1.6.1" defer></script>
 </body>
 </html>

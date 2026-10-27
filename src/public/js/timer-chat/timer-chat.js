@@ -66,11 +66,45 @@
       planSeconds: 300,
       timeLabel: '-'
     };
+    let activeTimerState = {
+      status: 'IDLE',
+      durationSeconds: 300,
+      targetEndTime: null,
+      remainingSeconds: 300,
+      isBlinking: false
+    };
+
+    try {
+      const savedTab = sessionStorage.getItem('tpm_current_day_tab') || localStorage.getItem('tpm_current_day_tab');
+      if (savedTab === 'DAY_1' || savedTab === 'DAY_2') {
+        currentDayTab = savedTab;
+      }
+      const savedActiveSess = sessionStorage.getItem('tpm_active_session') || localStorage.getItem('tpm_active_session');
+      if (savedActiveSess) {
+        const parsedSess = JSON.parse(savedActiveSess);
+        if (parsedSess && typeof parsedSess === 'object' && parsedSess.title) {
+          currentActiveSession = parsedSess;
+        }
+      }
+    } catch (e) {}
+
+    function persistLocalSessionMeta() {
+      try {
+        sessionStorage.setItem('tpm_current_day_tab', currentDayTab);
+        localStorage.setItem('tpm_current_day_tab', currentDayTab);
+        if (currentActiveSession) {
+          const raw = JSON.stringify(currentActiveSession);
+          sessionStorage.setItem('tpm_active_session', raw);
+          localStorage.setItem('tpm_active_session', raw);
+        }
+      } catch (e) {}
+    }
 
     // Ambil data rundown dari localStorage atau gunakan default master
     function getStoredRundown(dayKey) {
       try {
-        const stored = localStorage.getItem(`tpm_rundown_${dayKey.toLowerCase()}`);
+        const key = `tpm_rundown_${dayKey.toLowerCase()}`;
+        const stored = sessionStorage.getItem(key) || localStorage.getItem(key);
         if (stored) {
           const parsed = JSON.parse(stored);
           if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -83,7 +117,10 @@
 
     function saveStoredRundown(dayKey, items) {
       try {
-        localStorage.setItem(`tpm_rundown_${dayKey.toLowerCase()}`, JSON.stringify(items));
+        const key = `tpm_rundown_${dayKey.toLowerCase()}`;
+        const str = JSON.stringify(items);
+        sessionStorage.setItem(key, str);
+        localStorage.setItem(key, str);
       } catch (e) {
         console.error('Gagal menyimpan storage rundown', e);
       }
@@ -96,7 +133,7 @@
       return currentDayTab === 'DAY_1' ? rundownItemsDay1 : rundownItemsDay2;
     }
 
-    function setCurrentRundownList(items) {
+    function setCurrentRundownList(items, syncRemote = true) {
       if (currentDayTab === 'DAY_1') {
         rundownItemsDay1 = items;
         saveStoredRundown('DAY_1', items);
@@ -104,11 +141,15 @@
         rundownItemsDay2 = items;
         saveStoredRundown('DAY_2', items);
       }
+      if (syncRemote && typeof emitSessionStateToFirebase === 'function') {
+        emitSessionStateToFirebase();
+      }
     }
 
-    function getCompletedSessions() {
+    function getCompletedSessionsForDay(dayKey) {
       try {
-        const stored = localStorage.getItem(`tpm_completed_sessions_${currentDayTab.toLowerCase()}`);
+        const key = `tpm_completed_sessions_${dayKey.toLowerCase()}`;
+        const stored = sessionStorage.getItem(key) || localStorage.getItem(key);
         if (stored) {
           const parsed = JSON.parse(stored);
           if (Array.isArray(parsed)) return new Set(parsed);
@@ -119,12 +160,26 @@
       return new Set();
     }
 
-    function saveCompletedSessions(set) {
+    function getCompletedSessions() {
+      return getCompletedSessionsForDay(currentDayTab);
+    }
+
+    function saveCompletedSessionsForDay(dayKey, set, syncRemote = true) {
       try {
-        localStorage.setItem(`tpm_completed_sessions_${currentDayTab.toLowerCase()}`, JSON.stringify([...set]));
+        const key = `tpm_completed_sessions_${dayKey.toLowerCase()}`;
+        const str = JSON.stringify([...set]);
+        sessionStorage.setItem(key, str);
+        localStorage.setItem(key, str);
+        if (syncRemote && typeof emitSessionStateToFirebase === 'function') {
+          emitSessionStateToFirebase();
+        }
       } catch (e) {
         console.error('Gagal menyimpan completed sessions storage', e);
       }
+    }
+
+    function saveCompletedSessions(set, syncRemote = true) {
+      saveCompletedSessionsForDay(currentDayTab, set, syncRemote);
     }
 
     function markSessionAsCompleted(sessionTitle, markPreviousAsWell = true) {
@@ -144,7 +199,7 @@
         }
       }
 
-      saveCompletedSessions(completedSet);
+      saveCompletedSessions(completedSet, true);
       renderRundownItems();
     }
 
@@ -152,8 +207,22 @@
       if (!sessionTitle) return;
       const completedSet = getCompletedSessions();
       completedSet.delete(sessionTitle);
-      saveCompletedSessions(completedSet);
+      saveCompletedSessions(completedSet, true);
       renderRundownItems();
+      updateRundownVsActualUI();
+    }
+
+    function toggleSessionCompleted(sessionTitle) {
+      if (!sessionTitle) return;
+      const completedSet = getCompletedSessions();
+      if (completedSet.has(sessionTitle)) {
+        completedSet.delete(sessionTitle);
+      } else {
+        completedSet.add(sessionTitle);
+      }
+      saveCompletedSessions(completedSet, true);
+      renderRundownItems();
+      updateRundownVsActualUI();
     }
 
     let draggedRundownIndex = null;
@@ -197,12 +266,37 @@
       return divider;
     }
 
+    let rundownSearchFilterText = '';
+
     function renderRundownItems() {
       const container = document.getElementById('rundown-list');
       if (!container) return;
       container.innerHTML = '';
       const items = getCurrentRundownList();
       const completedSet = getCompletedSessions();
+
+      const searchInput = document.getElementById('rundown-search-input');
+      const searchCount = document.getElementById('rundown-search-count');
+      const clearSearchBtn = document.getElementById('btn-clear-rundown-search');
+      const query = (rundownSearchFilterText || (searchInput ? searchInput.value : '')).trim().toLowerCase();
+
+      if (clearSearchBtn) {
+        clearSearchBtn.style.display = query ? 'inline-flex' : 'none';
+      }
+
+      let displayItems = items.map((it, idx) => ({ ...it, originalIndex: idx }));
+      if (query) {
+        displayItems = displayItems.filter(it => {
+          const t = (it.title || '').toLowerCase();
+          const p = (it.pic || '').toLowerCase();
+          return t.includes(query) || p.includes(query);
+        });
+        if (searchCount) {
+          searchCount.textContent = `${displayItems.length}/${items.length} sesi`;
+        }
+      } else {
+        if (searchCount) searchCount.textContent = '';
+      }
 
       if (items.length === 0) {
         container.innerHTML = `
@@ -213,21 +307,32 @@
         return;
       }
 
-      // Pastikan container menerima drop event dari HTML5 DnD
+      if (displayItems.length === 0) {
+        container.innerHTML = `
+          <div style="text-align: center; padding: 24px 10px; color: #94a3b8; font-size: 12px;">
+            Tidak ditemukan sesi dengan kata kunci "<strong>${escapeHtml(query)}</strong>" pada ${currentDayTab === 'DAY_1' ? 'Day 1' : 'Day 2'}.
+          </div>
+        `;
+        return;
+      }
+
+      // Pastikan container menerima drop event dari HTML5 DnD (hanya jika tidak sedang search)
       container.ondragover = (e) => {
-        if (draggedRundownIndex !== null) {
+        if (draggedRundownIndex !== null && !query) {
           e.preventDefault();
           e.dataTransfer.dropEffect = 'move';
         }
       };
 
-      items.forEach((item, index) => {
-        // Divider untuk menyisipkan sesi sebelum item pertama
-        if (index === 0) {
+      displayItems.forEach((item, displayIndex) => {
+        const index = item.originalIndex;
+        // Divider untuk menyisipkan sesi sebelum item pertama (hanya jika tidak sedang search)
+        if (displayIndex === 0 && !query) {
           container.appendChild(createInsertDivider(0));
         }
 
-        const isCurrentPlaying = currentActiveSession && currentActiveSession.title === item.title && (activeTimerState.status === 'RUNNING' || activeTimerState.status === 'PAUSED');
+        const isTimerRunningOrPaused = (typeof activeTimerState !== 'undefined' && activeTimerState && (activeTimerState.status === 'RUNNING' || activeTimerState.status === 'PAUSED'));
+        const isCurrentPlaying = currentActiveSession && currentActiveSession.title === item.title && isTimerRunningOrPaused;
         const isPassed = !isCurrentPlaying && completedSet.has(item.title);
 
         const row = document.createElement('div');
@@ -254,7 +359,12 @@
           <div class="rundown-meta-right">
             <span class="rundown-dur-pill ${item.isYellow ? 'yellow' : ''}">${item.durMin}m</span>
             <div class="rundown-item-actions">
-              ${isPassed ? `<button class="btn-rundown-action btn-unpass" title="Buka kembali sesi ini (batal lewat)" data-title="${escapeHtml(item.title)}">↺</button>` : ''}
+              <button type="button" class="btn-rundown-action btn-toggle-pass ${isPassed ? 'is-active' : ''}" title="${isPassed ? 'Sesi dicoret/selesai. Klik untuk membatalkan coret (aktifkan kembali)' : 'Klik untuk mencoret / menandai sesi ini selesai'}" data-title="${escapeHtml(item.title)}">
+                ${isPassed 
+                  ? `<svg viewBox="0 0 24 24" fill="currentColor" style="width: 12px; height: 12px;"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>` 
+                  : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="width: 12px; height: 12px;"><line x1="5" y1="12" x2="19" y2="12"></line><circle cx="12" cy="12" r="9"></circle></svg>`
+                }
+              </button>
               <button class="btn-rundown-action btn-edit" title="Edit sesi ini" data-index="${index}">✎</button>
               <button class="btn-rundown-action btn-del" title="Hapus sesi ini" data-index="${index}">
                 <svg viewBox="0 0 24 24" fill="currentColor" style="width: 12px; height: 12px;"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
@@ -373,8 +483,8 @@
           // JIKA SESI SUDAH TERLEWAT: TIDAK BISA DI-SELECT ULANG!
           if (isPassed) {
             showAlertDialog({
-              title: 'Sesi Sudah Terlewat',
-              message: `Sesi "${item.title}" sudah terlewat / selesai dan tidak dapat dipilih kembali.`
+              title: 'Sesi Sedang Dicoret / Selesai',
+              message: `Sesi "${item.title}" saat ini berstatus dicoret / selesai. Klik tombol centang/coret di sebelah kanan jika ingin mengaktifkannya kembali.`
             });
             return;
           }
@@ -406,6 +516,7 @@
             planSeconds: totalSec,
             timeLabel: item.time || '-'
           };
+          persistLocalSessionMeta();
 
           socket.emit('TC_SET_DURATION', {
             durationSeconds: totalSec,
@@ -420,13 +531,27 @@
             userEmail: currentUser ? currentUser.email : ''
           };
 
+          if (typeof emitSessionStateToFirebase === 'function') {
+            emitSessionStateToFirebase();
+          }
+
           // Tandai row aktif di rundown list
           document.querySelectorAll('.rundown-row').forEach(r => r.classList.remove('is-current-playing'));
           row.classList.add('is-current-playing');
           updateRundownVsActualUI();
         });
 
-        // Tombol Batal Terlewat (Buka Kunci Kembali)
+        // Tombol Toggle Coret / Lewat (Bisa dicoret atau dibatalkan coretnya kapan saja)
+        const btnTogglePass = row.querySelector('.btn-toggle-pass');
+        if (btnTogglePass) {
+          btnTogglePass.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!checkTimerControlPermission()) return;
+            toggleSessionCompleted(item.title);
+          });
+        }
+
+        // Backward-compat jika ada elemen dengan class btn-unpass
         const btnUnpass = row.querySelector('.btn-unpass');
         if (btnUnpass) {
           btnUnpass.addEventListener('click', (e) => {
@@ -589,21 +714,62 @@
       });
     }
 
+    function applyDayTabUI() {
+      const btnDay1 = document.getElementById('tab-day1');
+      const btnDay2 = document.getElementById('tab-day2');
+      if (btnDay1 && btnDay2) {
+        btnDay1.classList.toggle('active', currentDayTab === 'DAY_1');
+        btnDay2.classList.toggle('active', currentDayTab === 'DAY_2');
+      }
+    }
+
     document.getElementById('tab-day1').addEventListener('click', () => {
       currentDayTab = 'DAY_1';
-      document.getElementById('tab-day1').classList.add('active');
-      document.getElementById('tab-day2').classList.remove('active');
+      persistLocalSessionMeta();
+      applyDayTabUI();
       renderRundownItems();
+      if (typeof emitSessionStateToFirebase === 'function') {
+        emitSessionStateToFirebase();
+      }
     });
 
     document.getElementById('tab-day2').addEventListener('click', () => {
       currentDayTab = 'DAY_2';
-      document.getElementById('tab-day2').classList.add('active');
-      document.getElementById('tab-day1').classList.remove('active');
+      persistLocalSessionMeta();
+      applyDayTabUI();
       renderRundownItems();
+      if (typeof emitSessionStateToFirebase === 'function') {
+        emitSessionStateToFirebase();
+      }
     });
 
+    applyDayTabUI();
     renderRundownItems();
+
+    // Wire Realtime Rundown Search Bar (Debounced to prevent typing stutter)
+    const rundownSearchInput = document.getElementById('rundown-search-input');
+    const btnClearRundownSearch = document.getElementById('btn-clear-rundown-search');
+    let rundownSearchDebounceTimer = null;
+    if (rundownSearchInput) {
+      rundownSearchInput.addEventListener('input', (e) => {
+        rundownSearchFilterText = e.target.value;
+        if (rundownSearchDebounceTimer) clearTimeout(rundownSearchDebounceTimer);
+        rundownSearchDebounceTimer = setTimeout(() => {
+          renderRundownItems();
+        }, 120);
+      });
+    }
+    if (btnClearRundownSearch) {
+      btnClearRundownSearch.addEventListener('click', () => {
+        if (rundownSearchDebounceTimer) clearTimeout(rundownSearchDebounceTimer);
+        rundownSearchFilterText = '';
+        if (rundownSearchInput) {
+          rundownSearchInput.value = '';
+          rundownSearchInput.focus();
+        }
+        renderRundownItems();
+      });
+    }
 
     // === MINIMIZED RUNDOWN ACCORDION & DOCKING LOGIC (MOBILE VIEW) ===
     const stageRundownCard = document.getElementById('stage-rundown-card');
@@ -677,13 +843,7 @@
     // === 2. GLOBAL STATE & NTP SYNC VARIABLES ===
     const socket = io();
     let clockOffset = 0;
-    let activeTimerState = {
-      status: 'IDLE',
-      durationSeconds: 300,
-      targetEndTime: null,
-      remainingSeconds: 300,
-      isBlinking: false
-    };
+    // activeTimerState is initialized at top of file
     let currentUser = null;
     let isUserAdmin = false;
     let isSuperAdmin = false;
@@ -839,7 +999,15 @@
       }
     }
 
-    function updateRundownVsActualUI() {
+    let cachedRvaPulseDot = null;
+    let lastRenderedRvaPlan = '';
+    let lastRenderedRvaSession = '';
+    let lastRenderedRvaActual = '';
+    let lastRenderedRvaOverall = '';
+    let lastRenderedRvaBadge = '';
+    let lastRenderedRvaTitle = '';
+
+    function updateRundownVsActualUI(force = false) {
       if (!rvaTrackerBadge) return;
 
       const currentList = getCurrentRundownList() || [];
@@ -859,11 +1027,16 @@
         : (activeTimerState.durationSeconds || 300);
 
       const planFormatted = formatTime(planSec);
-      if (rvaPlanVal) rvaPlanVal.textContent = planFormatted;
+      if (rvaPlanVal && (force || planFormatted !== lastRenderedRvaPlan)) {
+        rvaPlanVal.textContent = planFormatted;
+        lastRenderedRvaPlan = planFormatted;
+      }
 
-      if (rvaSessionName) {
-        rvaSessionName.textContent = currentActiveSession ? currentActiveSession.title : 'Sesi Acara';
-        rvaSessionName.title = `Sesi: ${currentActiveSession ? currentActiveSession.title : ''}`;
+      const sessTitle = currentActiveSession ? currentActiveSession.title : 'Sesi Acara';
+      if (rvaSessionName && (force || sessTitle !== lastRenderedRvaSession)) {
+        rvaSessionName.textContent = sessTitle;
+        rvaSessionName.title = `Sesi: ${sessTitle}`;
+        lastRenderedRvaSession = sessTitle;
       }
 
       // Hitung sisa detik aktif
@@ -881,7 +1054,11 @@
       } else {
         actualElapsedSec = Math.max(0, planSec - remainingSec);
       }
-      if (rvaActualVal) rvaActualVal.textContent = formatTime(actualElapsedSec);
+      const actualFormatted = formatTime(actualElapsedSec);
+      if (rvaActualVal && (force || actualFormatted !== lastRenderedRvaActual)) {
+        rvaActualVal.textContent = actualFormatted;
+        lastRenderedRvaActual = actualFormatted;
+      }
 
       // Hitung Overall Selisih Waktu (Schedule Pace / Drift Clock)
       const activeIdx = (currentActiveSession && typeof currentActiveSession.index === 'number')
@@ -889,7 +1066,9 @@
         : currentList.findIndex(it => currentActiveSession && currentActiveSession.title === it.title);
 
       const plannedStartSec = getPlannedStartSecondsForSession(currentList, activeIdx >= 0 ? activeIdx : 0);
-      const rvaPulseDot = rvaTrackerBadge.querySelector('.rva-pulse-dot');
+      if (!cachedRvaPulseDot) {
+        cachedRvaPulseDot = rvaTrackerBadge.querySelector('.rva-pulse-dot');
+      }
 
       if (plannedStartSec !== null) {
         // Waktu sekarang jam dinding (NTP synced) dalam detik hari ini
@@ -906,33 +1085,40 @@
 
         const drift = formatRundownDriftTime(diffSec);
 
-        if (rvaOverallPct) {
+        if (rvaOverallPct && (force || drift.formatted !== lastRenderedRvaOverall)) {
           rvaOverallPct.textContent = drift.formatted;
           rvaOverallPct.className = `rva-val ${drift.status}`;
           rvaOverallPct.style.color = drift.color;
+          lastRenderedRvaOverall = drift.formatted;
         }
 
-        if (rvaDiffBadge) {
+        if (rvaDiffBadge && (force || drift.badgeText !== lastRenderedRvaBadge)) {
           rvaDiffBadge.className = `rva-diff-badge ${drift.status}`;
           if (rvaDiffText) rvaDiffText.textContent = drift.badgeText;
+          lastRenderedRvaBadge = drift.badgeText;
         }
 
-        if (rvaPulseDot) {
-          rvaPulseDot.className = `rva-pulse-dot ${drift.status}`;
+        if (cachedRvaPulseDot) {
+          cachedRvaPulseDot.className = `rva-pulse-dot ${drift.status}`;
         }
 
         const nowClockStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         const planStartFmt = `${String(Math.floor(plannedStartSec / 3600)).padStart(2, '0')}:${String(Math.floor((plannedStartSec % 3600) / 60)).padStart(2, '0')}`;
-        rvaTrackerBadge.title = `Rundown Pace: ${drift.badgeText}\n• Jam Realtime: ${nowClockStr}\n• Rencana Sesi: ${planStartFmt}\n• Sesi Berjalan: ${formatTime(actualElapsedSec)}`;
+        const newTitle = `Rundown Pace: ${drift.badgeText}\n• Jam Realtime: ${nowClockStr}\n• Rencana Sesi: ${planStartFmt}\n• Sesi Berjalan: ${actualFormatted}`;
+        if (rvaTrackerBadge.title !== newTitle) {
+          rvaTrackerBadge.title = newTitle;
+        }
       } else {
         // Fallback jika tidak ada informasi waktu sama sekali
-        if (rvaOverallPct) {
+        if (rvaOverallPct && (force || lastRenderedRvaOverall !== '00:00')) {
           rvaOverallPct.textContent = '00:00';
           rvaOverallPct.className = 'rva-val ontime';
+          lastRenderedRvaOverall = '00:00';
         }
-        if (rvaDiffBadge) {
+        if (rvaDiffBadge && (force || lastRenderedRvaBadge !== 'TEPAT WAKTU')) {
           rvaDiffBadge.className = 'rva-diff-badge ontime';
           if (rvaDiffText) rvaDiffText.textContent = 'TEPAT WAKTU';
+          lastRenderedRvaBadge = 'TEPAT WAKTU';
         }
       }
     }
@@ -971,6 +1157,17 @@
       return `+${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
     }
 
+    function formatClockTime(isoOrTimestamp) {
+      if (!isoOrTimestamp) return '';
+      try {
+        const d = new Date(isoOrTimestamp);
+        if (isNaN(d.getTime())) return '';
+        return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+      } catch (e) {
+        return '';
+      }
+    }
+
     // === 3. REALTIME TIMER RAF TICKER (0ms JITTER DENGAN OVERTIME SUPPORT) ===
     const timerDisplay = document.getElementById('timer-display');
     const chkAllowOvertime = document.getElementById('chk-allow-overtime');
@@ -980,6 +1177,11 @@
     let lastActiveSeparatorMessageId = null; // ID separator sesi yang sedang dimainkan
     let lastActiveSeparatorBaseTitle = 'Sesi Acara'; // Judul dasar tanpa info actual
     let latestChatHistoryList = []; // Cache riwayat chat terkini untuk validasi realtime
+
+    let lastRenderedTimerText = '';
+    let lastRenderedTimerClass = '';
+    let lastRvaUpdateTime = 0;
+    let prevEffectiveStatus = null;
 
     function getCleanSeparatorTitle(raw) {
       if (!raw) return '';
@@ -1023,86 +1225,317 @@
     }
 
     function updateTimerUI() {
-      const allowOvertime = chkAllowOvertime ? chkAllowOvertime.checked : true;
+      const mode = (activeTimerState && activeTimerState.mode) ? activeTimerState.mode.toUpperCase() : 'COUNTDOWN';
+      let targetDisplayStr = '00:00';
+      let targetClassStr = 'timer-display ready';
 
-      if (activeTimerState.status === 'RUNNING' && activeTimerState.targetEndTime) {
-        const adjustedNow = Date.now() + clockOffset;
-        const diffMs = activeTimerState.targetEndTime - adjustedNow;
-
-        if (diffMs >= 0) {
-          // Hitung mundur normal
-          isCurrentlyOvertime = false;
-          const remainingSec = Math.max(0, Math.ceil(diffMs / 1000));
-          timerDisplay.textContent = formatTime(remainingSec);
-          timerDisplay.className = 'timer-display running';
-
-          if (remainingSec <= 10 && remainingSec > 0) {
-            timerDisplay.classList.add('blinking-alert');
-          } else if (remainingSec === 0) {
-            timerDisplay.className = 'timer-display over';
-          }
-        } else {
-          // Melewati batas 00:00
-          const overtimePassedSec = Math.floor(Math.abs(diffMs) / 1000);
-          if (allowOvertime) {
-            isCurrentlyOvertime = true;
-            timerDisplay.textContent = formatOvertime(overtimePassedSec);
-            timerDisplay.className = 'timer-display overtime';
+      if (mode === 'COUNTUP') {
+        isCurrentlyOvertime = false;
+        const isRunning = (activeTimerState.status === 'RUNNING' || activeTimerState.isRunning);
+        if (isRunning) {
+          const adjustedNow = Date.now() + clockOffset;
+          let elapsed = 0;
+          if (activeTimerState.startTime) {
+            elapsed = Math.max(0, Math.floor((adjustedNow - activeTimerState.startTime) / 1000));
           } else {
-            isCurrentlyOvertime = false;
-            timerDisplay.textContent = '00:00';
-            timerDisplay.className = 'timer-display over';
+            elapsed = activeTimerState.elapsedSeconds || 0;
           }
+          targetDisplayStr = formatTime(elapsed);
+          targetClassStr = 'timer-display running';
+        } else if (activeTimerState.status === 'PAUSED') {
+          const elapsed = activeTimerState.elapsedSeconds !== undefined ? activeTimerState.elapsedSeconds : (activeTimerState.remainingSeconds || 0);
+          targetDisplayStr = formatTime(elapsed);
+          targetClassStr = 'timer-display paused';
+        } else if (activeTimerState.status === 'STOPPED') {
+          const elapsed = activeTimerState.elapsedSeconds !== undefined ? activeTimerState.elapsedSeconds : (activeTimerState.remainingSeconds || 0);
+          targetDisplayStr = formatTime(elapsed);
+          targetClassStr = 'timer-display paused';
+        } else {
+          targetDisplayStr = '00:00';
+          targetClassStr = 'timer-display ready';
         }
       } else {
-        // Status PAUSED, IDLE, atau TIME_OUT
-        if (activeTimerState.remainingSeconds < 0) {
-          isCurrentlyOvertime = true;
-          const absOvertimeSec = Math.abs(activeTimerState.remainingSeconds);
-          timerDisplay.textContent = formatOvertime(absOvertimeSec);
-          timerDisplay.className = activeTimerState.status === 'PAUSED' ? 'timer-display overtime paused' : 'timer-display overtime';
-        } else {
-          isCurrentlyOvertime = false;
-          timerDisplay.textContent = formatTime(activeTimerState.remainingSeconds);
-          if (activeTimerState.status === 'PAUSED') {
-            timerDisplay.className = 'timer-display paused';
-          } else if (activeTimerState.status === 'TIME_OUT') {
-            timerDisplay.className = 'timer-display over';
+        const allowOvertime = chkAllowOvertime ? chkAllowOvertime.checked : true;
+
+        if (activeTimerState.status === 'RUNNING' && activeTimerState.targetEndTime) {
+          const adjustedNow = Date.now() + clockOffset;
+          const diffMs = activeTimerState.targetEndTime - adjustedNow;
+
+          if (diffMs >= 0) {
+            // Hitung mundur normal
+            isCurrentlyOvertime = false;
+            const remainingSec = Math.max(0, Math.ceil(diffMs / 1000));
+            targetDisplayStr = formatTime(remainingSec);
+            if (remainingSec <= 10 && remainingSec > 0) {
+              targetClassStr = 'timer-display running blinking-alert';
+            } else if (remainingSec === 0) {
+              targetClassStr = 'timer-display over';
+            } else {
+              targetClassStr = 'timer-display running';
+            }
           } else {
-            timerDisplay.className = 'timer-display ready';
+            // Melewati batas 00:00
+            const overtimePassedSec = Math.floor(Math.abs(diffMs) / 1000);
+            if (allowOvertime) {
+              isCurrentlyOvertime = true;
+              targetDisplayStr = formatOvertime(overtimePassedSec);
+              targetClassStr = 'timer-display overtime';
+            } else {
+              isCurrentlyOvertime = false;
+              targetDisplayStr = '00:00';
+              targetClassStr = 'timer-display over';
+            }
+          }
+        } else {
+          // Status PAUSED, IDLE, atau TIME_OUT
+          if (activeTimerState.remainingSeconds < 0) {
+            isCurrentlyOvertime = true;
+            const absOvertimeSec = Math.abs(activeTimerState.remainingSeconds);
+            targetDisplayStr = formatOvertime(absOvertimeSec);
+            targetClassStr = activeTimerState.status === 'PAUSED' ? 'timer-display overtime paused' : 'timer-display overtime';
+          } else {
+            isCurrentlyOvertime = false;
+            targetDisplayStr = formatTime(activeTimerState.remainingSeconds);
+            if (activeTimerState.status === 'PAUSED') {
+              targetClassStr = 'timer-display paused';
+            } else if (activeTimerState.status === 'TIME_OUT') {
+              targetClassStr = 'timer-display over';
+            } else {
+              targetClassStr = 'timer-display ready';
+            }
           }
         }
       }
 
-      // Update Rundown vs Actual realtime mini badge
-      updateRundownVsActualUI();
+      // Zero-Lag DOM Write Cache (Hanya manipulasi DOM saat nilai detik atau status benar-benar berubah!)
+      if (timerDisplay) {
+        if (targetDisplayStr !== lastRenderedTimerText) {
+          timerDisplay.textContent = targetDisplayStr;
+          lastRenderedTimerText = targetDisplayStr;
+        }
+        if (targetClassStr !== lastRenderedTimerClass) {
+          timerDisplay.className = targetClassStr;
+          lastRenderedTimerClass = targetClassStr;
+        }
+      }
+
+      // Deteksi perubahan status otomatis (misal transisi otomatis dari RUNNING ke OVERTIME)
+      const currentEffective = getEffectiveTimerStatus();
+      if (currentEffective !== prevEffectiveStatus) {
+        prevEffectiveStatus = currentEffective;
+        renderTimerControlsStateMachine();
+      }
+
+      // Throttled Rundown vs Actual (Update tiap 500ms agar main thread bebas lag saat mengetik & beroperasi)
+      const nowMs = Date.now();
+      if (nowMs - lastRvaUpdateTime >= 500) {
+        lastRvaUpdateTime = nowMs;
+        updateRundownVsActualUI();
+      }
 
       requestAnimationFrame(updateTimerUI);
     }
     requestAnimationFrame(updateTimerUI);
 
-    // === 4. SOCKET.IO LISTENERS ===
+    // === 4. SESSION & CHAT PERSISTENCE HELPERS + SOCKET.IO LISTENERS ===
+    function sanitizeClientChatList(chats) {
+      if (!Array.isArray(chats)) return [];
+      const legacyWelcomeText = 'Selamat datang di ruang Timer & Chat live! Silakan ajukan pertanyaan atau koordinasi di sini.';
+      return chats.filter(c => {
+        if (!c || typeof c !== 'object') return false;
+        if (c.id === 'chat-init-1') return false;
+        const txt = (c.text || c.message || '').trim();
+        if (txt === legacyWelcomeText && (c.sender === 'Panitia Educamp' || c.email === 'panitia@educamp.local')) {
+          return false;
+        }
+        return true;
+      });
+    }
+
+    function getChatCacheKey(eventId) {
+      const id = eventId || (currentActiveEvent && currentActiveEvent.id) || 'event-educamp-2026';
+      return `tc_session_chats_${id}`;
+    }
+
+    function saveCachedChatHistory(eventId, chats) {
+      try {
+        const clean = sanitizeClientChatList(chats);
+        const key = getChatCacheKey(eventId);
+        const str = JSON.stringify(clean);
+        sessionStorage.setItem(key, str);
+        localStorage.setItem(key, str);
+      } catch (e) {}
+    }
+
+    function getCachedChatHistory(eventId) {
+      try {
+        const key = getChatCacheKey(eventId);
+        const raw = sessionStorage.getItem(key) || localStorage.getItem(key);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) return sanitizeClientChatList(parsed);
+        }
+      } catch (e) {}
+      return [];
+    }
+
+    function buildCurrentSessionStatePayload() {
+      return {
+        eventId: currentActiveEvent ? currentActiveEvent.id : 'event-educamp-2026',
+        currentDayTab,
+        currentActiveSession,
+        rundownDay1: rundownItemsDay1,
+        rundownDay2: rundownItemsDay2,
+        completedSessionsDay1: [...getCompletedSessionsForDay('DAY_1')],
+        completedSessionsDay2: [...getCompletedSessionsForDay('DAY_2')],
+        lastActiveSeparatorMessageId,
+        lastActiveSeparatorBaseTitle,
+        updatedAt: new Date().toISOString()
+      };
+    }
+
+    function emitSessionStateToFirebase() {
+      persistLocalSessionMeta();
+      const payload = buildCurrentSessionStatePayload();
+      socket.emit('TC_UPDATE_SESSION_STATE', payload);
+    }
+
+    function applyRemoteSessionState(remoteSession) {
+      if (!remoteSession || typeof remoteSession !== 'object') return;
+
+      if (remoteSession.currentDayTab === 'DAY_1' || remoteSession.currentDayTab === 'DAY_2') {
+        currentDayTab = remoteSession.currentDayTab;
+        applyDayTabUI();
+      }
+      if (remoteSession.currentActiveSession && remoteSession.currentActiveSession.title) {
+        currentActiveSession = remoteSession.currentActiveSession;
+      }
+      if (Array.isArray(remoteSession.rundownDay1) && remoteSession.rundownDay1.length > 0) {
+        rundownItemsDay1 = remoteSession.rundownDay1;
+        saveStoredRundown('DAY_1', rundownItemsDay1);
+      }
+      if (Array.isArray(remoteSession.rundownDay2) && remoteSession.rundownDay2.length > 0) {
+        rundownItemsDay2 = remoteSession.rundownDay2;
+        saveStoredRundown('DAY_2', rundownItemsDay2);
+      }
+      if (Array.isArray(remoteSession.completedSessionsDay1)) {
+        saveCompletedSessionsForDay('DAY_1', new Set(remoteSession.completedSessionsDay1), false);
+      }
+      if (Array.isArray(remoteSession.completedSessionsDay2)) {
+        saveCompletedSessionsForDay('DAY_2', new Set(remoteSession.completedSessionsDay2), false);
+      }
+      if (remoteSession.lastActiveSeparatorMessageId) {
+        lastActiveSeparatorMessageId = remoteSession.lastActiveSeparatorMessageId;
+      }
+      if (remoteSession.lastActiveSeparatorBaseTitle) {
+        lastActiveSeparatorBaseTitle = remoteSession.lastActiveSeparatorBaseTitle;
+      }
+
+      persistLocalSessionMeta();
+      renderRundownItems();
+      updateRundownVsActualUI();
+    }
+
+    // Hydrate chat & event awal secara instan dari sessionStorage/localStorage sebelum socket merespons
+    try {
+      const savedEventRaw = sessionStorage.getItem('tc_cached_active_event') || localStorage.getItem('tc_cached_active_event');
+      if (savedEventRaw) {
+        const parsedEv = JSON.parse(savedEventRaw);
+        if (parsedEv && parsedEv.id) {
+          currentActiveEvent = parsedEv;
+          if (typeof updateEventLabels === 'function') updateEventLabels(currentActiveEvent);
+        }
+      }
+      const initialEvId = currentActiveEvent ? currentActiveEvent.id : 'event-educamp-2026';
+      const initialCachedChats = getCachedChatHistory(initialEvId);
+      if (initialCachedChats.length > 0) {
+        latestChatHistoryList = initialCachedChats.slice();
+        setTimeout(() => {
+          if (latestChatHistoryList.length > 0 && typeof renderChatMessages === 'function') {
+            renderChatMessages(latestChatHistoryList, initialEvId);
+          }
+        }, 0);
+      }
+    } catch (e) {}
+
+    socket.on('TC_SESSION_STATE_UPDATED', (sessionState) => {
+      applyRemoteSessionState(sessionState);
+    });
+
     socket.on('TC_STATE_UPDATE', (state) => {
       if (!state) return;
-      activeTimerState = state.timer;
+      if (state.timer) {
+        activeTimerState = state.timer;
+      }
       if (chkAllowOvertime && activeTimerState && activeTimerState.allowOvertime !== undefined) {
         chkAllowOvertime.checked = !!activeTimerState.allowOvertime;
       }
       if (state.activeEvent) {
         currentActiveEvent = state.activeEvent;
         updateEventLabels(currentActiveEvent);
+        try {
+          const evStr = JSON.stringify({
+            id: state.activeEvent.id,
+            name: state.activeEvent.name,
+            date: state.activeEvent.date,
+            chatsClearedAt: state.activeEvent.chatsClearedAt || null
+          });
+          sessionStorage.setItem('tc_cached_active_event', evStr);
+          localStorage.setItem('tc_cached_active_event', evStr);
+        } catch (e) {}
       }
       if (state.overlayConfig && typeof updateOverlayChatToggleUI === 'function') {
         updateOverlayChatToggleUI(state.overlayConfig.showChat);
       }
+      if (state.sessionState) {
+        applyRemoteSessionState(state.sessionState);
+      }
       if (state.chatHistory) {
-        latestChatHistoryList = Array.isArray(state.chatHistory) ? state.chatHistory.slice() : [];
-        const evId = state.activeEvent ? state.activeEvent.id : (currentActiveEvent ? currentActiveEvent.id : null);
-        if (shouldRerenderChat(state.chatHistory, evId)) {
-          renderChatMessages(state.chatHistory, evId);
+        const evId = state.activeEvent ? state.activeEvent.id : (currentActiveEvent ? currentActiveEvent.id : 'event-educamp-2026');
+        const serverChats = sanitizeClientChatList(state.chatHistory);
+        const cachedChats = getCachedChatHistory(evId);
+        const clearedAtMs = (state.activeEvent && state.activeEvent.chatsClearedAt)
+          ? new Date(state.activeEvent.chatsClearedAt).getTime()
+          : 0;
+
+        // Gabungkan chat dari server/Firebase dan sessionStorage/localStorage agar chat tidak pernah hilang saat reload
+        const map = new Map();
+        serverChats.forEach(m => {
+          if (m && m.id) map.set(m.id, m);
+        });
+        let clientHasMissingMessages = false;
+        cachedChats.forEach(m => {
+          if (!m || !m.id) return;
+          const mTime = m.timestamp ? new Date(m.timestamp).getTime() : 0;
+          if (clearedAtMs && mTime > 0 && mTime < clearedAtMs) return;
+          if (!map.has(m.id)) {
+            map.set(m.id, m);
+            clientHasMissingMessages = true;
+          }
+        });
+
+        const finalChats = Array.from(map.values()).sort((a, b) => {
+          return new Date(a.timestamp || 0).getTime() - new Date(b.timestamp || 0).getTime();
+        });
+
+        latestChatHistoryList = finalChats;
+        saveCachedChatHistory(evId, finalChats);
+
+        if (shouldRerenderChat(finalChats, evId)) {
+          renderChatMessages(finalChats, evId);
         }
+
+        // Jika client memiliki chat di session/localStorage yang belum ada di server, sinkronkan balik ke server & Firebase
+        if (clientHasMissingMessages) {
+          socket.emit('TC_SYNC_CLIENT_SESSION', {
+            eventId: evId,
+            chatHistory: finalChats,
+            sessionState: buildCurrentSessionStatePayload()
+          });
+        }
+
         // Inisialisasi lastActiveSeparatorMessageId dari separator terakhir yang aktif
-        const lastSep = state.chatHistory.slice().reverse().find(m => m.isSeparator && !m.isDeleted);
+        const lastSep = finalChats.slice().reverse().find(m => m.isSeparator && !m.isDeleted);
         if (lastSep) {
           lastActiveSeparatorMessageId = lastSep.id;
           const rawTitle = lastSep.sessionTitle || lastSep.message || lastSep.text || 'Sesi Acara';
@@ -1121,19 +1554,24 @@
 
     socket.on('TC_TIMER_STARTED', (data) => {
       activeTimerState.status = 'RUNNING';
+      activeTimerState.isRunning = true;
       activeTimerState.targetEndTime = data.targetEndTime;
+      activeTimerState.startTime = data.startTime || null;
       activeTimerState.durationSeconds = data.durationSeconds;
-      updateRundownVsActualUI();
+      activeTimerState.remainingSeconds = data.remainingSeconds !== undefined ? data.remainingSeconds : data.durationSeconds;
+      if (data.mode) activeTimerState.mode = data.mode;
+      if (data.startedBy) activeTimerState.startedBy = data.startedBy;
+      updateRundownVsActualUI(true);
       renderTimerControlsStateMachine();
     });
 
     // Helper untuk sinkronisasi waktu aktual sesi ke separator obrolan saat timer di-stop/pause
     function syncActualTimeToSeparator() {
       if (!lastActiveSeparatorMessageId) {
-        const sepEl = Array.from(document.querySelectorAll('.chat-session-separator-row')).pop();
+        const sepEl = Array.from(document.querySelectorAll('.chat-session-separator-row, .chat-session-separator')).pop();
         if (sepEl && sepEl.dataset.msgId) {
           lastActiveSeparatorMessageId = sepEl.dataset.msgId;
-          const textEl = sepEl.querySelector('.separator-title-text');
+          const textEl = sepEl.querySelector('.separator-title-text, .sep-text');
           if (textEl) {
             const raw = textEl.textContent || '';
             lastActiveSeparatorBaseTitle = raw.split(' - Aktual (')[0].split(' • Actual:')[0].trim();
@@ -1176,20 +1614,25 @@
 
     socket.on('TC_TIMER_PAUSED', (data) => {
       activeTimerState.status = 'PAUSED';
+      activeTimerState.isRunning = false;
       activeTimerState.remainingSeconds = data.remainingSeconds;
-      updateRundownVsActualUI();
+      if (data.mode) activeTimerState.mode = data.mode;
+      updateRundownVsActualUI(true);
       renderTimerControlsStateMachine();
       syncActualTimeToSeparator();
     });
 
     socket.on('TC_TIMER_STOPPED', (data) => {
       activeTimerState.status = 'STOPPED';
+      activeTimerState.isRunning = false;
       activeTimerState.remainingSeconds = data.remainingSeconds;
       activeTimerState.durationSeconds = data.durationSeconds;
+      if (data.mode) activeTimerState.mode = data.mode;
+      if (data.stoppedBy) activeTimerState.stoppedBy = data.stoppedBy;
       if (currentActiveSession && currentActiveSession.title) {
         markSessionAsCompleted(currentActiveSession.title, true);
       }
-      updateRundownVsActualUI();
+      updateRundownVsActualUI(true);
       renderTimerControlsStateMachine();
       syncActualTimeToSeparator();
       renderRundownItems();
@@ -1197,26 +1640,74 @@
 
     socket.on('TC_TIMER_RESET', (data) => {
       activeTimerState.status = 'IDLE';
-      activeTimerState.remainingSeconds = data.remainingSeconds;
-      activeTimerState.durationSeconds = data.durationSeconds;
-      updateRundownVsActualUI();
+      activeTimerState.isRunning = false;
+      activeTimerState.targetEndTime = null;
+      activeTimerState.startTime = null;
+      activeTimerState.pausedAt = null;
+      activeTimerState.elapsedSeconds = 0;
+      if (data && data.mode) activeTimerState.mode = data.mode;
+      const isCountup = (activeTimerState.mode || '').toUpperCase() === 'COUNTUP';
+      if (data && data.durationSeconds) activeTimerState.durationSeconds = data.durationSeconds;
+      activeTimerState.remainingSeconds = isCountup ? 0 : (activeTimerState.durationSeconds || 300);
+      if (timerDisplay) {
+        timerDisplay.textContent = isCountup ? '00:00' : formatTime(activeTimerState.remainingSeconds);
+        timerDisplay.className = 'timer-display ready';
+      }
+      updateRundownVsActualUI(true);
       renderTimerControlsStateMachine();
       syncActualTimeToSeparator();
     });
 
+    socket.on('TC_TIMER_MODE_CHANGED', (data) => {
+      if (!data) return;
+      const newMode = (data.mode || 'COUNTDOWN').toUpperCase();
+      activeTimerState.mode = newMode;
+      activeTimerState.status = 'IDLE';
+      activeTimerState.isRunning = false;
+      activeTimerState.targetEndTime = null;
+      activeTimerState.startTime = null;
+      activeTimerState.pausedAt = null;
+      activeTimerState.elapsedSeconds = 0;
+      if (data.durationSeconds) activeTimerState.durationSeconds = data.durationSeconds;
+      if (newMode === 'COUNTUP') {
+        activeTimerState.remainingSeconds = 0;
+      } else {
+        activeTimerState.remainingSeconds = data.remainingSeconds !== undefined ? data.remainingSeconds : (activeTimerState.durationSeconds || 300);
+      }
+      if (timerDisplay) {
+        timerDisplay.textContent = newMode === 'COUNTUP' ? '00:00' : formatTime(activeTimerState.remainingSeconds);
+        timerDisplay.className = 'timer-display ready';
+      }
+      updateRundownVsActualUI(true);
+      renderTimerControlsStateMachine();
+    });
+
     socket.on('TC_NEW_MESSAGE', (msg) => {
-      if (msg) latestChatHistoryList.push(msg);
+      if (!msg || msg.id === 'chat-init-1') return;
+      const existsIdx = latestChatHistoryList.findIndex(m => m.id === msg.id);
+      if (existsIdx === -1) {
+        latestChatHistoryList.push(msg);
+      } else {
+        latestChatHistoryList[existsIdx] = msg;
+      }
+      saveCachedChatHistory(msg.eventId || (currentActiveEvent ? currentActiveEvent.id : null), latestChatHistoryList);
       appendChatMessage(msg, true);
       if (msg && msg.isSeparator) {
         lastActiveSeparatorMessageId = msg.id;
         // Bersihkan title dari format sebelumnya jika ada
         const rawTitle = msg.sessionTitle || msg.message || 'Sesi Acara';
         lastActiveSeparatorBaseTitle = rawTitle.split(' - Aktual (')[0].split(' • Actual:')[0].trim();
+        emitSessionStateToFirebase();
       }
     });
 
-    socket.on('TC_MESSAGE_DELETED', ({ messageId, isPermanent, updatedMessage }) => {
-      latestChatHistoryList = latestChatHistoryList.filter(m => m.id !== messageId);
+    socket.on('TC_MESSAGE_DELETED', ({ messageId, eventId, isPermanent, updatedMessage }) => {
+      if (isPermanent) {
+        latestChatHistoryList = latestChatHistoryList.filter(m => m.id !== messageId);
+      } else if (updatedMessage) {
+        latestChatHistoryList = latestChatHistoryList.map(m => m.id === messageId ? updatedMessage : m);
+      }
+      saveCachedChatHistory(eventId || (currentActiveEvent ? currentActiveEvent.id : null), latestChatHistoryList);
       const el = document.querySelector(`[data-msg-id="${messageId}"]`);
       if (el) {
         if (isPermanent) {
@@ -1255,6 +1746,10 @@
 
     socket.on('TC_REACTION_UPDATED', (data) => {
       if (!data || !data.messageId) return;
+      if (data.updatedMessage) {
+        latestChatHistoryList = latestChatHistoryList.map(m => m.id === data.messageId ? data.updatedMessage : m);
+        saveCachedChatHistory(data.eventId || (currentActiveEvent ? currentActiveEvent.id : null), latestChatHistoryList);
+      }
       const el = document.querySelector(`[data-msg-id="${data.messageId}"]`);
       if (!el) return;
 
@@ -1307,6 +1802,8 @@
 
     socket.on('TC_MESSAGE_UPDATED', (updatedMsg) => {
       if (!updatedMsg) return;
+      latestChatHistoryList = latestChatHistoryList.map(m => m.id === updatedMsg.id ? updatedMsg : m);
+      saveCachedChatHistory(updatedMsg.eventId || (currentActiveEvent ? currentActiveEvent.id : null), latestChatHistoryList);
       const el = document.querySelector(`[data-msg-id="${updatedMsg.id}"]`);
       if (el) {
         if (updatedMsg.isSeparator) {
@@ -1323,7 +1820,10 @@
       }
     });
 
-    socket.on('TC_CHAT_CLEARED', () => {
+    socket.on('TC_CHAT_CLEARED', (data) => {
+      const evId = (data && data.eventId) || (currentActiveEvent ? currentActiveEvent.id : null);
+      latestChatHistoryList = [];
+      saveCachedChatHistory(evId, []);
       const container = document.getElementById('chat-messages');
       if (container) container.innerHTML = '';
     });
@@ -1344,12 +1844,55 @@
     const btnTimerPrimary = document.getElementById('btn-timer-primary');
     const btnTimerSecondary = document.getElementById('btn-timer-secondary');
 
+    function getEffectiveTimerStatus() {
+      if (!activeTimerState) return 'IDLE';
+      const mode = (activeTimerState.mode || 'COUNTDOWN').toUpperCase();
+      const isRunning = (activeTimerState.status === 'RUNNING' || !!activeTimerState.isRunning);
+
+      if (mode === 'COUNTUP') {
+        if (isRunning) return 'RUNNING';
+        if (activeTimerState.status === 'PAUSED') return 'PAUSED';
+        if (activeTimerState.status === 'STOPPED') return 'STOPPED';
+        return 'IDLE';
+      }
+
+      // COUNTDOWN
+      if (isRunning) {
+        if (activeTimerState.targetEndTime) {
+          const adjustedNow = Date.now() + clockOffset;
+          const diffMs = activeTimerState.targetEndTime - adjustedNow;
+          if (diffMs < 0) {
+            return 'OVERTIME';
+          }
+          return 'RUNNING';
+        }
+        return 'RUNNING';
+      }
+
+      if (activeTimerState.status === 'OVERTIME') return 'OVERTIME';
+      if (activeTimerState.status === 'PAUSED') return 'PAUSED';
+      if (activeTimerState.status === 'STOPPED') return 'STOPPED';
+      if (activeTimerState.status === 'TIME_OUT') return 'TIME_OUT';
+      return 'IDLE';
+    }
+
     function renderTimerControlsStateMachine() {
       if (!btnTimerPrimary || !btnTimerSecondary) return;
-      const status = activeTimerState ? activeTimerState.status : 'IDLE';
+      const effectiveStatus = getEffectiveTimerStatus();
+      const mode = (activeTimerState && activeTimerState.mode) ? activeTimerState.mode.toUpperCase() : 'COUNTDOWN';
 
-      if (status === 'RUNNING') {
-        // State 2: Running -> HANYA BUTTON JEDA SAJA YANG MUNCUL
+      // Sinkronkan Tab Mode Countdown vs Count-up
+      const btnModeCountdown = document.getElementById('btn-mode-countdown');
+      const btnModeCountup = document.getElementById('btn-mode-countup');
+      if (btnModeCountdown && btnModeCountup) {
+        btnModeCountdown.classList.toggle('active', mode !== 'COUNTUP');
+        btnModeCountup.classList.toggle('active', mode === 'COUNTUP');
+      }
+
+      updateTimerOperatorNotice();
+
+      if (effectiveStatus === 'RUNNING' || effectiveStatus === 'OVERTIME') {
+        // State 2: Running / Overtime -> Primary: Jeda (Pause), Secondary: Stop (SELALU MUNCUL, HINDARI LOOPHOLE!)
         btnTimerPrimary.className = 'btn-action btn-pause';
         btnTimerPrimary.title = 'Jeda Timer (Spasi)';
         btnTimerPrimary.innerHTML = `
@@ -1358,11 +1901,16 @@
         `;
         btnTimerPrimary.style.display = 'inline-flex';
 
-        // Sembunyikan tombol Stop saat running agar tidak rancu
-        btnTimerSecondary.style.display = 'none';
+        btnTimerSecondary.className = 'btn-action btn-reset';
+        btnTimerSecondary.title = 'Stop / Selesaikan Sesi (Esc)';
+        btnTimerSecondary.innerHTML = `
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h12v12H6z"/></svg>
+          <span>Stop</span>
+        `;
+        btnTimerSecondary.style.display = 'inline-flex';
 
-      } else if (status === 'PAUSED') {
-        // State 3: Paused -> Muncul Button Lanjut (Resume) dan Button Stop
+      } else if (effectiveStatus === 'PAUSED') {
+        // State 3: Paused -> Primary: Lanjut (Resume), Secondary: Stop
         btnTimerPrimary.className = 'btn-action btn-start';
         btnTimerPrimary.title = 'Lanjutkan Timer (Spasi)';
         btnTimerPrimary.innerHTML = `
@@ -1379,8 +1927,8 @@
         `;
         btnTimerSecondary.style.display = 'inline-flex';
 
-      } else if (status === 'STOPPED') {
-        // State 4: Selesai / Stopped -> Primary: Mulai Sesi Baru, Secondary: Hidden
+      } else if (effectiveStatus === 'STOPPED') {
+        // State 4: Selesai / Stopped -> Primary: Mulai Sesi Baru, Secondary: Reset
         btnTimerPrimary.className = 'btn-action btn-start';
         btnTimerPrimary.title = 'Mulai Timer (Spasi)';
         btnTimerPrimary.innerHTML = `
@@ -1389,10 +1937,16 @@
         `;
         btnTimerPrimary.style.display = 'inline-flex';
 
-        btnTimerSecondary.style.display = 'none';
+        btnTimerSecondary.className = 'btn-action btn-reset';
+        btnTimerSecondary.title = 'Reset Timer ke Durasi Standar';
+        btnTimerSecondary.innerHTML = `
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+          <span>Reset</span>
+        `;
+        btnTimerSecondary.style.display = 'inline-flex';
 
-      } else if (status === 'TIME_OUT') {
-        // State 5: Completed/Timeout -> Primary: Mulai Lagi, Secondary: Stop
+      } else if (effectiveStatus === 'TIME_OUT') {
+        // State 5: Timeout -> Primary: Mulai Lagi, Secondary: Stop
         btnTimerPrimary.className = 'btn-action btn-start';
         btnTimerPrimary.title = 'Mulai Sesi Ulang (Spasi)';
         btnTimerPrimary.innerHTML = `
@@ -1410,7 +1964,7 @@
         btnTimerSecondary.style.display = 'inline-flex';
 
       } else {
-        // State 1: Idle -> Primary: Start (Green), Secondary: Hidden/Disabled
+        // State 1: Idle -> Primary: Mulai, Secondary: Hidden
         btnTimerPrimary.className = 'btn-action btn-start';
         btnTimerPrimary.title = 'Mulai Timer (Spasi)';
         btnTimerPrimary.innerHTML = `
@@ -1426,94 +1980,395 @@
     if (btnTimerPrimary) {
       btnTimerPrimary.addEventListener('click', () => {
         if (!checkTimerControlPermission()) return;
-        const status = activeTimerState ? activeTimerState.status : 'IDLE';
+        const effectiveStatus = getEffectiveTimerStatus();
+        const curMode = (activeTimerState && activeTimerState.mode) ? activeTimerState.mode.toUpperCase() : 'COUNTDOWN';
 
-        if (status === 'RUNNING') {
-          // Sedang berjalan -> Klik akan Jeda (Pause)
+        // Fix Loophole: Jika timer sedang aktif running / overtime dalam bentuk apapun, tombol Primary PASTI MENJEDA (PAUSE)
+        if (effectiveStatus === 'RUNNING' || effectiveStatus === 'OVERTIME') {
+          activeTimerState.status = 'PAUSED';
+          activeTimerState.isRunning = false;
+          renderTimerControlsStateMachine();
           socket.emit('TC_PAUSE_TIMER', {
-            userEmail: currentUser ? currentUser.email : ''
+            userEmail: currentUser ? currentUser.email : '',
+            userName: currentUser ? currentUser.name : '',
+            eventId: currentActiveEvent ? currentActiveEvent.id : null
           });
-        } else if (status === 'PAUSED') {
-          // Sedang Jeda -> Klik akan Lanjut (Resume)
+          return;
+        }
+
+        if (effectiveStatus === 'PAUSED') {
+          // Sedang jeda -> lanjutkan secara optimistik
+          activeTimerState.status = 'RUNNING';
+          activeTimerState.isRunning = true;
+          if (curMode === 'COUNTDOWN') {
+            activeTimerState.targetEndTime = Date.now() + (activeTimerState.remainingSeconds * 1000);
+          } else {
+            activeTimerState.startTime = Date.now() - ((activeTimerState.elapsedSeconds || 0) * 1000);
+          }
+          renderTimerControlsStateMachine();
+
           socket.emit('TC_START_TIMER', {
             userEmail: currentUser ? currentUser.email : '',
-            allowOvertime: chkAllowOvertime ? chkAllowOvertime.checked : true
+            userName: currentUser ? currentUser.name : '',
+            mode: curMode,
+            allowOvertime: chkAllowOvertime ? chkAllowOvertime.checked : true,
+            eventId: currentActiveEvent ? currentActiveEvent.id : null
           });
-        } else {
-          // Sedang Idle, Stopped, atau Timeout -> Klik Mulai Sesi Baru
-          // Validasi: timer boleh jalan jika ada separator kecuali dipilih dari durasi custom (30s, 1m, dll)
-          if (!isCustomDurationSelected) {
-            if (!pendingSessionSeparator) {
-              if (currentActiveSession && currentActiveSession.title && currentActiveSession.title !== 'Opening / Standby') {
-                const durMin = Math.round((currentActiveSession.planSeconds || activeTimerState.durationSeconds || 300) / 60);
-                pendingSessionSeparator = {
-                  eventId: currentActiveEvent ? currentActiveEvent.id : null,
-                  sessionTitle: `${currentActiveSession.title} (${durMin}m)`,
-                  sessionDuration: currentActiveSession.planSeconds || activeTimerState.durationSeconds || 300,
-                  userEmail: currentUser ? currentUser.email : ''
-                };
-              } else {
-                showAlertDialog({
-                  title: 'Pilih Sesi Terlebih Dahulu',
-                  message: 'Silakan klik salah satu sesi di Rundown Acara terlebih dahulu agar separator otomatis tercatat di chat live, atau pilih tombol preset durasi cepat (30s, 1m, 5m, dll).'
-                });
-                return;
-              }
-            }
+          return;
+        }
 
-            // Validasi keras: Jangan izinkan separator ganda muncul! Harus hapus separator lama terlebih dahulu
-            if (pendingSessionSeparator && isSeparatorTitleAlreadyExists(pendingSessionSeparator.sessionTitle)) {
+        // Sedang Idle, Stopped, atau Timeout -> Mulai Sesi Baru
+        if (!isCustomDurationSelected) {
+          if (!pendingSessionSeparator) {
+            if (currentActiveSession && currentActiveSession.title && currentActiveSession.title !== 'Opening / Standby') {
+              const durMin = Math.round((currentActiveSession.planSeconds || activeTimerState.durationSeconds || 300) / 60);
+              pendingSessionSeparator = {
+                eventId: currentActiveEvent ? currentActiveEvent.id : null,
+                sessionTitle: `${currentActiveSession.title} (${durMin}m)`,
+                sessionDuration: currentActiveSession.planSeconds || activeTimerState.durationSeconds || 300,
+                userEmail: currentUser ? currentUser.email : '',
+                userName: currentUser ? currentUser.name : ''
+              };
+            } else {
               showAlertDialog({
-                title: 'Separator Sudah Ada di Chat',
-                message: `Separator untuk sesi "${pendingSessionSeparator.sessionTitle}" sudah ada di riwayat obrolan! Tidak diperbolehkan ada separator ganda. Silakan hapus terlebih dahulu separator lama dari chat (klik tombol tong sampah pada separator tersebut) sebelum dapat menambahkan separator yang sama kembali.`
+                title: 'Pilih Sesi Terlebih Dahulu',
+                message: 'Silakan klik salah satu sesi di Rundown Acara terlebih dahulu agar separator otomatis tercatat di chat live, atau pilih tombol preset durasi cepat (30s, 1m, 5m, dll).'
               });
               return;
             }
-
-            if (pendingSessionSeparator) {
-              socket.emit('TC_ADD_SEPARATOR', pendingSessionSeparator);
-              lastActiveSeparatorBaseTitle = pendingSessionSeparator.sessionTitle;
-              pendingSessionSeparator = null;
-            }
           }
 
-          isCustomDurationSelected = false; // Reset flag custom setelah start
-
-          if (currentActiveSession && currentActiveSession.title && currentActiveSession.title !== 'Opening / Standby') {
-            const currentList = getCurrentRundownList();
-            const activeIdx = currentList.findIndex(it => it.title === currentActiveSession.title);
-            if (activeIdx > 0) {
-              const completedSet = getCompletedSessions();
-              for (let i = 0; i < activeIdx; i++) {
-                if (currentList[i] && currentList[i].title) {
-                  completedSet.add(currentList[i].title);
-                }
-              }
-              saveCompletedSessions(completedSet);
-              renderRundownItems();
-            }
+          // Validasi keras: Jangan izinkan separator ganda muncul
+          if (pendingSessionSeparator && isSeparatorTitleAlreadyExists(pendingSessionSeparator.sessionTitle)) {
+            showAlertDialog({
+              title: 'Separator Sudah Ada di Chat',
+              message: `Separator untuk sesi "${pendingSessionSeparator.sessionTitle}" sudah ada di riwayat obrolan! Tidak diperbolehkan ada separator ganda. Silakan hapus terlebih dahulu separator lama dari chat sebelum dapat menambahkan separator yang sama kembali.`
+            });
+            return;
           }
 
-          socket.emit('TC_START_TIMER', {
-            userEmail: currentUser ? currentUser.email : '',
-            allowOvertime: chkAllowOvertime ? chkAllowOvertime.checked : true
-          });
+          if (pendingSessionSeparator) {
+            socket.emit('TC_ADD_SEPARATOR', pendingSessionSeparator);
+            lastActiveSeparatorBaseTitle = pendingSessionSeparator.sessionTitle;
+            pendingSessionSeparator = null;
+          }
         }
+
+        isCustomDurationSelected = false;
+
+        if (currentActiveSession && currentActiveSession.title && currentActiveSession.title !== 'Opening / Standby') {
+          const currentList = getCurrentRundownList();
+          const activeIdx = currentList.findIndex(it => it.title === currentActiveSession.title);
+          if (activeIdx > 0) {
+            const completedSet = getCompletedSessions();
+            for (let i = 0; i < activeIdx; i++) {
+              if (currentList[i] && currentList[i].title) {
+                completedSet.add(currentList[i].title);
+              }
+            }
+            saveCompletedSessions(completedSet);
+            renderRundownItems();
+          }
+        }
+
+        // Optimistic UI: Segera ubah button jadi Jeda dan Stop tanpa menunggu network delay!
+        activeTimerState.status = 'RUNNING';
+        activeTimerState.isRunning = true;
+        if (curMode === 'COUNTDOWN') {
+          const startSec = activeTimerState.remainingSeconds > 0 ? activeTimerState.remainingSeconds : (activeTimerState.durationSeconds || 300);
+          activeTimerState.remainingSeconds = startSec;
+          activeTimerState.targetEndTime = Date.now() + (startSec * 1000);
+        } else {
+          activeTimerState.startTime = Date.now();
+        }
+        renderTimerControlsStateMachine();
+
+        socket.emit('TC_START_TIMER', {
+          userEmail: currentUser ? currentUser.email : '',
+          userName: currentUser ? currentUser.name : '',
+          mode: curMode,
+          sessionTitle: (currentActiveSession && currentActiveSession.title) ? currentActiveSession.title : null,
+          allowOvertime: chkAllowOvertime ? chkAllowOvertime.checked : true,
+          eventId: currentActiveEvent ? currentActiveEvent.id : null
+        });
       });
     }
 
     if (btnTimerSecondary) {
       btnTimerSecondary.addEventListener('click', () => {
         if (!checkTimerControlPermission()) return;
+        const effectiveStatus = getEffectiveTimerStatus();
+
+        if (effectiveStatus === 'IDLE' || effectiveStatus === 'STOPPED') {
+          // Klik Reset: reset durasi timer ke awal secara optimistik
+          activeTimerState.status = 'IDLE';
+          activeTimerState.isRunning = false;
+          activeTimerState.targetEndTime = null;
+          activeTimerState.startTime = null;
+          activeTimerState.pausedAt = null;
+          activeTimerState.elapsedSeconds = 0;
+          if (activeTimerState.mode === 'COUNTUP') {
+            activeTimerState.remainingSeconds = 0;
+          } else {
+            activeTimerState.remainingSeconds = activeTimerState.durationSeconds || 300;
+          }
+          renderTimerControlsStateMachine();
+          updateRundownVsActualUI(true);
+
+          socket.emit('TC_RESET_TIMER', {
+            userEmail: currentUser ? currentUser.email : '',
+            userName: currentUser ? currentUser.name : '',
+            eventId: currentActiveEvent ? currentActiveEvent.id : null
+          });
+          return;
+        }
+
         // Klik Stop: Tandai sesi ini dan sesi sebelumnya sebagai selesai/terlewat
+        activeTimerState.status = 'STOPPED';
+        activeTimerState.isRunning = false;
+        renderTimerControlsStateMachine();
+
         if (currentActiveSession && currentActiveSession.title) {
           markSessionAsCompleted(currentActiveSession.title, true);
         }
-        // Sinkronkan waktu aktual final ke separator dan freeze timer di menit/detik terakhir
+        // Sinkronkan waktu aktual final ke separator dan freeze timer
         syncActualTimeToSeparator();
         socket.emit('TC_STOP_TIMER', {
+          userEmail: currentUser ? currentUser.email : '',
+          userName: currentUser ? currentUser.name : '',
+          eventId: currentActiveEvent ? currentActiveEvent.id : null
+        });
+      });
+    }
+
+    // Wiring Tombol Reset Sesi Terpilih (Current Selection)
+    const btnResetSelection = document.getElementById('btn-reset-selection');
+    if (btnResetSelection) {
+      btnResetSelection.addEventListener('click', async () => {
+        if (!checkTimerControlPermission()) return;
+        
+        let targetSec = 300;
+        let sessionTitle = 'Sesi Terpilih';
+        if (currentActiveSession && currentActiveSession.planSeconds) {
+          targetSec = currentActiveSession.planSeconds;
+          sessionTitle = currentActiveSession.title || 'Sesi Terpilih';
+        } else {
+          const list = getCurrentRundownList();
+          if (list && list.length > 0) {
+            targetSec = list[0].sec || (list[0].durMin * 60) || 300;
+            sessionTitle = list[0].title;
+          }
+        }
+
+        const isRunning = (activeTimerState && (activeTimerState.status === 'RUNNING' || activeTimerState.isRunning));
+        if (isRunning) {
+          const confirmed = await showConfirmDialog({
+            title: 'Reset Timer Sesi Berjalan',
+            message: `Timer sedang berjalan untuk "${sessionTitle}". Apakah Anda yakin ingin mereset waktu kembali ke awal durasi rencana (${Math.round(targetSec / 60)} menit)?`,
+            confirmText: 'Ya, Reset'
+          });
+          if (!confirmed) return;
+        }
+
+        // Optimistic UI reset
+        const curMode = (activeTimerState && activeTimerState.mode) ? activeTimerState.mode.toUpperCase() : 'COUNTDOWN';
+        activeTimerState.status = 'IDLE';
+        activeTimerState.isRunning = false;
+        activeTimerState.targetEndTime = null;
+        activeTimerState.startTime = null;
+        activeTimerState.pausedAt = null;
+        activeTimerState.durationSeconds = targetSec;
+        activeTimerState.elapsedSeconds = 0;
+        activeTimerState.remainingSeconds = (curMode === 'COUNTUP') ? 0 : targetSec;
+
+        if (timerDisplay) {
+          timerDisplay.textContent = (curMode === 'COUNTUP') ? '00:00' : formatTime(targetSec);
+          timerDisplay.className = 'timer-display ready';
+        }
+        renderTimerControlsStateMachine();
+        updateRundownVsActualUI(true);
+
+        socket.emit('TC_RESET_TIMER', {
+          durationSeconds: targetSec,
+          sessionTitle: sessionTitle,
+          mode: curMode,
+          userName: currentUser ? currentUser.name : 'Operator',
+          userEmail: currentUser ? currentUser.email : '',
+          eventId: currentActiveEvent ? currentActiveEvent.id : null
+        });
+
+        // Set juga durasi di server
+        socket.emit('TC_SET_DURATION', {
+          durationSeconds: targetSec,
           userEmail: currentUser ? currentUser.email : ''
         });
+      });
+    }
+
+    // Wiring Timer Mode Switcher (Countdown vs Count-up) - Selalu Reset Timer Saat Ganti Mode!
+    const btnModeCountdown = document.getElementById('btn-mode-countdown');
+    const btnModeCountup = document.getElementById('btn-mode-countup');
+    if (btnModeCountdown) {
+      btnModeCountdown.addEventListener('click', () => {
+        if (!checkTimerControlPermission()) return;
+        // Optimistic reset: Ganti mode ke Countdown dan reset durasi ke rencana sesi
+        activeTimerState.mode = 'COUNTDOWN';
+        activeTimerState.status = 'IDLE';
+        activeTimerState.isRunning = false;
+        activeTimerState.targetEndTime = null;
+        activeTimerState.startTime = null;
+        activeTimerState.pausedAt = null;
+        activeTimerState.elapsedSeconds = 0;
+        const dur = (currentActiveSession && currentActiveSession.planSeconds) || activeTimerState.durationSeconds || 300;
+        activeTimerState.durationSeconds = dur;
+        activeTimerState.remainingSeconds = dur;
+        if (timerDisplay) {
+          timerDisplay.textContent = formatTime(dur);
+          timerDisplay.className = 'timer-display ready';
+        }
+        renderTimerControlsStateMachine();
+        updateRundownVsActualUI(true);
+
+        socket.emit('TC_SET_TIMER_MODE', {
+          mode: 'COUNTDOWN',
+          userEmail: currentUser ? currentUser.email : '',
+          userName: currentUser ? currentUser.name : '',
+          eventId: currentActiveEvent ? currentActiveEvent.id : null
+        });
+      });
+    }
+    if (btnModeCountup) {
+      btnModeCountup.addEventListener('click', () => {
+        if (!checkTimerControlPermission()) return;
+        // Optimistic reset: Ganti mode ke Count-up dan reset waktu ke 00:00
+        activeTimerState.mode = 'COUNTUP';
+        activeTimerState.status = 'IDLE';
+        activeTimerState.isRunning = false;
+        activeTimerState.targetEndTime = null;
+        activeTimerState.startTime = null;
+        activeTimerState.pausedAt = null;
+        activeTimerState.elapsedSeconds = 0;
+        activeTimerState.remainingSeconds = 0;
+        if (timerDisplay) {
+          timerDisplay.textContent = '00:00';
+          timerDisplay.className = 'timer-display ready';
+        }
+        renderTimerControlsStateMachine();
+        updateRundownVsActualUI(true);
+
+        socket.emit('TC_SET_TIMER_MODE', {
+          mode: 'COUNTUP',
+          userEmail: currentUser ? currentUser.email : '',
+          userName: currentUser ? currentUser.name : '',
+          eventId: currentActiveEvent ? currentActiveEvent.id : null
+        });
+      });
+    }
+
+    // Wiring Operator Badge & Audit Logs Modal
+    function updateTimerOperatorNotice(timerData) {
+      const badgeText = document.getElementById('timer-operator-text');
+      if (!badgeText) return;
+      try {
+        const t = timerData || activeTimerState;
+        if (!t) {
+          badgeText.innerHTML = '<span>Operator: <strong>Belum ada operator</strong></span>';
+          return;
+        }
+
+        const modeStr = (t.mode === 'COUNTUP') ? 'Count-up' : 'Countdown';
+        if (t.status === 'RUNNING' || t.isRunning) {
+          const who = t.startedBy?.name || t.lastAction?.userName || 'Operator';
+          const time = t.startedBy?.time ? formatClockTime(t.startedBy.time) : '';
+          badgeText.innerHTML = `<span>▶ Dimulai oleh: <strong>${escapeHtml(who)}</strong> ${time ? `(${time})` : ''} • Mode: ${modeStr}</span>`;
+        } else if (t.status === 'PAUSED') {
+          const who = t.lastAction?.userName || 'Operator';
+          const time = t.lastAction?.time ? formatClockTime(t.lastAction.time) : '';
+          badgeText.innerHTML = `<span>⏸ Dijeda oleh: <strong>${escapeHtml(who)}</strong> ${time ? `(${time})` : ''}</span>`;
+        } else if (t.status === 'STOPPED') {
+          const who = t.stoppedBy?.name || t.lastAction?.userName || 'Operator';
+          const time = t.stoppedBy?.time ? formatClockTime(t.stoppedBy.time) : '';
+          badgeText.innerHTML = `<span>⏹ Di-Stop oleh: <strong>${escapeHtml(who)}</strong> ${time ? `(${time})` : ''}</span>`;
+        } else if (t.lastAction) {
+          const who = t.lastAction.userName || 'Operator';
+          const time = t.lastAction.time ? formatClockTime(t.lastAction.time) : '';
+          const act = t.lastAction.type || 'Aktivitas';
+          badgeText.innerHTML = `<span>${act}: <strong>${escapeHtml(who)}</strong> ${time ? `(${time})` : ''}</span>`;
+        } else {
+          badgeText.innerHTML = '<span>Operator: <strong>Siap (Belum ada aksi)</strong></span>';
+        }
+      } catch (err) {
+        console.warn('updateTimerOperatorNotice error:', err);
+      }
+    }
+
+    async function openTimerLogsModal() {
+      const modal = document.getElementById('timer-logs-modal');
+      const listContainer = document.getElementById('timer-log-list');
+      if (!modal || !listContainer) return;
+
+      listContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #94a3b8; font-size: 12px;">Memuat riwayat log audit...</div>';
+      modal.classList.add('active');
+
+      try {
+        const evId = currentActiveEvent ? currentActiveEvent.id : '';
+        const res = await fetch(`/api/timer-chat/timer/logs${evId ? `?eventId=${encodeURIComponent(evId)}` : ''}`);
+        if (!res.ok) throw new Error('Gagal memuat log audit timer.');
+        const data = await res.json();
+        const logs = Array.isArray(data.logs) ? data.logs : [];
+
+        if (logs.length === 0) {
+          listContainer.innerHTML = '<div style="text-align: center; padding: 24px 10px; color: #64748b; font-size: 12px;">Belum ada riwayat aktivitas timer yang tercatat.</div>';
+          return;
+        }
+
+        const reversed = logs.slice().reverse();
+        listContainer.innerHTML = reversed.map(item => {
+          const action = (item.action || '').toUpperCase();
+          const tagClass = action.toLowerCase();
+          const actionLabel = action === 'START' ? 'Mulai' : (action === 'PAUSE' ? 'Jeda' : (action === 'STOP' ? 'Stop' : (action === 'RESET' ? 'Reset' : action)));
+          const who = escapeHtml(item.userName || item.userEmail || 'Operator');
+          const time = item.timestamp ? new Date(item.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '-';
+          const modeLabel = item.mode ? `[${item.mode}]` : '';
+          const session = item.sessionTitle ? `• Sesi: "${escapeHtml(item.sessionTitle)}"` : '';
+
+          return `
+            <div class="timer-log-item">
+              <div class="timer-log-meta-left">
+                <span class="timer-log-action-tag ${tagClass}">${actionLabel}</span>
+                <div>
+                  <strong style="color: #f1f5f9; font-size: 12px;">${who}</strong>
+                  ${item.userEmail && item.userEmail !== who ? `<small style="color: #64748b; margin-left: 4px;">(${escapeHtml(item.userEmail)})</small>` : ''}
+                  <div style="color: #94a3b8; font-size: 10.5px; margin-top: 1px;">
+                    ${modeLabel} ${session}
+                  </div>
+                </div>
+              </div>
+              <span style="font-family: monospace; font-size: 11px; color: #38bdf8; font-weight: 700; flex-shrink: 0;">${time}</span>
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        listContainer.innerHTML = `<div style="text-align: center; padding: 20px; color: #f87171; font-size: 12px;">Gagal memuat log: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    const btnViewTimerLogs = document.getElementById('btn-view-timer-logs');
+    if (btnViewTimerLogs) {
+      btnViewTimerLogs.addEventListener('click', openTimerLogsModal);
+    }
+    const btnCloseTimerLogsModal = document.getElementById('btn-close-timer-logs-modal');
+    if (btnCloseTimerLogsModal) {
+      btnCloseTimerLogsModal.addEventListener('click', () => {
+        const modal = document.getElementById('timer-logs-modal');
+        if (modal) modal.classList.remove('active');
+      });
+    }
+    const btnCloseTimerLogsAction = document.getElementById('btn-close-timer-logs-action');
+    if (btnCloseTimerLogsAction) {
+      btnCloseTimerLogsAction.addEventListener('click', () => {
+        const modal = document.getElementById('timer-logs-modal');
+        if (modal) modal.classList.remove('active');
       });
     }
 
@@ -2002,21 +2857,38 @@
     }
 
     // === AUTO-RESIZING CHAT TEXTAREA (MAX 3 LINES + SCROLLING) ===
+    let lastChatInputHeight = 0;
     function autoResizeChatInput() {
       if (!chatInput) return;
-      chatInput.style.height = 'auto';
       const isMobile = window.innerWidth <= 920;
       const minSingleLine = isMobile ? 34 : 36;
       const maxThreeLines = isMobile ? 68 : 72;
+
+      if (!chatInput.value) {
+        if (lastChatInputHeight !== minSingleLine) {
+          chatInput.style.height = `${minSingleLine}px`;
+          chatInput.style.overflowY = 'hidden';
+          lastChatInputHeight = minSingleLine;
+        }
+        return;
+      }
+
+      chatInput.style.height = 'auto';
       const scrollH = chatInput.scrollHeight;
 
       if (scrollH > maxThreeLines) {
-        chatInput.style.height = `${maxThreeLines}px`;
-        chatInput.style.overflowY = 'auto';
-        chatInput.scrollTop = chatInput.scrollHeight;
+        if (lastChatInputHeight !== maxThreeLines) {
+          chatInput.style.height = `${maxThreeLines}px`;
+          chatInput.style.overflowY = 'auto';
+          lastChatInputHeight = maxThreeLines;
+        }
       } else {
-        chatInput.style.height = `${Math.max(minSingleLine, scrollH)}px`;
-        chatInput.style.overflowY = 'hidden';
+        const targetH = Math.max(minSingleLine, scrollH);
+        if (lastChatInputHeight !== targetH) {
+          chatInput.style.height = `${targetH}px`;
+          chatInput.style.overflowY = 'hidden';
+          lastChatInputHeight = targetH;
+        }
       }
     }
     autoResizeChatInput();
@@ -2024,11 +2896,13 @@
     // Update Chat Input Character Counter
     function updateCharCounter() {
       if (!chatInput || !charLimitCount) return;
-      const maxLen = currentUser ? 500 : 150;
+      const maxLen = 500;
       const currentLen = chatInput.value.length;
       charLimitCount.textContent = `${currentLen}/${maxLen}`;
       if (currentLen >= maxLen) {
         charLimitCount.style.color = '#ef4444';
+      } else if (currentLen >= 420) {
+        charLimitCount.style.color = '#f59e0b';
       } else {
         charLimitCount.style.color = '';
       }
@@ -2047,7 +2921,6 @@
           // Shift + Enter: new line
           setTimeout(() => {
             autoResizeChatInput();
-            chatInput.scrollTop = chatInput.scrollHeight;
           }, 0);
         }
       }
@@ -2057,10 +2930,6 @@
       autoResizeChatInput();
       updateCharCounter();
       updateSendButtonState();
-    });
-
-    chatInput.addEventListener('keyup', () => {
-      chatInput.scrollTop = chatInput.scrollHeight;
     });
 
     chatInput.addEventListener('paste', () => {
@@ -3332,20 +4201,133 @@
         const res = await fetch('/api/timer-chat/events');
         const data = await res.json();
         modalEventList.innerHTML = '';
-        data.events.forEach(evt => {
+        const eventsList = (data && data.events) || [];
+        const totalEvents = eventsList.length;
+
+        eventsList.forEach(evt => {
           const isActive = data.activeEvent && data.activeEvent.id === evt.id;
           const item = document.createElement('div');
           item.className = `event-item ${isActive ? 'active' : ''}`;
+          
+          const sessionPill = evt.sessionId ? `<span class="event-session-pill">ID: ${escapeHtml(evt.sessionId)}</span>` : '';
+          
           item.innerHTML = `
-            <div class="event-item-info">
+            <div class="event-item-info" style="cursor: pointer; flex: 1; min-width: 0;">
               <strong class="event-item-title">${escapeHtml(evt.name)}</strong>
-              <div class="event-item-meta">Tanggal: ${evt.date || '-'}</div>
+              <div class="event-item-meta">
+                <span>Tanggal: ${evt.date || '-'}</span>
+                ${sessionPill}
+              </div>
             </div>
-            <button class="btn-select-event">${isActive ? 'Aktif' : 'Pilih'}</button>
+            <div class="event-item-actions">
+              <button type="button" class="btn-select-event" title="${isActive ? 'Acara ini sedang aktif' : 'Pilih acara ini'}">
+                ${isActive ? '✓ Aktif' : 'Pilih'}
+              </button>
+              ${totalEvents > 1 ? `
+                <button type="button" class="btn-delete-event" title="Hapus acara ini dan semua riwayat chat & data terkait">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                  </svg>
+                </button>
+              ` : ''}
+            </div>
           `;
-          item.addEventListener('click', () => {
-            selectEvent(evt.id);
-          });
+
+          const infoDiv = item.querySelector('.event-item-info');
+          const btnSelect = item.querySelector('.btn-select-event');
+          const handleSelect = (e) => {
+            e.stopPropagation();
+            if (!isActive) {
+              selectEvent(evt.id);
+            }
+          };
+          if (infoDiv) infoDiv.addEventListener('click', handleSelect);
+          if (btnSelect) btnSelect.addEventListener('click', handleSelect);
+
+          const btnDelete = item.querySelector('.btn-delete-event');
+          if (btnDelete) {
+            btnDelete.addEventListener('click', async (e) => {
+              e.stopPropagation();
+              if (!checkTimerControlPermission()) return;
+
+              const confirmed = await showConfirmDialog({
+                title: 'Hapus Acara & Seluruh Data Terkait',
+                message: `Apakah Anda yakin ingin menghapus permanen acara "${evt.name}"?\n\nSemua riwayat live chat, status timer, rundown, dan data sesi terkait di server dan Cloud Firestore akan dihapus secara permanen. Tindakan ini tidak dapat dibatalkan.`,
+                confirmText: 'Hapus Permanen'
+              });
+
+              if (!confirmed) return;
+
+              btnDelete.disabled = true;
+              btnDelete.style.opacity = '0.5';
+
+              try {
+                const myRole = isSuperAdmin ? 'Super Admin' : (isUserAdmin ? 'Admin' : 'Operator');
+                const myName = currentUser ? currentUser.displayName : (guestNameInput && guestNameInput.value.trim() ? guestNameInput.value.trim() : 'Operator');
+
+                const delRes = await fetch(`/api/timer-chat/events/${encodeURIComponent(evt.id)}`, {
+                  method: 'DELETE',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    requesterEmail: currentUser ? currentUser.email : '',
+                    requesterName: myName,
+                    requesterRole: myRole
+                  })
+                });
+
+                const delData = await delRes.json();
+                if (!delRes.ok || !delData.success) {
+                  showAlertDialog({
+                    title: 'Gagal Menghapus Acara',
+                    message: delData.error || 'Terjadi kesalahan saat menghapus acara dari server.'
+                  });
+                  await loadEventsIntoModal();
+                  return;
+                }
+
+                // Hapus local cache untuk event yang dihapus
+                try {
+                  localStorage.removeItem(`tc_chat_cache_${evt.id}`);
+                } catch (e) {}
+
+                // Jika event yang dihapus adalah yang sedang aktif, update ke event aktif pengganti
+                if (delData.activeEvent) {
+                  currentActiveEvent = delData.activeEvent;
+                  updateEventLabels(currentActiveEvent);
+
+                  const cleanSessionId = currentActiveEvent.sessionId || currentActiveEvent.id.replace(/^event-/, '') || 'educamp-2026';
+                  sessionStorage.setItem('tc_joined_session_id', cleanSessionId);
+
+                  try {
+                    const currentUrl = new URL(window.location.href);
+                    currentUrl.searchParams.set('session', cleanSessionId);
+                    window.history.replaceState(null, '', currentUrl.toString());
+                  } catch (e) {}
+
+                  socket.emit('TC_SELECT_EVENT', { eventId: currentActiveEvent.id });
+                  socket.emit('TC_JOIN_SESSION', { sessionId: cleanSessionId });
+
+                  await fetchAndApplyEventChat(currentActiveEvent.id);
+                }
+
+                // Muat ulang daftar acara pada modal
+                await loadEventsIntoModal();
+
+                showAlertDialog({
+                  title: 'Acara Berhasil Dihapus',
+                  message: `Acara "${evt.name}" dan semua data terkait (live chat, timer, dan sesi) telah berhasil dihapus secara permanen.`
+                });
+              } catch (err) {
+                console.error('Error deleting event:', err);
+                showAlertDialog({
+                  title: 'Kesalahan Sistem',
+                  message: 'Gagal menghubungi server untuk menghapus acara. Silakan periksa koneksi Anda.'
+                });
+                await loadEventsIntoModal();
+              }
+            });
+          }
+
           modalEventList.appendChild(item);
         });
       } catch (err) {
@@ -3353,15 +4335,165 @@
       }
     }
 
+    async function fetchAndApplyEventChat(evId) {
+      if (!evId) evId = currentActiveEvent ? currentActiveEvent.id : 'event-educamp-2026';
+      try {
+        const chatRes = await fetch(`/api/timer-chat/chat?eventId=${encodeURIComponent(evId)}`);
+        const chats = await chatRes.json();
+        if (Array.isArray(chats)) {
+          const cleanServer = sanitizeClientChatList(chats);
+          const cached = getCachedChatHistory(evId);
+          const clearedAtMs = (currentActiveEvent && currentActiveEvent.chatsClearedAt)
+            ? new Date(currentActiveEvent.chatsClearedAt).getTime()
+            : 0;
+          const map = new Map();
+          cleanServer.forEach(m => { if (m && m.id) map.set(m.id, m); });
+          cached.forEach(m => {
+            if (!m || !m.id) return;
+            const mTime = m.timestamp ? new Date(m.timestamp).getTime() : 0;
+            if (clearedAtMs && mTime > 0 && mTime < clearedAtMs) return;
+            if (!map.has(m.id)) map.set(m.id, m);
+          });
+          const merged = Array.from(map.values()).sort((a, b) => new Date(a.timestamp || 0).getTime() - new Date(b.timestamp || 0).getTime());
+          latestChatHistoryList = merged;
+          saveCachedChatHistory(evId, merged);
+          renderChatMessages(merged, evId);
+        } else {
+          const cached = getCachedChatHistory(evId);
+          latestChatHistoryList = cached;
+          renderChatMessages(cached, evId);
+        }
+      } catch (e) {
+        const cached = getCachedChatHistory(evId);
+        latestChatHistoryList = cached;
+        renderChatMessages(cached, evId);
+      }
+    }
+
     async function selectEvent(eventId) {
-      socket.emit('TC_SELECT_EVENT', { eventId });
-      eventModal.classList.remove('active');
+      if (!eventId) return;
+      try {
+        const res = await fetch('/api/timer-chat/events/select', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ eventId })
+        });
+        const data = await res.json();
+        if (data && data.success && data.activeEvent) {
+          currentActiveEvent = data.activeEvent;
+          updateEventLabels(currentActiveEvent);
+
+          const cleanSessionId = currentActiveEvent.sessionId || currentActiveEvent.id.replace(/^event-/, '') || 'educamp-2026';
+          sessionStorage.setItem('tc_joined_session_id', cleanSessionId);
+
+          try {
+            const currentUrl = new URL(window.location.href);
+            currentUrl.searchParams.set('session', cleanSessionId);
+            window.history.replaceState(null, '', currentUrl.toString());
+          } catch (e) {}
+
+          socket.emit('TC_SELECT_EVENT', { eventId });
+          socket.emit('TC_JOIN_SESSION', { sessionId: cleanSessionId });
+
+          await fetchAndApplyEventChat(currentActiveEvent.id);
+        } else {
+          socket.emit('TC_SELECT_EVENT', { eventId });
+        }
+      } catch (err) {
+        console.warn('Gagal selectEvent via REST:', err);
+        socket.emit('TC_SELECT_EVENT', { eventId });
+      } finally {
+        if (eventModal) eventModal.classList.remove('active');
+      }
+    }
+
+    socket.on('TC_EVENT_SELECTED', async (activeEv) => {
+      if (!activeEv) return;
+      currentActiveEvent = activeEv;
+      updateEventLabels(currentActiveEvent);
+      await fetchAndApplyEventChat(currentActiveEvent.id);
+    });
+
+    socket.on('TC_EVENT_DELETED', async (payload) => {
+      if (!payload) return;
+      const { deletedEventId, activeEvent } = payload;
+      try {
+        localStorage.removeItem(`tc_chat_cache_${deletedEventId}`);
+      } catch (e) {}
+
+      if (activeEvent && (!currentActiveEvent || currentActiveEvent.id === deletedEventId)) {
+        currentActiveEvent = activeEvent;
+        updateEventLabels(currentActiveEvent);
+
+        const cleanSessionId = currentActiveEvent.sessionId || currentActiveEvent.id.replace(/^event-/, '') || 'educamp-2026';
+        sessionStorage.setItem('tc_joined_session_id', cleanSessionId);
+
+        try {
+          const currentUrl = new URL(window.location.href);
+          currentUrl.searchParams.set('session', cleanSessionId);
+          window.history.replaceState(null, '', currentUrl.toString());
+        } catch (e) {}
+
+        await fetchAndApplyEventChat(currentActiveEvent.id);
+      }
+
+      if (eventModal && eventModal.classList.contains('active')) {
+        await loadEventsIntoModal();
+      }
+    });
+
+    socket.on('TC_EVENTS_UPDATE', async () => {
+      if (eventModal && eventModal.classList.contains('active')) {
+        await loadEventsIntoModal();
+      }
+    });
+
+    if (eventModal) {
+      eventModal.addEventListener('click', (e) => {
+        if (e.target === eventModal) eventModal.classList.remove('active');
+      });
+    }
+
+    const btnQuickJoinSession = document.getElementById('btn-quick-join-session');
+    const inputQuickSession = document.getElementById('quick-input-session-id');
+    if (btnQuickJoinSession && inputQuickSession) {
+      const doQuickJoin = () => {
+        const val = inputQuickSession.value.trim();
+        if (!val) return;
+        eventModal.classList.remove('active');
+        if (typeof window.__validateAndJoinSession === 'function') {
+          window.__validateAndJoinSession(val);
+        }
+      };
+      btnQuickJoinSession.addEventListener('click', doQuickJoin);
+      inputQuickSession.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          doQuickJoin();
+        }
+      });
     }
 
     function updateEventLabels(event) {
       if (!event) return;
       currentEventLabel.textContent = event.name;
       chatHeaderEvent.textContent = `Event: ${event.name}`;
+      const rundownTitleText = document.getElementById('rundown-header-title-text');
+      if (rundownTitleText) {
+        rundownTitleText.textContent = `Rundown - ${event.name}`;
+      }
+      const quickSessionBadge = document.getElementById('quick-share-session-id');
+      const cleanSessionId = event.sessionId || event.id.replace(/^event-/, '') || 'educamp-2026';
+      if (quickSessionBadge) {
+        quickSessionBadge.textContent = `ID: ${cleanSessionId}`;
+      }
+      try {
+        const currentUrl = new URL(window.location.href);
+        if (currentUrl.searchParams.get('session') !== cleanSessionId) {
+          currentUrl.searchParams.set('session', cleanSessionId);
+          window.history.replaceState(null, '', currentUrl.toString());
+        }
+      } catch (e) {}
     }
 
     document.getElementById('btn-submit-new-event').addEventListener('click', async () => {
@@ -3452,12 +4584,35 @@
             renderStickerGrid();
             // Muat ulang obrolan agar pesan milik user yang baru login otomatis terformat sebagai is-own-message (hijau & kanan)
             try {
-              const chatRes = await fetch(`/api/timer-chat/chat?eventId=${currentActiveEvent ? currentActiveEvent.id : ''}`);
+              const evId = currentActiveEvent ? currentActiveEvent.id : 'event-educamp-2026';
+              const chatRes = await fetch(`/api/timer-chat/chat?eventId=${encodeURIComponent(evId)}`);
               const chats = await chatRes.json();
               if (Array.isArray(chats)) {
-                renderChatMessages(chats);
+                const cleanServer = sanitizeClientChatList(chats);
+                const cached = getCachedChatHistory(evId);
+                const clearedAtMs = (currentActiveEvent && currentActiveEvent.chatsClearedAt)
+                  ? new Date(currentActiveEvent.chatsClearedAt).getTime()
+                  : 0;
+                const map = new Map();
+                cleanServer.forEach(m => { if (m && m.id) map.set(m.id, m); });
+                cached.forEach(m => {
+                  if (!m || !m.id) return;
+                  const mTime = m.timestamp ? new Date(m.timestamp).getTime() : 0;
+                  if (clearedAtMs && mTime > 0 && mTime < clearedAtMs) return;
+                  if (!map.has(m.id)) map.set(m.id, m);
+                });
+                const merged = Array.from(map.values()).sort((a, b) => new Date(a.timestamp || 0).getTime() - new Date(b.timestamp || 0).getTime());
+                latestChatHistoryList = merged;
+                saveCachedChatHistory(evId, merged);
+                renderChatMessages(merged, evId);
+              } else if (latestChatHistoryList.length > 0) {
+                renderChatMessages(latestChatHistoryList, evId);
               }
-            } catch (e) {}
+            } catch (e) {
+              if (latestChatHistoryList.length > 0) {
+                renderChatMessages(latestChatHistoryList, currentActiveEvent ? currentActiveEvent.id : 'event-educamp-2026');
+              }
+            }
           });
 
           document.getElementById('btn-google-login').addEventListener('click', () => {
@@ -4627,10 +5782,333 @@
       });
     }
 
+    // === 18. SESSION ID & CHAT ID JOIN & SHARE MANAGEMENT ===
+    function initSessionJoinAndShare() {
+      const urlParams = new URLSearchParams(window.location.search);
+      let urlSessionParam = urlParams.get('session') || urlParams.get('chat') || urlParams.get('id') || urlParams.get('event') || urlParams.get('room');
+      if (urlSessionParam) urlSessionParam = urlSessionParam.trim();
+
+      const gatewayModal = document.getElementById('join-session-gateway-modal');
+      const gatewayInput = document.getElementById('gateway-session-input');
+      const gatewayError = document.getElementById('gateway-error-msg');
+      const btnGatewayJoin = document.getElementById('btn-gateway-join');
+      const btnGatewayDefault = document.getElementById('btn-gateway-default');
+      const btnCloseGateway = document.getElementById('btn-close-gateway-modal');
+
+      const shareModal = document.getElementById('share-session-modal');
+      const btnOpenShare = document.getElementById('btn-share-session');
+      const btnQuickShareChat = document.getElementById('btn-quick-share-chat');
+      const btnCloseShareModal = document.getElementById('btn-close-share-modal');
+
+      const shareEventName = document.getElementById('share-modal-event-name');
+      const shareEventDesc = document.getElementById('share-modal-event-desc');
+      const shareSessionId = document.getElementById('share-modal-session-id');
+      const shareLinkInput = document.getElementById('share-modal-link-input');
+      const btnCopySessionId = document.getElementById('btn-copy-session-id');
+      const btnCopyShareLink = document.getElementById('btn-copy-share-link');
+      const shareCopyToast = document.getElementById('share-copy-toast');
+      const btnShareWa = document.getElementById('btn-share-whatsapp');
+      const btnShareNative = document.getElementById('btn-share-native');
+      const btnShareOpenTab = document.getElementById('btn-share-open-tab');
+      const qrImg = document.getElementById('share-modal-qr-img');
+      const qrLoading = document.getElementById('share-qr-loading');
+      const btnDownloadQr = document.getElementById('btn-download-qr');
+      const btnCopyVmix = document.getElementById('btn-copy-vmix-source');
+      const btnCopyPresenter = document.getElementById('btn-copy-presenter-source');
+
+      function extractSessionIdFromRaw(raw) {
+        if (!raw) return '';
+        const trimmed = String(raw).trim();
+        // Cek jika pengguna menempelkan URL penuh
+        if (trimmed.includes('http://') || trimmed.includes('https://') || trimmed.includes('?') || trimmed.includes('/')) {
+          try {
+            const urlObj = new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`);
+            const fromParam = urlObj.searchParams.get('session') || urlObj.searchParams.get('chat') || urlObj.searchParams.get('id') || urlObj.searchParams.get('event') || urlObj.searchParams.get('room');
+            if (fromParam) return fromParam.trim();
+          } catch (e) {
+            const match = trimmed.match(/[?&](?:session|chat|id|event|room)=([^&#]+)/i);
+            if (match && match[1]) return decodeURIComponent(match[1]).trim();
+          }
+        }
+        return trimmed.replace(/^#/, '');
+      }
+
+      async function copyToClipboardRobust(text, notifyMsg) {
+        let copied = false;
+        if (navigator.clipboard && window.isSecureContext) {
+          try {
+            await navigator.clipboard.writeText(text);
+            copied = true;
+          } catch (e) {
+            copied = false;
+          }
+        }
+        if (!copied) {
+          try {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.setAttribute('readonly', '');
+            ta.style.position = 'fixed';
+            ta.style.left = '-9999px';
+            ta.style.top = '-9999px';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            copied = document.execCommand('copy');
+            document.body.removeChild(ta);
+          } catch (err) {
+            copied = false;
+          }
+        }
+        if (copied && notifyMsg) {
+          showAlertDialog({ title: 'Tersalin', message: notifyMsg });
+        } else if (!copied) {
+          window.prompt('Salin teks di bawah ini (Ctrl+C / Cmd+C):', text);
+        }
+        return copied;
+      }
+
+      async function validateAndJoinSession(candidateId) {
+        const cleanId = extractSessionIdFromRaw(candidateId);
+        if (!cleanId) {
+          if (gatewayError) {
+            gatewayError.textContent = 'Harap masukkan Session ID atau Chat ID.';
+            gatewayError.style.display = 'block';
+          }
+          return false;
+        }
+
+        try {
+          if (btnGatewayJoin) btnGatewayJoin.disabled = true;
+          const res = await fetch(`/api/timer-chat/session/validate?id=${encodeURIComponent(cleanId)}`);
+          const data = await res.json();
+          if (res.ok && data.valid && data.event) {
+            if (gatewayError) gatewayError.style.display = 'none';
+            if (gatewayModal) gatewayModal.classList.remove('active');
+            
+            currentActiveEvent = data.event;
+            updateEventLabels(currentActiveEvent);
+
+            const activeSessionId = data.event.sessionId || data.event.id.replace(/^event-/, '') || 'educamp-2026';
+            sessionStorage.setItem('tc_joined_session_id', activeSessionId);
+
+            // Update URL browser agar selalu menyertakan parameter session ID
+            const currentUrl = new URL(window.location.href);
+            currentUrl.searchParams.set('session', activeSessionId);
+            window.history.replaceState(null, '', currentUrl.toString());
+
+            // Pilih event aktif dan join socket room
+            socket.emit('TC_SELECT_EVENT', { eventId: data.event.id });
+            socket.emit('TC_JOIN_SESSION', { sessionId: activeSessionId });
+            
+            await fetchAndApplyEventChat(data.event.id);
+
+            if (btnGatewayJoin) btnGatewayJoin.disabled = false;
+            return true;
+          } else {
+            if (gatewayError) {
+              gatewayError.textContent = data.error || `Session ID "${cleanId}" tidak ditemukan.`;
+              gatewayError.style.display = 'block';
+            }
+            if (btnGatewayJoin) btnGatewayJoin.disabled = false;
+            return false;
+          }
+        } catch (err) {
+          if (gatewayError) {
+            gatewayError.textContent = `Gagal memverifikasi sesi: ${err.message}`;
+            gatewayError.style.display = 'block';
+          }
+          if (btnGatewayJoin) btnGatewayJoin.disabled = false;
+          return false;
+        }
+      }
+
+      window.__validateAndJoinSession = validateAndJoinSession;
+
+      // Validasi parameter awal di URL
+      if (urlSessionParam) {
+        // Pengguna membuka link dengan parameter ID: langsung validasi & join
+        validateAndJoinSession(urlSessionParam).then((ok) => {
+          if (!ok && gatewayModal) {
+            gatewayModal.classList.add('active');
+            if (gatewayInput) {
+              gatewayInput.value = urlSessionParam;
+              setTimeout(() => gatewayInput.focus(), 150);
+            }
+          }
+        });
+      } else {
+        // Buka URL polos tanpa parameter: Otomatis masuk ke sesi aktif/default tanpa blokir layar
+        const previouslyJoined = sessionStorage.getItem('tc_joined_session_id') || 'educamp-2026';
+        validateAndJoinSession(previouslyJoined);
+      }
+
+      if (btnGatewayJoin && gatewayInput) {
+        btnGatewayJoin.addEventListener('click', () => {
+          validateAndJoinSession(gatewayInput.value);
+        });
+        gatewayInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            validateAndJoinSession(gatewayInput.value);
+          }
+        });
+      }
+
+      if (btnGatewayDefault) {
+        btnGatewayDefault.addEventListener('click', () => {
+          validateAndJoinSession('educamp-2026');
+        });
+      }
+
+      if (btnCloseGateway && gatewayModal) {
+        btnCloseGateway.addEventListener('click', () => {
+          gatewayModal.classList.remove('active');
+        });
+      }
+
+      if (gatewayModal) {
+        gatewayModal.addEventListener('click', (e) => {
+          if (e.target === gatewayModal) {
+            gatewayModal.classList.remove('active');
+          }
+        });
+      }
+
+      // Share Modal Logic
+      function openShareModal() {
+        if (!shareModal) return;
+        const activeEv = currentActiveEvent || {
+          id: 'event-educamp-2026',
+          sessionId: 'educamp-2026',
+          name: 'Educamp & Team Building 2026',
+          description: 'Sesi utama Educamp, sharing session, dan live presentation.'
+        };
+
+        const cleanSession = activeEv.sessionId || activeEv.id.replace(/^event-/, '') || 'educamp-2026';
+        const origin = window.location.origin;
+        const fullShareUrl = `${origin}/timer-chat.html?session=${encodeURIComponent(cleanSession)}`;
+        const vmixSourceUrl = `${origin}/timer-overlay.html?session=${encodeURIComponent(cleanSession)}&chroma=green`;
+        const presenterSourceUrl = `${origin}/timer-overlay.html?session=${encodeURIComponent(cleanSession)}&view=presenter&chroma=black`;
+
+        if (shareEventName) shareEventName.textContent = activeEv.name;
+        if (shareEventDesc) shareEventDesc.textContent = activeEv.description || 'Sesi live timer dan obrolan interaktif.';
+        if (shareSessionId) shareSessionId.textContent = cleanSession;
+        if (shareLinkInput) shareLinkInput.value = fullShareUrl;
+
+        if (btnShareWa) {
+          const waText = `Halo! Bergabunglah ke sesi *${activeEv.name}* di Educamp Live Timer & Chat:\n${fullShareUrl}\n\nSession ID: *${cleanSession}*`;
+          btnShareWa.href = `https://api.whatsapp.com/send?text=${encodeURIComponent(waText)}`;
+        }
+
+        if (btnShareOpenTab) {
+          btnShareOpenTab.href = fullShareUrl;
+        }
+
+        // Fetch QR Code Dinamis
+        if (qrImg && qrLoading) {
+          qrImg.style.display = 'none';
+          qrLoading.style.display = 'block';
+          qrLoading.textContent = 'Menyiapkan QR...';
+
+          fetch(`/api/timer-chat/qr?url=${encodeURIComponent(fullShareUrl)}`)
+            .then(res => res.json())
+            .then(data => {
+              if (data && data.qr) {
+                qrImg.src = data.qr;
+                qrImg.style.display = 'block';
+                qrLoading.style.display = 'none';
+                if (btnDownloadQr) {
+                  btnDownloadQr.href = data.qr;
+                  btnDownloadQr.download = `QR_Session_${cleanSession}.png`;
+                  btnDownloadQr.style.display = 'inline-flex';
+                }
+              } else {
+                qrLoading.textContent = 'QR Code tidak tersedia';
+              }
+            })
+            .catch(() => {
+              qrLoading.textContent = 'Gagal memuat QR Code';
+            });
+        }
+
+        // Action Copy Tautan & ID
+        if (btnCopySessionId) {
+          btnCopySessionId.onclick = async () => {
+            await copyToClipboardRobust(cleanSession, `Session ID "${cleanSession}" berhasil disalin ke clipboard!`);
+          };
+        }
+
+        if (btnCopyShareLink) {
+          btnCopyShareLink.onclick = async () => {
+            await copyToClipboardRobust(fullShareUrl);
+            if (shareCopyToast) {
+              shareCopyToast.style.display = 'block';
+              setTimeout(() => { shareCopyToast.style.display = 'none'; }, 2500);
+            }
+          };
+        }
+
+        if (btnCopyVmix) {
+          btnCopyVmix.onclick = async () => {
+            await copyToClipboardRobust(vmixSourceUrl, `Tautan vMix Chroma Green berhasil disalin:\n${vmixSourceUrl}`);
+          };
+        }
+
+        if (btnCopyPresenter) {
+          btnCopyPresenter.onclick = async () => {
+            await copyToClipboardRobust(presenterSourceUrl, `Tautan Monitor Presenter berhasil disalin:\n${presenterSourceUrl}`);
+          };
+        }
+
+        if (btnShareNative) {
+          if (navigator.share) {
+            btnShareNative.style.display = 'inline-flex';
+            btnShareNative.onclick = async () => {
+              try {
+                await navigator.share({
+                  title: `Educamp 2026 - ${activeEv.name}`,
+                  text: `Bergabung ke sesi ${activeEv.name} (Session ID: ${cleanSession})`,
+                  url: fullShareUrl
+                });
+              } catch (e) {}
+            };
+          } else {
+            btnShareNative.style.display = 'none';
+          }
+        }
+
+        shareModal.classList.add('active');
+      }
+
+      function closeShareModal() {
+        if (shareModal) shareModal.classList.remove('active');
+      }
+
+      if (btnOpenShare) btnOpenShare.addEventListener('click', openShareModal);
+      if (btnQuickShareChat) btnQuickShareChat.addEventListener('click', openShareModal);
+      if (btnCloseShareModal) btnCloseShareModal.addEventListener('click', closeShareModal);
+
+      if (shareModal) {
+        shareModal.addEventListener('click', (e) => {
+          if (e.target === shareModal) closeShareModal();
+        });
+      }
+
+      // Listen respon event joined via socket
+      socket.on('TC_SESSION_JOINED', (resData) => {
+        if (resData && resData.event) {
+          currentActiveEvent = resData.event;
+          updateEventLabels(currentActiveEvent);
+        }
+      });
+    }
+
     initFontResizer();
     initThemeSwitcher();
     initFocusMode();
     initMediaLightbox();
+    initSessionJoinAndShare();
 
     updateChatPermissionUI();
     updateTimerPermissionUI();

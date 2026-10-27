@@ -75,6 +75,8 @@ class FirestoreSyncService {
     this.cooldownUntil = new Map(); // docId -> timestamp
     this.globalCooldownUntil = 0;
     this.pendingSaves = new Map(); // docId -> { data, timeoutId }
+    this.inFlightSaves = new Map(); // docId -> Promise
+    this.queuedSaves = new Map(); // docId -> latest data
     this.saveDebounceMs = 1500; // Debounce rapid writes to prevent hitting Firestore rate limits
 
     if (this.enabled) {
@@ -102,6 +104,12 @@ class FirestoreSyncService {
   async saveDoc(docId, data, immediate = false) {
     if (!this.enabled) return null;
 
+    const existing = this.pendingSaves.get(docId);
+    if (existing && existing.timeoutId) {
+      clearTimeout(existing.timeoutId);
+      this.pendingSaves.delete(docId);
+    }
+
     // Check if in active cooldown due to recent 429 Rate Limit
     const now = Date.now();
     const docCooldown = this.cooldownUntil.get(docId) || 0;
@@ -117,14 +125,11 @@ class FirestoreSyncService {
 
     // Debounce writes to avoid spamming REST endpoints during rapid edits/ticks
     return new Promise((resolve) => {
-      const existing = this.pendingSaves.get(docId);
-      if (existing && existing.timeoutId) {
-        clearTimeout(existing.timeoutId);
-      }
-
       const timeoutId = setTimeout(async () => {
+        const pending = this.pendingSaves.get(docId);
+        const latestPayload = pending ? pending.data : data;
         this.pendingSaves.delete(docId);
-        const result = await this._executeSave(docId, data);
+        const result = await this._executeSave(docId, latestPayload);
         resolve(result);
       }, this.saveDebounceMs);
 
@@ -133,9 +138,37 @@ class FirestoreSyncService {
   }
 
   /**
-   * Internal direct write executor to Firestore REST API
+   * Serialized write executor to Firestore REST API per docId so concurrent saves never overwrite newer data
    */
   async _executeSave(docId, data) {
+    if (this.inFlightSaves.has(docId)) {
+      this.queuedSaves.set(docId, data);
+      return this.inFlightSaves.get(docId);
+    }
+
+    const runLoop = async (initialData) => {
+      let currentData = initialData;
+      let lastResult = null;
+      while (currentData !== undefined) {
+        lastResult = await this._performNetworkSave(docId, currentData);
+        if (this.queuedSaves.has(docId)) {
+          currentData = this.queuedSaves.get(docId);
+          this.queuedSaves.delete(docId);
+        } else {
+          currentData = undefined;
+        }
+      }
+      return lastResult;
+    };
+
+    const promise = runLoop(data).finally(() => {
+      this.inFlightSaves.delete(docId);
+    });
+    this.inFlightSaves.set(docId, promise);
+    return promise;
+  }
+
+  async _performNetworkSave(docId, data) {
     try {
       const url = `${this.baseUrl}/${encodeURIComponent(docId)}?key=${this.config.apiKey}`;
       const payloadString = JSON.stringify(data);

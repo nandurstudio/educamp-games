@@ -11,6 +11,7 @@
   <style>
     :root {
       --timer-stroke-color: #000000;
+      --timer-font-color: #ffffff;
       --glow-color: rgba(0, 0, 0, 0.95);
       --font-digital: var(--font-timer-digital, 'Rajdhani', 'Orbitron', 'JetBrains Mono', 'Consolas', monospace);
     }
@@ -57,18 +58,18 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 16px;
+      gap: 12px;
       max-width: 95vw;
       padding: 10px;
     }
 
-    /* Timer Pill Card */
+    /* Timer Pill Card - Compact Spacing */
     .timer-card {
       display: inline-flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 16px 42px;
+      padding: 12px 38px 8px 38px;
       border-radius: 28px;
       background: rgba(15, 23, 42, 0.88);
       border: 3px solid rgba(255, 255, 255, 0.25);
@@ -83,18 +84,18 @@
       border: none !important;
       box-shadow: none !important;
       backdrop-filter: none !important;
-      padding: 4px;
+      padding: 2px;
     }
 
     .event-badge {
-      font-size: clamp(13px, 2.2vw, 22px);
+      font-size: clamp(12px, 2vw, 20px);
       font-weight: 800;
       letter-spacing: 2px;
       color: #38bdf8;
       text-transform: uppercase;
       -webkit-text-stroke: 1.5px #000000;
       text-shadow: 0 3px 10px rgba(0, 0, 0, 0.95), 0 0 10px rgba(56, 189, 248, 0.6);
-      margin-bottom: 2px;
+      margin-bottom: 0px;
       font-family: var(--font-heading, sans-serif);
       text-align: center;
     }
@@ -115,29 +116,28 @@
       font-variant-numeric: tabular-nums;
       font-feature-settings: "tnum" 1, "zero" 1;
       line-height: 1;
-      /* Anti-masking: Gunakan Putih Bersih dengan stroke tebal hitam */
-      color: #ffffff;
-      -webkit-text-stroke: 4px var(--timer-stroke-color);
+      color: var(--timer-font-color, #ffffff);
+      -webkit-text-stroke: 4px var(--timer-stroke-color, #000000);
       text-shadow: 0 6px 25px rgba(0, 0, 0, 0.95), 0 0 12px rgba(0, 0, 0, 0.9);
       transition: color 0.15s ease;
     }
 
-    /* Status Colors (Semua anti-hijau agar vMix Chroma Key Green tidak memotong font) */
+    /* Status Colors */
     .timer-digits-box.running {
-      color: #ffffff;
-      -webkit-text-stroke: 4px #000000;
+      color: var(--timer-font-color, #ffffff);
+      -webkit-text-stroke: 4px var(--timer-stroke-color, #000000);
       text-shadow: 0 6px 25px rgba(0, 0, 0, 0.95), 0 0 20px rgba(56, 189, 248, 0.6);
     }
 
     .timer-digits-box.paused {
       color: #fbbf24; /* Kuning Amber */
-      -webkit-text-stroke: 4px #000000;
+      -webkit-text-stroke: 4px var(--timer-stroke-color, #000000);
       text-shadow: 0 6px 25px rgba(0, 0, 0, 0.95), 0 0 20px rgba(251, 191, 36, 0.7);
     }
 
     .timer-digits-box.over {
       color: #ef4444; /* Merah */
-      -webkit-text-stroke: 4px #000000;
+      -webkit-text-stroke: 4px var(--timer-stroke-color, #000000);
       text-shadow: 0 6px 25px rgba(0, 0, 0, 0.95), 0 0 25px rgba(239, 68, 68, 0.85);
     }
 
@@ -162,7 +162,7 @@
       }
     }
 
-    /* Subtitle / Session State Indicator */
+    /* Subtitle / Session State Indicator - Mepet ke angka timer agar lebih compact */
     .timer-subinfo {
       font-size: clamp(10px, 1.4vw, 15px);
       font-weight: 700;
@@ -171,7 +171,8 @@
       text-transform: uppercase;
       -webkit-text-stroke: 1px #000000;
       text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9);
-      margin-top: 4px;
+      margin-top: -6px;
+      padding-bottom: 2px;
       display: flex;
       align-items: center;
       gap: 6px;
@@ -377,16 +378,56 @@
       color: #ffffff;
       border-color: #38bdf8;
     }
+
+    .color-swatch-btn {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.4);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      transition: transform 0.15s ease, border-color 0.15s ease;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+    }
+    .color-swatch-btn:hover {
+      transform: scale(1.15);
+      border-color: #ffffff;
+    }
+    .color-swatch-btn.active {
+      transform: scale(1.15);
+      border-color: #38bdf8;
+      box-shadow: 0 0 8px #38bdf8;
+    }
   </style>
 </head>
 <body class="chroma-green">
 
   <!-- Floating Settings Toolbar (Auto-fades out on broadcast) -->
   <div class="floating-toolbar" id="floating-toolbar" title="Pengaturan Latar & Mode Layar">
-    <button class="tool-btn active" id="btn-chroma-green" title="Chroma Green (#00ff00) untuk vMix / OBS">🟢 Green</button>
-    <button class="tool-btn" id="btn-chroma-blue" title="Chroma Blue (#0000ff)">🔵 Blue</button>
-    <button class="tool-btn" id="btn-chroma-black" title="Pitch Black (#000000) untuk TV / Stage">⚫ TV/Black</button>
-    <button class="tool-btn" id="btn-chroma-trans" title="Transparan murni (OBS Browser Source)">⬛ Trans</button>
+    <div style="display:flex; align-items:center; gap:4px; border-right:1px solid rgba(255,255,255,0.2); padding-right:8px;">
+      <span style="font-size:10px; font-weight:800; color:#94a3b8; text-transform:uppercase;">BG:</span>
+      <button class="tool-btn active" id="btn-chroma-green" title="Chroma Green (#00ff00) untuk vMix / OBS">🟢 Green</button>
+      <button class="tool-btn" id="btn-chroma-blue" title="Chroma Blue (#0000ff)">🔵 Blue</button>
+      <button class="tool-btn" id="btn-chroma-black" title="Pitch Black (#000000) untuk TV / Stage">⚫ TV/Black</button>
+      <button class="tool-btn" id="btn-chroma-trans" title="Transparan murni (OBS Browser Source / Desktop)">⬛ Trans</button>
+    </div>
+
+    <!-- Font Color Switcher & Contrast Adapter -->
+    <div style="display:flex; align-items:center; gap:5px; border-right:1px solid rgba(255,255,255,0.2); padding-right:8px;">
+      <span style="font-size:10px; font-weight:800; color:#38bdf8; text-transform:uppercase;">Warna Font:</span>
+      <button type="button" class="color-swatch-btn active" data-color="#ffffff" title="Putih Bersih (Cocok latar gelap)" style="background:#ffffff;"></button>
+      <button type="button" class="color-swatch-btn" data-color="#000000" title="Hitam Pekat (Cocok slide putih/terang)" style="background:#000000; border-color:#ffffff;"></button>
+      <button type="button" class="color-swatch-btn" data-color="#fbbf24" title="Kuning Amber" style="background:#fbbf24;"></button>
+      <button type="button" class="color-swatch-btn" data-color="#38bdf8" title="Cyan Biru" style="background:#38bdf8;"></button>
+      <button type="button" class="color-swatch-btn" data-color="#22c55e" title="Hijau Neon" style="background:#22c55e;"></button>
+      <button type="button" class="color-swatch-btn" data-color="#ef4444" title="Merah Elektrik" style="background:#ef4444;"></button>
+      <input type="color" id="input-custom-font-color" value="#ffffff" title="Pilih Warna Bebas (Custom Color Picker)" style="width:22px; height:22px; border:1px solid rgba(255,255,255,0.4); border-radius:50%; padding:0; cursor:pointer; background:none;">
+      <button class="tool-btn" id="btn-toggle-stroke" title="Toggle Stroke Outline Kontras">Outline: <span id="label-stroke-mode">AUTO</span></button>
+    </div>
+
     <button class="tool-btn" id="btn-toggle-chat" title="Toggle Tampilan 5 Chat Teratas">💬 Chat: <span id="label-chat-toggle">AUTO</span></button>
   </div>
 
@@ -421,6 +462,61 @@
     const chromaParam = (urlParams.get('chroma') || urlParams.get('bg') || 'green').toLowerCase();
     const isPure = urlParams.get('pure') === '1';
     const forceChat = urlParams.get('chat'); // '1' or '0'
+    const queryColor = urlParams.get('color') || urlParams.get('fontColor') || urlParams.get('fg') || '';
+
+    // Font Color & Outline Adaptation
+    let currentFontColor = queryColor || localStorage.getItem('overlay_timer_font_color') || '#ffffff';
+    let currentStrokeMode = localStorage.getItem('overlay_timer_stroke_mode') || 'auto'; // 'auto', 'black', 'white', 'none'
+
+    function applyFontColorAndStroke(colorHex, strokeMode) {
+      if (colorHex) currentFontColor = colorHex;
+      if (strokeMode) currentStrokeMode = strokeMode;
+      localStorage.setItem('overlay_timer_font_color', currentFontColor);
+      localStorage.setItem('overlay_timer_stroke_mode', currentStrokeMode);
+
+      document.documentElement.style.setProperty('--timer-font-color', currentFontColor);
+
+      // Determine outline stroke
+      let strokeColor = '#000000';
+      if (currentStrokeMode === 'white') {
+        strokeColor = '#ffffff';
+      } else if (currentStrokeMode === 'black') {
+        strokeColor = '#000000';
+      } else {
+        // AUTO: Jika font hitam/gelap, gunakan outline putih agar kontras di latar gelap maupun transparan
+        const isDark = isColorDark(currentFontColor);
+        strokeColor = isDark ? '#ffffff' : '#000000';
+      }
+      document.documentElement.style.setProperty('--timer-stroke-color', strokeColor);
+
+      const labelStroke = document.getElementById('label-stroke-mode');
+      if (labelStroke) {
+        labelStroke.textContent = currentStrokeMode.toUpperCase();
+      }
+
+      // Update swatch active indicator
+      document.querySelectorAll('.color-swatch-btn').forEach(btn => {
+        if (btn.getAttribute('data-color').toLowerCase() === currentFontColor.toLowerCase()) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      });
+      const inputColor = document.getElementById('input-custom-font-color');
+      if (inputColor) inputColor.value = currentFontColor.startsWith('#') && currentFontColor.length === 7 ? currentFontColor : '#ffffff';
+    }
+
+    function isColorDark(hex) {
+      if (!hex || !hex.startsWith('#')) return false;
+      const c = hex.substring(1);
+      const rgb = parseInt(c.length === 3 ? c.split('').map(x => x + x).join('') : c, 16);
+      const r = (rgb >> 16) & 0xff;
+      const g = (rgb >> 8) & 0xff;
+      const b = (rgb >> 0) & 0xff;
+      // Perceived luminance
+      const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      return luma < 128;
+    }
 
     // Set Chroma Palette
     function applyChroma(mode) {
@@ -442,12 +538,37 @@
       });
     }
     applyChroma(chromaParam);
+    applyFontColorAndStroke(currentFontColor, currentStrokeMode);
 
     // Toolbar Listeners
     document.getElementById('btn-chroma-green').onclick = () => applyChroma('green');
     document.getElementById('btn-chroma-blue').onclick = () => applyChroma('blue');
     document.getElementById('btn-chroma-black').onclick = () => applyChroma('black');
     document.getElementById('btn-chroma-trans').onclick = () => applyChroma('trans');
+
+    document.querySelectorAll('.color-swatch-btn').forEach(btn => {
+      btn.onclick = () => {
+        const color = btn.getAttribute('data-color');
+        applyFontColorAndStroke(color, currentStrokeMode);
+      };
+    });
+
+    const inputCustomColor = document.getElementById('input-custom-font-color');
+    if (inputCustomColor) {
+      inputCustomColor.oninput = (e) => {
+        applyFontColorAndStroke(e.target.value, currentStrokeMode);
+      };
+    }
+
+    const btnToggleStroke = document.getElementById('btn-toggle-stroke');
+    if (btnToggleStroke) {
+      btnToggleStroke.onclick = () => {
+        if (currentStrokeMode === 'auto') currentStrokeMode = 'black';
+        else if (currentStrokeMode === 'black') currentStrokeMode = 'white';
+        else currentStrokeMode = 'auto';
+        applyFontColorAndStroke(currentFontColor, currentStrokeMode);
+      };
+    }
 
     // Chat Toggle Override
     let manualChatOverride = null; // null = follow admin, true = show, false = hide
@@ -622,57 +743,90 @@
 
     // 4. Render Main Loop (100% 60FPS Smooth RAF)
     function updateUI() {
-      const allowOvertime = (timerState.allowOvertime !== false);
+      const mode = (timerState.mode || 'COUNTDOWN').toUpperCase();
 
-      if (timerState.status === 'RUNNING' && timerState.targetEndTime) {
-        const adjustedNow = Date.now() + clockOffset;
-        const diffMs = timerState.targetEndTime - adjustedNow;
-
-        if (diffMs >= 0) {
-          const remainingSec = Math.max(0, Math.ceil(diffMs / 1000));
-          timerDisplay.textContent = formatTime(remainingSec);
-          timerDisplay.className = 'timer-digits-box running';
-          timerStatusText.textContent = '● RUNNING • LIVE SYNC';
-
-          if (remainingSec <= 10 && remainingSec > 0) {
-            timerDisplay.classList.add('blinking-alert');
-            timerStatusText.textContent = '⚠️ PERINGATAN: 10 DETIK TERAKHIR';
-          } else if (remainingSec === 0) {
-            timerDisplay.className = 'timer-digits-box over';
-            timerStatusText.textContent = 'WAKTU SELESAI';
-          }
-        } else {
-          const overtimePassedSec = Math.floor(Math.abs(diffMs) / 1000);
-          if (allowOvertime) {
-            timerDisplay.textContent = formatOvertime(overtimePassedSec);
-            timerDisplay.className = 'timer-digits-box overtime';
-            timerStatusText.textContent = '⏱️ MELEBIHI BATAS WAKTU (OVERTIME)';
+      if (mode === 'COUNTUP') {
+        const isRunning = (timerState.status === 'RUNNING' || timerState.isRunning);
+        if (isRunning) {
+          const adjustedNow = Date.now() + clockOffset;
+          let elapsed = 0;
+          if (timerState.startTime) {
+            elapsed = Math.max(0, Math.floor((adjustedNow - timerState.startTime) / 1000));
           } else {
-            timerDisplay.textContent = '00:00';
-            timerDisplay.className = 'timer-digits-box over';
-            timerStatusText.textContent = 'WAKTU HABIS (TIME OUT)';
+            elapsed = timerState.elapsedSeconds || 0;
           }
+          timerDisplay.textContent = formatTime(elapsed);
+          timerDisplay.className = 'timer-digits-box running';
+          timerStatusText.textContent = '▲ COUNT-UP • LIVE RUNNING';
+        } else if (timerState.status === 'PAUSED') {
+          const elapsed = timerState.elapsedSeconds !== undefined ? timerState.elapsedSeconds : (timerState.remainingSeconds || 0);
+          timerDisplay.textContent = formatTime(elapsed);
+          timerDisplay.className = 'timer-digits-box paused';
+          timerStatusText.textContent = '⏸️ COUNT-UP DIJEDA (PAUSED)';
+        } else if (timerState.status === 'STOPPED') {
+          const elapsed = timerState.elapsedSeconds !== undefined ? timerState.elapsedSeconds : (timerState.remainingSeconds || 0);
+          timerDisplay.textContent = formatTime(elapsed);
+          timerDisplay.className = 'timer-digits-box paused';
+          timerStatusText.textContent = '⏹️ COUNT-UP SELESAI (STOPPED)';
+        } else {
+          timerDisplay.textContent = '00:00';
+          timerDisplay.className = 'timer-digits-box';
+          timerStatusText.textContent = '▲ COUNT-UP • READY';
         }
       } else {
-        if (timerState.remainingSeconds < 0) {
-          const absOvertimeSec = Math.abs(timerState.remainingSeconds);
-          timerDisplay.textContent = formatOvertime(absOvertimeSec);
-          timerDisplay.className = 'timer-digits-box overtime paused';
-          timerStatusText.textContent = '⏸️ OVERTIME PAUSED';
-        } else {
-          timerDisplay.textContent = formatTime(timerState.remainingSeconds);
-          if (timerState.status === 'PAUSED') {
-            timerDisplay.className = 'timer-digits-box paused';
-            timerStatusText.textContent = '⏸️ TIMER DIJEDA (PAUSED)';
-          } else if (timerState.status === 'STOPPED') {
-            timerDisplay.className = 'timer-digits-box paused';
-            timerStatusText.textContent = '⏹️ SESI SELESAI (STOPPED)';
-          } else if (timerState.status === 'TIME_OUT') {
-            timerDisplay.className = 'timer-digits-box over';
-            timerStatusText.textContent = 'WAKTU HABIS (TIME OUT)';
+        // COUNTDOWN MODE
+        const allowOvertime = (timerState.allowOvertime !== false);
+
+        if (timerState.status === 'RUNNING' && timerState.targetEndTime) {
+          const adjustedNow = Date.now() + clockOffset;
+          const diffMs = timerState.targetEndTime - adjustedNow;
+
+          if (diffMs >= 0) {
+            const remainingSec = Math.max(0, Math.ceil(diffMs / 1000));
+            timerDisplay.textContent = formatTime(remainingSec);
+            timerDisplay.className = 'timer-digits-box running';
+            timerStatusText.textContent = '● RUNNING • LIVE SYNC';
+
+            if (remainingSec <= 10 && remainingSec > 0) {
+              timerDisplay.classList.add('blinking-alert');
+              timerStatusText.textContent = '⚠️ PERINGATAN: 10 DETIK TERAKHIR';
+            } else if (remainingSec === 0) {
+              timerDisplay.className = 'timer-digits-box over';
+              timerStatusText.textContent = 'WAKTU SELESAI';
+            }
           } else {
-            timerDisplay.className = 'timer-digits-box';
-            timerStatusText.textContent = 'READY • LIVE SYNC';
+            const overtimePassedSec = Math.floor(Math.abs(diffMs) / 1000);
+            if (allowOvertime) {
+              timerDisplay.textContent = formatOvertime(overtimePassedSec);
+              timerDisplay.className = 'timer-digits-box overtime';
+              timerStatusText.textContent = '⏱️ MELEBIHI BATAS WAKTU (OVERTIME)';
+            } else {
+              timerDisplay.textContent = '00:00';
+              timerDisplay.className = 'timer-digits-box over';
+              timerStatusText.textContent = 'WAKTU HABIS (TIME OUT)';
+            }
+          }
+        } else {
+          if (timerState.remainingSeconds < 0) {
+            const absOvertimeSec = Math.abs(timerState.remainingSeconds);
+            timerDisplay.textContent = formatOvertime(absOvertimeSec);
+            timerDisplay.className = 'timer-digits-box overtime paused';
+            timerStatusText.textContent = '⏸️ OVERTIME PAUSED';
+          } else {
+            timerDisplay.textContent = formatTime(timerState.remainingSeconds);
+            if (timerState.status === 'PAUSED') {
+              timerDisplay.className = 'timer-digits-box paused';
+              timerStatusText.textContent = '⏸️ TIMER DIJEDA (PAUSED)';
+            } else if (timerState.status === 'STOPPED') {
+              timerDisplay.className = 'timer-digits-box paused';
+              timerStatusText.textContent = '⏹️ SESI SELESAI (STOPPED)';
+            } else if (timerState.status === 'TIME_OUT') {
+              timerDisplay.className = 'timer-digits-box over';
+              timerStatusText.textContent = 'WAKTU HABIS (TIME OUT)';
+            } else {
+              timerDisplay.className = 'timer-digits-box';
+              timerStatusText.textContent = 'READY • LIVE SYNC';
+            }
           }
         }
       }
@@ -699,9 +853,13 @@
     }
 
     // 6. Anti-Stuck Cloud Initial Fetch & Polling Fallback
+    const overlayUrlParams = new URLSearchParams(window.location.search);
+    const overlaySessionId = overlayUrlParams.get('session') || overlayUrlParams.get('chat') || overlayUrlParams.get('id') || overlayUrlParams.get('event') || overlayUrlParams.get('room') || '';
+
     async function fetchInitialState() {
       try {
-        const res = await fetch('/api/timer-chat/state');
+        const stateUrl = overlaySessionId ? `/api/timer-chat/state?session=${encodeURIComponent(overlaySessionId)}` : '/api/timer-chat/state';
+        const res = await fetch(stateUrl);
         if (res.ok) {
           const state = await res.json();
           applyState(state);
@@ -744,7 +902,7 @@
     socket.on('connect', () => {
       timerSubinfo.classList.remove('offline');
       syncNTPClock();
-      socket.emit('TC_REQUEST_STATE');
+      socket.emit('TC_REQUEST_STATE', { sessionId: overlaySessionId });
     });
 
     socket.on('disconnect', () => {
@@ -788,28 +946,60 @@
 
     socket.on('TC_TIMER_STARTED', (data) => {
       timerState.status = 'RUNNING';
+      timerState.isRunning = true;
       timerState.targetEndTime = data.targetEndTime;
+      timerState.startTime = data.startTime || null;
       timerState.durationSeconds = data.durationSeconds;
+      timerState.remainingSeconds = data.remainingSeconds !== undefined ? data.remainingSeconds : data.durationSeconds;
+      if (data.mode) timerState.mode = data.mode;
       timerState.allowOvertime = data.allowOvertime !== false;
     });
 
     socket.on('TC_TIMER_PAUSED', (data) => {
       timerState.status = 'PAUSED';
+      timerState.isRunning = false;
       timerState.remainingSeconds = data.remainingSeconds;
       timerState.isOvertime = data.isOvertime;
       timerState.overtimeSeconds = data.overtimeSeconds;
+      if (data.mode) timerState.mode = data.mode;
     });
 
     socket.on('TC_TIMER_STOPPED', (data) => {
       timerState.status = 'STOPPED';
+      timerState.isRunning = false;
       timerState.remainingSeconds = data.remainingSeconds;
       timerState.durationSeconds = data.durationSeconds;
+      if (data.mode) timerState.mode = data.mode;
     });
 
     socket.on('TC_TIMER_RESET', (data) => {
       timerState.status = 'IDLE';
-      timerState.remainingSeconds = data.remainingSeconds;
-      timerState.durationSeconds = data.durationSeconds;
+      timerState.isRunning = false;
+      timerState.targetEndTime = null;
+      timerState.startTime = null;
+      timerState.pausedAt = null;
+      if (data && data.mode) timerState.mode = data.mode;
+      const isCountup = (timerState.mode || '').toUpperCase() === 'COUNTUP';
+      timerState.durationSeconds = (data && data.durationSeconds) ? data.durationSeconds : (timerState.durationSeconds || 300);
+      timerState.remainingSeconds = isCountup ? 0 : timerState.durationSeconds;
+      timerState.elapsedSeconds = 0;
+    });
+
+    socket.on('TC_TIMER_MODE_CHANGED', (data) => {
+      if (!data) return;
+      const newMode = (data.mode || 'COUNTDOWN').toUpperCase();
+      timerState.mode = newMode;
+      timerState.status = 'IDLE';
+      timerState.isRunning = false;
+      timerState.targetEndTime = null;
+      timerState.startTime = null;
+      timerState.pausedAt = null;
+      timerState.elapsedSeconds = 0;
+      if (newMode === 'COUNTUP') {
+        timerState.remainingSeconds = 0;
+      } else {
+        timerState.remainingSeconds = data.durationSeconds || timerState.durationSeconds || 300;
+      }
     });
   </script>
 </body>

@@ -47,6 +47,7 @@ class TransparentTimerOverlay:
         self.offset_y = 0
         self.is_pure_mode = False  # Toggle dark pill glass background
         self.font_scale = 1.0
+        self.timer_font_color = "#ffffff"
 
         # UI Components
         self.card_bg = "#0f172a"
@@ -57,8 +58,8 @@ class TransparentTimerOverlay:
             bg=self.card_bg, 
             highlightbackground=self.card_border, 
             highlightthickness=2, 
-            padx=20, 
-            pady=12
+            padx=16, 
+            pady=8
         )
         self.card_frame.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
 
@@ -70,19 +71,19 @@ class TransparentTimerOverlay:
             fg="#38bdf8",
             bg=self.card_bg
         )
-        self.lbl_event.pack(anchor="center", pady=(0, 2))
+        self.lbl_event.pack(anchor="center", pady=(0, 1))
 
-        # Main Digits Label (Putih Bersih Anti-Masking)
+        # Main Digits Label
         self.lbl_timer = tk.Label(
             self.card_frame,
             text="05:00",
             font=("Consolas", 56, "bold"),
-            fg="#ffffff",
+            fg=self.timer_font_color,
             bg=self.card_bg
         )
         self.lbl_timer.pack(anchor="center", pady=0)
 
-        # Status / Subtitle Label
+        # Status / Subtitle Label - Lebih mepet ke angka timer agar compact
         self.lbl_status = tk.Label(
             self.card_frame,
             text="0ms SYNC • GESER UNTUK PINDAH",
@@ -90,7 +91,7 @@ class TransparentTimerOverlay:
             fg="#94a3b8",
             bg=self.card_bg
         )
-        self.lbl_status.pack(anchor="center", pady=(4, 0))
+        self.lbl_status.pack(anchor="center", pady=(0, 0))
 
         # Setup Drag Handlers on all components
         for widget in (self.root, self.card_frame, self.lbl_event, self.lbl_timer, self.lbl_status):
@@ -101,6 +102,17 @@ class TransparentTimerOverlay:
         # Context Menu
         self.context_menu = tk.Menu(self.root, tearoff=0)
         self.context_menu.add_command(label="Toggle Glass Card / Pure Transparent", command=self.toggle_pure_mode)
+        
+        # Submenu Warna Font
+        self.color_menu = tk.Menu(self.context_menu, tearoff=0)
+        self.color_menu.add_command(label="⚪ Putih Bersih (#ffffff)", command=lambda: self.set_font_color("#ffffff"))
+        self.color_menu.add_command(label="⚫ Hitam Pekat (#000000 - Slide Terang)", command=lambda: self.set_font_color("#000000"))
+        self.color_menu.add_command(label="🟡 Kuning Amber (#fbbf24)", command=lambda: self.set_font_color("#fbbf24"))
+        self.color_menu.add_command(label="🔷 Cyan Biru (#38bdf8)", command=lambda: self.set_font_color("#38bdf8"))
+        self.color_menu.add_command(label="🟢 Hijau Neon (#22c55e)", command=lambda: self.set_font_color("#22c55e"))
+        self.color_menu.add_command(label="🔴 Merah Elektrik (#ef4444)", command=lambda: self.set_font_color("#ef4444"))
+        self.context_menu.add_cascade(label="🎨 Ganti Warna Font Timer", menu=self.color_menu)
+
         self.context_menu.add_separator()
         self.context_menu.add_command(label="Server: Localhost (:3002)", command=lambda: self.switch_server(DEFAULT_LOCAL_URL))
         self.context_menu.add_command(label="Server: Cloud (educamp.ai.studio)", command=lambda: self.switch_server(DEFAULT_CLOUD_URL))
@@ -186,6 +198,15 @@ class TransparentTimerOverlay:
         # Schedule next poll in 150ms
         self.root.after(150, self.poll_timer_data)
 
+    def set_font_color(self, color):
+        self.timer_font_color = color
+        self.lbl_timer.config(fg=color)
+        if self.is_pure_mode and color == "#000000":
+            # Bila pure transparent dengan font hitam, buat label status kontras abu gelap
+            self.lbl_status.config(fg="#334155")
+        elif not self.is_pure_mode:
+            self.lbl_status.config(fg="#94a3b8")
+
     def update_display(self, data):
         event_name = data.get("eventName", "EDUCAMP 2026")
         time_str = data.get("time", "05:00")
@@ -208,8 +229,7 @@ class TransparentTimerOverlay:
             else:
                 self.lbl_status.config(text="⚠️ PERINGATAN WAKTU HAMPIR HABIS", fg="#ef4444")
         elif is_running:
-            # Warna putih solid anti-masking vMix (bukan hijau)
-            self.lbl_timer.config(fg="#ffffff")
+            self.lbl_timer.config(fg=self.timer_font_color)
             self.lbl_status.config(text="● RUNNING • LIVE SYNC", fg="#38bdf8")
         elif remaining_sec <= 0:
             self.lbl_timer.config(fg="#ef4444")
@@ -218,7 +238,7 @@ class TransparentTimerOverlay:
             self.lbl_timer.config(fg="#f59e0b")
             self.lbl_status.config(text="⏸️ PAUSED", fg="#f59e0b")
         else:
-            self.lbl_timer.config(fg="#ffffff")
+            self.lbl_timer.config(fg=self.timer_font_color)
             self.lbl_status.config(text="READY • GESER UNTUK PINDAH", fg="#94a3b8")
 
 def main():
