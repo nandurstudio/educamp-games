@@ -1,65 +1,1169 @@
-// === 1. DATA MASTER RUNDOWN HEALTH CHECK DAY 1 & DAY 2 (OFFICIAL) ===
-    const RUNDOWN_DAY_1 = [
-      { no: 1, time: "08:30 - 08:35", durMin: 5, sec: 300, title: "Opening MC (Pray, Indonesia Raya, Kalbe Panca Sradha)", pic: "Ms. Anisa", isYellow: false },
-      { no: 2, time: "08:35 - 08:40", durMin: 5, sec: 300, title: "Video : Safety Briefing", pic: "Ms. Anisa", isYellow: false },
-      { no: 3, time: "08:40 - 08:45", durMin: 5, sec: 300, title: "Video Journey TPM", pic: "Ms. Anisa", isYellow: false },
-      { no: 4, time: "08:45 - 08:50", durMin: 5, sec: 300, title: "Video Rundown (Day 1)", pic: "Ms. Anisa", isYellow: false },
-      { no: 5, time: "08:50 - 08:55", durMin: 5, sec: 300, title: "Opening Speech Top Management SHP", pic: "Mr. Andi Chendra", isYellow: false },
-      { no: 6, time: "08:55 - 09:00", durMin: 5, sec: 300, title: "Opening Speech JMAC", pic: "Mr. Otsuka", isYellow: false },
-      { no: 7, time: "09:00 - 09:30", durMin: 30, sec: 1800, title: "Presentation Chapter 1, 2, 3, 12 (TPM Promotion)", pic: "Mrs. Verdiana", isYellow: false },
-      { no: 8, time: "09:30 - 10:00", durMin: 30, sec: 1800, title: "Question & Answer Chapter 1, 2, 3, 12", pic: "Mr. Otsuka", isYellow: false },
-      { no: 9, time: "10:00 - 10:10", durMin: 10, sec: 600, title: "Break Pagi", pic: "KNLC D", isYellow: true },
-      { no: 10, time: "10:10 - 10:25", durMin: 15, sec: 900, title: "Presentation Chapter 5 Autonomous Maintenance (AM)", pic: "Mr. Agung Joko", isYellow: false },
-      { no: 11, time: "10:25 - 10:40", durMin: 15, sec: 900, title: "Presentation Chapter 6 Planned Maintenance (PM)", pic: "Mr. Cahyo Agung", isYellow: false },
-      { no: 12, time: "10:40 - 11:10", durMin: 30, sec: 1800, title: "Question & Answer (AM & PM)", pic: "Mr. Otsuka", isYellow: false },
-      { no: 13, time: "11:10 - 11:25", durMin: 15, sec: 900, title: "Presentation Chapter 7 Quality Maintenance (QM)", pic: "Mrs. Sri Rejeki", isYellow: false },
-      { no: 14, time: "11:25 - 11:40", durMin: 15, sec: 900, title: "Presentation Chapter 8 Early Management (EM)", pic: "Mr. Sukaryadi", isYellow: false },
-      { no: 15, time: "11:40 - 12:10", durMin: 30, sec: 1800, title: "Question & Answer (QM & EM)", pic: "Mr. Otsuka", isYellow: false },
-      { no: 16, time: "12:10 - 13:00", durMin: 50, sec: 3000, title: "Lunch Break", pic: "KNLC D", isYellow: true },
-      { no: 17, time: "13:00 - 13:07", durMin: 7, sec: 420, title: "Quick Win 1: EM & OSA", pic: "Mr. Dimas JP & Team", isYellow: false },
-      { no: 18, time: "13:07 - 13:37", durMin: 30, sec: 1800, title: "Q&A Quick Win 1", pic: "Mr. Otsuka", isYellow: false },
-      { no: 19, time: "13:37 - 13:52", durMin: 15, sec: 900, title: "Go to Highcare Area (IBC Lt.2)", pic: "All Team", isYellow: false },
-      { no: 20, time: "13:52 - 13:59", durMin: 7, sec: 420, title: "Quick Win 2: AM & EM", pic: "Mr. Raihan & Mr. Reki", isYellow: false },
-      { no: 21, time: "13:59 - 14:29", durMin: 30, sec: 1800, title: "Q&A Quick Win 2", pic: "Mr. Otsuka", isYellow: false },
-      { no: 22, time: "14:29 - 14:34", durMin: 5, sec: 300, title: "Go to Filling Sachet I", pic: "All Team", isYellow: false },
-      { no: 23, time: "14:34 - 14:41", durMin: 7, sec: 420, title: "Quick Win 3: QM", pic: "Mr. Budy Sutrisno", isYellow: false },
-      { no: 24, time: "14:41 - 15:11", durMin: 30, sec: 1800, title: "Q&A Quick Win 3", pic: "Mr. Otsuka", isYellow: false },
-      { no: 25, time: "15:11 - 15:26", durMin: 15, sec: 900, title: "Go to Packing (Robot Salak)", pic: "All Team", isYellow: false },
-      { no: 26, time: "15:26 - 15:33", durMin: 7, sec: 420, title: "Quick Win 4: PM", pic: "Mr. Joko Suprihanto", isYellow: false },
-      { no: 27, time: "15:33 - 16:03", durMin: 30, sec: 1800, title: "Q&A Quick Win 4", pic: "Mr. Otsuka", isYellow: false },
-      { no: 28, time: "16:03 - 16:13", durMin: 10, sec: 600, title: "Back to Main Room (KNLC A-C)", pic: "All Team", isYellow: false },
-      { no: 29, time: "16:13 - 16:28", durMin: 15, sec: 900, title: "Break Sore", pic: "KNLC D", isYellow: true },
-      { no: 30, time: "16:28 - 16:33", durMin: 5, sec: 300, title: "Closing MC & Pray Day 1", pic: "Ms. Anisa", isYellow: false }
-    ];
+// =========================================================================
+// === DATA MASTER RUNDOWN RESMI DARI DOKUMEN HEALTH CHECK TPM STAGE 2 ===
+// =========================================================================
 
-    const RUNDOWN_DAY_2 = [
-      { no: 1, time: "08:30 - 08:35", durMin: 5, sec: 300, title: "Opening MC Day 2", pic: "Ms. Anisa", isYellow: false },
-      { no: 2, time: "08:35 - 08:40", durMin: 5, sec: 300, title: "Video Rundown (Day 2)", pic: "Ms. Anisa", isYellow: false },
-      { no: 3, time: "08:40 - 09:10", durMin: 30, sec: 1800, title: "Presentation Chapter 4 Focused Improvement (FI)", pic: "Mr. Dyanza Arya Perdana", isYellow: false },
-      { no: 4, time: "09:10 - 09:40", durMin: 30, sec: 1800, title: "Question & Answer Chapter 4 FI", pic: "Mr. Otsuka", isYellow: false },
-      { no: 5, time: "09:40 - 09:55", durMin: 15, sec: 900, title: "Presentation Chapter 9 Education & Training (ET)", pic: "Mr. Andreas Hari Listanto", isYellow: false },
-      { no: 6, time: "09:55 - 10:25", durMin: 30, sec: 1800, title: "Question & Answer Chapter 9 ET", pic: "Mr. Otsuka", isYellow: false },
-      { no: 7, time: "10:25 - 10:35", durMin: 10, sec: 600, title: "Break Pagi", pic: "Studio", isYellow: true },
-      { no: 8, time: "10:35 - 10:50", durMin: 15, sec: 900, title: "Presentation Chapter 10 Office & Administration (OSA)", pic: "Mr. Priyo Anarkie", isYellow: false },
-      { no: 9, time: "10:50 - 11:20", durMin: 30, sec: 1800, title: "Question & Answer Chapter 10 OSA", pic: "Mr. Otsuka", isYellow: false },
-      { no: 10, time: "11:20 - 11:35", durMin: 15, sec: 900, title: "Presentation Chapter 11 Safety, Health & Environment (SHE)", pic: "Pilar SHE Team", isYellow: false },
-      { no: 11, time: "11:35 - 12:05", durMin: 30, sec: 1800, title: "Question & Answer Chapter 11 SHE", pic: "Mr. Otsuka", isYellow: false },
-      { no: 12, time: "12:05 - 13:05", durMin: 60, sec: 3600, title: "Lunch Break", pic: "Studio", isYellow: true },
-      { no: 13, time: "13:05 - 13:10", durMin: 5, sec: 300, title: "Go to View Gallery", pic: "All Team", isYellow: false },
-      { no: 14, time: "13:10 - 13:17", durMin: 7, sec: 420, title: "Quick Win 4: FI", pic: "Ms. Fifi & Mr. Bintang Z", isYellow: false },
-      { no: 15, time: "13:17 - 13:47", durMin: 30, sec: 1800, title: "Q&A Quick Win 4 FI", pic: "Mr. Otsuka", isYellow: false },
-      { no: 16, time: "13:47 - 13:54", durMin: 7, sec: 420, title: "Quick Win 6: SHE", pic: "Mr. Nanang & Mr. Putra Dewangga", isYellow: false },
-      { no: 17, time: "13:54 - 14:24", durMin: 30, sec: 1800, title: "Q&A Quick Win 6 SHE", pic: "Mr. Otsuka", isYellow: false },
-      { no: 18, time: "14:24 - 14:31", durMin: 7, sec: 420, title: "Quick Win 7: ET", pic: "Tim ET", isYellow: false },
-      { no: 19, time: "14:31 - 15:01", durMin: 30, sec: 1800, title: "Q&A Quick Win 7 ET", pic: "Mr. Otsuka", isYellow: false },
-      { no: 20, time: "15:01 - 15:06", durMin: 5, sec: 300, title: "Back to Main Room", pic: "Studio", isYellow: false },
-      { no: 21, time: "15:06 - 15:21", durMin: 15, sec: 900, title: "Break Sore", pic: "Studio", isYellow: true },
-      { no: 22, time: "15:21 - 16:21", durMin: 60, sec: 3600, title: "Lecture & Feedback", pic: "Mr. Otsuka", isYellow: false },
-      { no: 23, time: "16:21 - 16:26", durMin: 5, sec: 300, title: "Closing Speech", pic: "Mr. Yudha Agus Tri Basuki", isYellow: false },
-      { no: 24, time: "16:26 - 16:31", durMin: 5, sec: 300, title: "Closing MC & Pray Day 2", pic: "Ms. Anisa", isYellow: false }
-    ];
+// --- 1. RUNDOWN GLADI RESIK / GR (Monday, November 2, 2026) ---
+const RUNDOWN_GR_DAY_1 = [
+  {
+    "no": 1,
+    "time": "08:30 - 08:35",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Opening MC (Pray, Indonesia Raya, Kalbe Panca Sradha)",
+    "pic": "Ms. Anisa Septia Azhara",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 2,
+    "time": "08:35 - 08:40",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Video : Safety Briefing",
+    "pic": "Ms. Anisa Septia Azhara",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 3,
+    "time": "08:40 - 08:45",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Video Journey TPM",
+    "pic": "Ms. Anisa Septia Azhara",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 4,
+    "time": "08:45 - 08:50",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Video Rundown (Day 1)",
+    "pic": "Ms. Anisa Septia Azhara",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 5,
+    "time": "08:50 - 08:51",
+    "durMin": 1,
+    "sec": 60,
+    "title": "Opening Speech Top Management PT Sanghiang Perkasa",
+    "pic": "-",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 6,
+    "time": "08:51 - 08:52",
+    "durMin": 1,
+    "sec": 60,
+    "title": "Opening Speech JMAC",
+    "pic": "-",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 7,
+    "time": "08:52 - 09:22",
+    "durMin": 30,
+    "sec": 1800,
+    "title": "Presentation Chapter 1,2,3,12",
+    "pic": "Mrs. Verdiana Zahroh Narendra Bawanti",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 8,
+    "time": "09:22 - 09:27",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Question & Answer Chapter 1,2,3,12",
+    "pic": "Mr. Fajar Fauzan & Mr. Yudha Agus Tri Basuki",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 9,
+    "time": "09:27 - 09:42",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Break (Day 1)",
+    "pic": "KNLC D",
+    "area": "KNLC D",
+    "isYellow": true
+  },
+  {
+    "no": 10,
+    "time": "09:42 - 09:57",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Presentation Chapter 4 Focused Improvement",
+    "pic": "Mr. Dyanza Arya Perdana",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 11,
+    "time": "09:57 - 10:12",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Presentation Chapter 5 Autonomous Maintenance",
+    "pic": "Mr. Agung Joko Suprihanto",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 12,
+    "time": "10:12 - 10:17",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Question & Answer Chapter 4 & 5",
+    "pic": "Mr. Fajar Fauzan & Mr. Yudha Agus Tri Basuki",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 13,
+    "time": "10:17 - 10:32",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Presentation Chapter 6 Planned Maintenance",
+    "pic": "Mr. Cahyo Agung Martanto",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 14,
+    "time": "10:32 - 10:47",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Presentation Chapter 7 Quality Maintenance",
+    "pic": "Mrs. Sri Rejeki",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 15,
+    "time": "10:47 - 10:52",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Question & Answer Chapter 6 & 7",
+    "pic": "Mr. Fajar Fauzan & Mr. Yudha Agus Tri Basuki",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 16,
+    "time": "10:52 - 10:53",
+    "durMin": 1,
+    "sec": 60,
+    "title": "Lunch (RD Day 1)",
+    "pic": "KNLC D",
+    "area": "KNLC D",
+    "isYellow": true
+  },
+  {
+    "no": 17,
+    "time": "10:53 - 10:54",
+    "durMin": 1,
+    "sec": 60,
+    "title": "Back to Main Room",
+    "pic": "Ms. Anisa Septia Azhara",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 18,
+    "time": "10:54 - 11:09",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Go to Highcare Area",
+    "pic": "-",
+    "area": "IBC lt.2 & 3",
+    "isYellow": false
+  },
+  {
+    "no": 19,
+    "time": "11:09 - 11:16",
+    "durMin": 7,
+    "sec": 420,
+    "title": "Quick Win 1 : AM & EM (Achieving Zero Defect & Safety Through AM STEP 6 Implementation)",
+    "pic": "Mr. Lilik Sektiawan & Mr. Reki Maulid",
+    "area": "IBC lt.2 & 3",
+    "isYellow": false
+  },
+  {
+    "no": 20,
+    "time": "11:16 - 11:21",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Question & Answer Quick Win 1",
+    "pic": "Mr. Fajar Fauzan & Mr. Yudha Agus Tri Basuki",
+    "area": "IBC lt.2 & 3",
+    "isYellow": false
+  },
+  {
+    "no": 21,
+    "time": "11:21 - 11:31",
+    "durMin": 10,
+    "sec": 600,
+    "title": "Go to Packing",
+    "pic": "-",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 22,
+    "time": "11:31 - 12:31",
+    "durMin": 60,
+    "sec": 3600,
+    "title": "Lunch (RD GR)",
+    "pic": "KNLC D",
+    "area": "KNLC D",
+    "isYellow": true
+  },
+  {
+    "no": 23,
+    "time": "12:31 - 12:38",
+    "durMin": 7,
+    "sec": 420,
+    "title": "Quick Win 2 : QM (Zero Defect Prevention System: Eliminating Unseal Defects Through Sealing Pressure Measurement)",
+    "pic": "Mr. Budy Sutrisno",
+    "area": "Packing Line G",
+    "isYellow": false
+  },
+  {
+    "no": 24,
+    "time": "12:38 - 12:43",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Question & Answer Quick Win 2",
+    "pic": "Mr. Fajar Fauzan & Mr. Yudha Agus Tri Basuki",
+    "area": "Packing Line G",
+    "isYellow": false
+  },
+  {
+    "no": 25,
+    "time": "12:43 - 12:48",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Prepare to next Quickwin",
+    "pic": "-",
+    "area": "Packing Line G",
+    "isYellow": false
+  },
+  {
+    "no": 26,
+    "time": "12:48 - 12:55",
+    "durMin": 7,
+    "sec": 420,
+    "title": "Quick Win 3 : PM & ET (Reducing Mechanical Stress, Bending, Twisting on Palletizing Robot Cable)",
+    "pic": "Mr. Joko Suprihanto & Mr. Dimas Riyantono",
+    "area": "Packing Robot",
+    "isYellow": false
+  },
+  {
+    "no": 27,
+    "time": "12:55 - 13:00",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Question & Answer Quick Win 3",
+    "pic": "Mr. Fajar Fauzan & Mr. Yudha Agus Tri Basuki",
+    "area": "Packing Robot",
+    "isYellow": false
+  },
+  {
+    "no": 28,
+    "time": "13:00 - 13:10",
+    "durMin": 10,
+    "sec": 600,
+    "title": "Back to Main Room",
+    "pic": "-",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 29,
+    "time": "13:10 - 13:11",
+    "durMin": 1,
+    "sec": 60,
+    "title": "Break (Day 1)",
+    "pic": "KNLC D",
+    "area": "KNLC D",
+    "isYellow": true
+  },
+  {
+    "no": 30,
+    "time": "13:11 - 13:16",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Closing Day 1",
+    "pic": "Mr. Fajar Fauzan",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 31,
+    "time": "13:16 - 13:21",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Closing MC & Pray",
+    "pic": "Ms. Anisa Septia Azhara",
+    "area": "KNLC A-C",
+    "isYellow": false
+  }
+];
 
-    let currentDayTab = 'DAY_1';
+const RUNDOWN_GR_DAY_2 = [
+  {
+    "no": 1,
+    "time": "13:21 - 13:26",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Opening MC",
+    "pic": "Ms. Anisa Septia Azhara",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 2,
+    "time": "13:26 - 13:31",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Video Rundown (Day 2)",
+    "pic": "Ms. Anisa Septia Azhara",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 3,
+    "time": "13:31 - 13:46",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Presentation Chapter 8 Early Management",
+    "pic": "Mr. Sukaryadi",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 4,
+    "time": "13:46 - 14:01",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Presentation Chapter 9 Education & Training",
+    "pic": "Mr. Andreas Hari Listanto",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 5,
+    "time": "14:01 - 14:06",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Question & Answer Chapter 8 & 9",
+    "pic": "Mr. Fajar Fauzan & Mr. Yudha Agus Tri Basuki",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 6,
+    "time": "14:06 - 14:07",
+    "durMin": 1,
+    "sec": 60,
+    "title": "Break (Day 2)",
+    "pic": "KNLC D",
+    "area": "KNLC D",
+    "isYellow": true
+  },
+  {
+    "no": 7,
+    "time": "14:07 - 14:22",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Presentation Chapter 10 Office & Administration",
+    "pic": "Mr. Priyo Anarkie",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 8,
+    "time": "14:22 - 14:37",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Presentation Chapter 11 Safety, Health & Environtment",
+    "pic": "Mr. Ainurrofik",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 9,
+    "time": "14:37 - 14:42",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Question & Answer Chapter 10 & 11",
+    "pic": "Mr. Fajar Fauzan & Mr. Yudha Agus Tri Basuki",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 10,
+    "time": "14:42 - 14:47",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Go to View Gallery",
+    "pic": "-",
+    "area": "View Gallery",
+    "isYellow": false
+  },
+  {
+    "no": 11,
+    "time": "14:47 - 14:54",
+    "durMin": 7,
+    "sec": 420,
+    "title": "Quick Win 4 : EM & OSA (Trial Integrated Evaluation Report)",
+    "pic": "Mr. Dimas JP",
+    "area": "View Gallery",
+    "isYellow": false
+  },
+  {
+    "no": 12,
+    "time": "14:54 - 14:59",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Question & Answer Quick Win 4",
+    "pic": "Mr. Fajar Fauzan & Mr. Yudha Agus Tri Basuki",
+    "area": "View Gallery",
+    "isYellow": false
+  },
+  {
+    "no": 13,
+    "time": "14:59 - 15:04",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Back to Main Room",
+    "pic": "Ms. Anisa Septia Azhara",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 14,
+    "time": "15:04 - 15:05",
+    "durMin": 1,
+    "sec": 60,
+    "title": "Lunch (RD Day 2)",
+    "pic": "KNLC D",
+    "area": "KNLC D",
+    "isYellow": true
+  },
+  {
+    "no": 15,
+    "time": "15:05 - 15:06",
+    "durMin": 1,
+    "sec": 60,
+    "title": "Back to Main Room",
+    "pic": "Ms. Anisa Septia Azhara",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 16,
+    "time": "15:06 - 15:07",
+    "durMin": 1,
+    "sec": 60,
+    "title": "Go to View Gallery",
+    "pic": "-",
+    "area": "View Gallery",
+    "isYellow": false
+  },
+  {
+    "no": 17,
+    "time": "15:07 - 15:14",
+    "durMin": 7,
+    "sec": 420,
+    "title": "Quick Win 5 : FI (OMEGA: Turning Operational Complexity into Strategic Clarity)",
+    "pic": "Ms. Fifi",
+    "area": "View Gallery",
+    "isYellow": false
+  },
+  {
+    "no": 18,
+    "time": "15:14 - 15:19",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Question & Answer Quick Win 5",
+    "pic": "Mr. Fajar Fauzan & Mr. Yudha Agus Tri Basuki",
+    "area": "View Gallery",
+    "isYellow": false
+  },
+  {
+    "no": 19,
+    "time": "15:19 - 15:21",
+    "durMin": 2,
+    "sec": 120,
+    "title": "Prepare next Quickwin",
+    "pic": "-",
+    "area": "View Gallery",
+    "isYellow": false
+  },
+  {
+    "no": 20,
+    "time": "15:21 - 15:28",
+    "durMin": 7,
+    "sec": 420,
+    "title": "Quick Win 6 : SHE (Transforming Food Surplus into Sustainability Impact)",
+    "pic": "Mr. Isa Dwiyono",
+    "area": "View Gallery",
+    "isYellow": false
+  },
+  {
+    "no": 21,
+    "time": "15:28 - 15:33",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Question & Answer Quick Win 6",
+    "pic": "Mr. Fajar Fauzan & Mr. Yudha Agus Tri Basuki",
+    "area": "View Gallery",
+    "isYellow": false
+  },
+  {
+    "no": 22,
+    "time": "15:33 - 15:38",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Back to Main Room",
+    "pic": "Ms. Anisa Septia Azhara",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 23,
+    "time": "15:38 - 15:53",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Break (Day 2)",
+    "pic": "KNLC D",
+    "area": "KNLC D",
+    "isYellow": true
+  },
+  {
+    "no": 24,
+    "time": "15:53 - 15:54",
+    "durMin": 1,
+    "sec": 60,
+    "title": "Lecture & Feedback",
+    "pic": "-",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 25,
+    "time": "15:54 - 15:59",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Closing Speech",
+    "pic": "Mr. Yudha Agus Tri Basuki",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 26,
+    "time": "15:59 - 16:04",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Closing MC & Pray",
+    "pic": "Ms. Anisa Septia Azhara",
+    "area": "KNLC A-C",
+    "isYellow": false
+  }
+];
+
+// --- 2. RUNDOWN RESMI HEALTH CHECK STAGE 2 TPM HARI-H (Tuesday-Wednesday, November 3-4, 2026) ---
+const RUNDOWN_OFFICIAL_DAY_1 = [
+  {
+    "no": 1,
+    "time": "08:30 - 08:35",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Opening MC (Pray, Indonesia Raya, Kalbe Panca Sradha)",
+    "pic": "Ms. Anisa Septia Azhara (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 2,
+    "time": "08:35 - 08:40",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Video : Safety Briefing",
+    "pic": "Ms. Anisa Septia Azhara (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 3,
+    "time": "08:40 - 08:45",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Video Journey TPM",
+    "pic": "Ms. Anisa Septia Azhara (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 4,
+    "time": "08:45 - 08:50",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Video Rundown (Day 1)",
+    "pic": "Ms. Anisa Septia Azhara (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 5,
+    "time": "08:50 - 08:55",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Opening Speech Top Management PT Sanghiang Perkasa",
+    "pic": "Mr. Andi Chendra (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 6,
+    "time": "08:55 - 09:00",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Opening Speech JMAC",
+    "pic": "Mr. Otsuka (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 7,
+    "time": "09:00 - 09:30",
+    "durMin": 30,
+    "sec": 1800,
+    "title": "Presentation Chapter 1,2,3,12",
+    "pic": "Mrs. Verdiana Zahroh Narendra Bawanti (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 8,
+    "time": "09:30 - 10:00",
+    "durMin": 30,
+    "sec": 1800,
+    "title": "Question & Answer Chapter 1,2,3,12",
+    "pic": "Mr. Otsuka (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 9,
+    "time": "10:00 - 10:15",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Break",
+    "pic": "KNLC D",
+    "area": "KNLC D",
+    "isYellow": true
+  },
+  {
+    "no": 10,
+    "time": "10:15 - 10:30",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Presentation Chapter 4 Focused Improvement",
+    "pic": "Mr. Dyanza Arya Perdana (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 11,
+    "time": "10:30 - 10:45",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Presentation Chapter 5 Autonomous Maintenance",
+    "pic": "Mr. Agung Joko Suprihanto (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 12,
+    "time": "10:45 - 11:15",
+    "durMin": 30,
+    "sec": 1800,
+    "title": "Question & Answer Chapter 4 & 5",
+    "pic": "Mr. Otsuka (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 13,
+    "time": "11:15 - 11:30",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Presentation Chapter 6 Planned Maintenance",
+    "pic": "Mr. Cahyo Agung Martanto (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 14,
+    "time": "11:30 - 11:45",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Presentation Chapter 7 Quality Maintenance",
+    "pic": "Mrs. Sri Rejeki (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 15,
+    "time": "11:45 - 12:15",
+    "durMin": 30,
+    "sec": 1800,
+    "title": "Question & Answer Chapter 6 & 7",
+    "pic": "Mr. Otsuka (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 16,
+    "time": "12:15 - 13:15",
+    "durMin": 60,
+    "sec": 3600,
+    "title": "Lunch",
+    "pic": "KNLC D",
+    "area": "KNLC D",
+    "isYellow": true
+  },
+  {
+    "no": 17,
+    "time": "13:15 - 13:20",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Back to Main Room",
+    "pic": "Ms. Anisa Septia Azhara (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 18,
+    "time": "13:20 - 13:35",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Go to Highcare Area",
+    "pic": "-",
+    "area": "IBC lt.2 & 3",
+    "isYellow": false
+  },
+  {
+    "no": 19,
+    "time": "13:35 - 13:42",
+    "durMin": 7,
+    "sec": 420,
+    "title": "Quick Win 1 : AM & EM (Achieving Zero Defect & Safety Through AM STEP 6 Implementation)",
+    "pic": "Mr. Lilik Sektiawan & Mr. Reki Maulid (Interpreter: Mr. Arief)",
+    "area": "IBC lt.2 & 3",
+    "isYellow": false
+  },
+  {
+    "no": 20,
+    "time": "13:42 - 14:12",
+    "durMin": 30,
+    "sec": 1800,
+    "title": "Question & Answer Quick Win 1",
+    "pic": "Mr. Otsuka (Interpreter: Mr. Arief)",
+    "area": "IBC lt.2 & 3",
+    "isYellow": false
+  },
+  {
+    "no": 21,
+    "time": "14:12 - 14:22",
+    "durMin": 10,
+    "sec": 600,
+    "title": "Go to Packing",
+    "pic": "-",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 22,
+    "time": "14:22 - 14:29",
+    "durMin": 7,
+    "sec": 420,
+    "title": "Quick Win 2 : QM (Zero Defect Prevention System: Eliminating Unseal Defects Through Sealing Pressure Measurement)",
+    "pic": "Mr. Budy Sutrisno (Interpreter: Mr. Arief)",
+    "area": "Packing Line G",
+    "isYellow": false
+  },
+  {
+    "no": 23,
+    "time": "14:29 - 14:59",
+    "durMin": 30,
+    "sec": 1800,
+    "title": "Question & Answer Quick Win 2",
+    "pic": "Mr. Otsuka (Interpreter: Mr. Arief)",
+    "area": "Packing Line G",
+    "isYellow": false
+  },
+  {
+    "no": 24,
+    "time": "14:59 - 15:04",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Prepare to next Quickwin",
+    "pic": "-",
+    "area": "Packing Line G",
+    "isYellow": false
+  },
+  {
+    "no": 25,
+    "time": "15:04 - 15:11",
+    "durMin": 7,
+    "sec": 420,
+    "title": "Quick Win 3 : PM & ET (Reducing Mechanical Stress, Bending, Twisting on Palletizing Robot Cable)",
+    "pic": "Mr. Joko Suprihanto & Mr. Dimas Riyantono (Interpreter: Mr. Arief)",
+    "area": "Packing Robot",
+    "isYellow": false
+  },
+  {
+    "no": 26,
+    "time": "15:11 - 15:41",
+    "durMin": 30,
+    "sec": 1800,
+    "title": "Question & Answer Quick Win 3",
+    "pic": "Mr. Otsuka (Interpreter: Mr. Arief)",
+    "area": "Packing Robot",
+    "isYellow": false
+  },
+  {
+    "no": 27,
+    "time": "15:41 - 15:51",
+    "durMin": 10,
+    "sec": 600,
+    "title": "Back to Main Room",
+    "pic": "-",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 28,
+    "time": "15:51 - 16:06",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Break",
+    "pic": "KNLC D",
+    "area": "KNLC D",
+    "isYellow": true
+  },
+  {
+    "no": 29,
+    "time": "16:06 - 16:11",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Closing Day 1",
+    "pic": "Mr. Fajar Fauzan (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 30,
+    "time": "16:11 - 16:16",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Closing MC & Pray",
+    "pic": "Ms. Anisa Septia Azhara (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  }
+];
+
+const RUNDOWN_OFFICIAL_DAY_2 = [
+  {
+    "no": 1,
+    "time": "08:30 - 08:35",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Opening MC",
+    "pic": "Ms. Anisa Septia Azhara (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 2,
+    "time": "08:35 - 08:40",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Video Rundown (Day 2)",
+    "pic": "Ms. Anisa Septia Azhara (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 3,
+    "time": "08:40 - 08:55",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Presentation Chapter 8 Early Management",
+    "pic": "Mr. Sukaryadi (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 4,
+    "time": "08:55 - 09:10",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Presentation Chapter 9 Education & Training",
+    "pic": "Mr. Andreas Hari Listanto (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 5,
+    "time": "09:10 - 09:40",
+    "durMin": 30,
+    "sec": 1800,
+    "title": "Question & Answer Chapter 8 & 9",
+    "pic": "Mr. Otsuka (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 6,
+    "time": "09:40 - 09:55",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Break",
+    "pic": "KNLC D",
+    "area": "KNLC D",
+    "isYellow": true
+  },
+  {
+    "no": 7,
+    "time": "09:55 - 10:10",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Presentation Chapter 10 Office & Administration",
+    "pic": "Mr. Priyo Anarkie (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 8,
+    "time": "10:10 - 10:25",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Presentation Chapter 11 Safety, Health & Environtment",
+    "pic": "Mr. Ainurrofik (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 9,
+    "time": "10:25 - 10:55",
+    "durMin": 30,
+    "sec": 1800,
+    "title": "Question & Answer Chapter 10 & 11",
+    "pic": "Mr. Otsuka (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 10,
+    "time": "10:55 - 11:00",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Go to View Gallery",
+    "pic": "-",
+    "area": "View Gallery",
+    "isYellow": false
+  },
+  {
+    "no": 11,
+    "time": "11:00 - 11:07",
+    "durMin": 7,
+    "sec": 420,
+    "title": "Quick Win 4 : EM & OSA (Trial Integrated Evaluation Report)",
+    "pic": "Mr. Dimas JP (Interpreter: Mr. Arief)",
+    "area": "View Gallery",
+    "isYellow": false
+  },
+  {
+    "no": 12,
+    "time": "11:07 - 11:37",
+    "durMin": 30,
+    "sec": 1800,
+    "title": "Question & Answer Quick Win 4",
+    "pic": "Mr. Otsuka (Interpreter: Mr. Arief)",
+    "area": "View Gallery",
+    "isYellow": false
+  },
+  {
+    "no": 13,
+    "time": "11:37 - 11:42",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Back to Main Room",
+    "pic": "Ms. Anisa Septia Azhara (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 14,
+    "time": "11:42 - 12:42",
+    "durMin": 60,
+    "sec": 3600,
+    "title": "Lunch",
+    "pic": "KNLC D",
+    "area": "KNLC D",
+    "isYellow": true
+  },
+  {
+    "no": 15,
+    "time": "12:42 - 12:47",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Back to Main Room",
+    "pic": "Ms. Anisa Septia Azhara (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 16,
+    "time": "12:47 - 12:52",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Go to View Gallery",
+    "pic": "-",
+    "area": "View Gallery",
+    "isYellow": false
+  },
+  {
+    "no": 17,
+    "time": "12:52 - 12:59",
+    "durMin": 7,
+    "sec": 420,
+    "title": "Quick Win 5 : FI (OMEGA: Turning Operational Complexity into Strategic Clarity)",
+    "pic": "Ms. Fifi (Interpreter: Mr. Arief)",
+    "area": "View Gallery",
+    "isYellow": false
+  },
+  {
+    "no": 18,
+    "time": "12:59 - 13:29",
+    "durMin": 30,
+    "sec": 1800,
+    "title": "Question & Answer Quick Win 5",
+    "pic": "Mr. Otsuka (Interpreter: Mr. Arief)",
+    "area": "View Gallery",
+    "isYellow": false
+  },
+  {
+    "no": 19,
+    "time": "13:29 - 13:31",
+    "durMin": 2,
+    "sec": 120,
+    "title": "Prepare next Quickwin",
+    "pic": "-",
+    "area": "View Gallery",
+    "isYellow": false
+  },
+  {
+    "no": 20,
+    "time": "13:31 - 13:38",
+    "durMin": 7,
+    "sec": 420,
+    "title": "Quick Win 6 : SHE (Transforming Food Surplus into Sustainability Impact)",
+    "pic": "Mr. Isa Dwiyono (Interpreter: Mr. Arief)",
+    "area": "View Gallery",
+    "isYellow": false
+  },
+  {
+    "no": 21,
+    "time": "13:38 - 14:08",
+    "durMin": 30,
+    "sec": 1800,
+    "title": "Question & Answer Quick Win 6",
+    "pic": "Mr. Otsuka (Interpreter: Mr. Arief)",
+    "area": "View Gallery",
+    "isYellow": false
+  },
+  {
+    "no": 22,
+    "time": "14:08 - 14:13",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Back to Main Room",
+    "pic": "Ms. Anisa Septia Azhara (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 23,
+    "time": "14:13 - 14:28",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Break",
+    "pic": "KNLC D",
+    "area": "KNLC D",
+    "isYellow": true
+  },
+  {
+    "no": 24,
+    "time": "14:28 - 15:58",
+    "durMin": 90,
+    "sec": 5400,
+    "title": "Lecture & Feedback",
+    "pic": "Mr. Otsuka (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 25,
+    "time": "15:58 - 16:03",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Closing Speech",
+    "pic": "Mr. Yudha Agus Tri Basuki (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 26,
+    "time": "16:03 - 16:08",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Closing MC & Pray",
+    "pic": "Ms. Anisa Septia Azhara (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  }
+];
+
+let currentActiveEvent = null;
+
+function getMasterRundownForEvent(eventId, dayKey) {
+  const targetId = eventId || (currentActiveEvent ? currentActiveEvent.id : '');
+  const ev = currentActiveEvent;
+  const isHariH = (targetId && (targetId.includes('stage2') || targetId.includes('hari-h') || targetId.includes('official'))) ||
+                  (ev && ((ev.name && ev.name.toLowerCase().includes('hari-h')) || (ev.sessionId && ev.sessionId.includes('stage2')) || (ev.sessionId && ev.sessionId.includes('hari-h'))));
+  const normalizedDay = (dayKey || 'DAY_1').toUpperCase();
+  if (isHariH) {
+    return normalizedDay === 'DAY_1' ? RUNDOWN_OFFICIAL_DAY_1 : RUNDOWN_OFFICIAL_DAY_2;
+  }
+  // Default to GR (Gladi Resik / Gladi Kotor)
+  return normalizedDay === 'DAY_1' ? RUNDOWN_GR_DAY_1 : RUNDOWN_GR_DAY_2;
+}
+
+const RUNDOWN_DAY_1 = RUNDOWN_GR_DAY_1;
+const RUNDOWN_DAY_2 = RUNDOWN_GR_DAY_2;
+let currentDayTab = 'DAY_1';
     let pendingSessionSeparator = null;
     let currentActiveSession = {
       title: 'Opening / Standby',
@@ -112,7 +1216,7 @@
       } catch (e) {
         console.warn('Gagal membaca storage rundown, gunakan default');
       }
-      return dayKey === 'DAY_1' ? JSON.parse(JSON.stringify(RUNDOWN_DAY_1)) : JSON.parse(JSON.stringify(RUNDOWN_DAY_2));
+      return JSON.parse(JSON.stringify(getMasterRundownForEvent(currentActiveEvent?.id, dayKey)));
     }
 
     function saveStoredRundown(dayKey, items) {
@@ -847,7 +1951,7 @@
     let currentUser = null;
     let isUserAdmin = false;
     let isSuperAdmin = false;
-    let currentActiveEvent = null;
+    // currentActiveEvent is initialized at top of file
 
     // Fungsi Penguncian Akses Timer & Rundown untuk Non-Admin
     function updateTimerPermissionUI() {
@@ -1185,7 +2289,9 @@
 
     function getCleanSeparatorTitle(raw) {
       if (!raw) return '';
-      return String(raw).split(' - Aktual (')[0].split(' • Actual:')[0].trim().toLowerCase();
+      let clean = String(raw).split(' - Aktual (')[0].split(' • Actual:')[0].split(' - Aktual:')[0].trim();
+      clean = clean.replace(/\s*\(\d+m\)$/i, '').trim();
+      return clean.toLowerCase().replace(/\s+/g, ' ');
     }
 
     function isSeparatorTitleAlreadyExists(titleToCheck) {
@@ -1834,7 +2940,8 @@
 
     // === 5. TIMER CONTROLS (STATE MACHINE: 2 SLOTS MORPHING) ===
     function checkTimerControlPermission() {
-      if (!isUserAdmin) {
+      const isLocalHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      if (!isUserAdmin && !isLocalHost) {
         showAlertDialog({ title: 'Akses Ditolak', message: 'Hanya pengguna terotorisasi yang dapat mengubah atau mengontrol timer.' });
         return false;
       }

@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const firebaseService = require('./firebase-service');
+const masterRundowns = require('./master-rundowns');
 
 const STORAGE_FILE = path.join(__dirname, '../../data/timer-chat-storage.json');
 
@@ -26,6 +27,19 @@ class TimerChatEngine {
     this.loadStorage();
   }
 
+  
+  getMasterRundownForEvent(eventId, dayKey = 'DAY_1') {
+    const targetId = eventId || this.activeEventId;
+    const ev = this.events[targetId];
+    const isGR = (targetId && targetId.includes('gr')) || 
+                 (ev && ((ev.name && ev.name.toLowerCase().includes('gladi')) || (ev.sessionId && ev.sessionId.includes('gladi'))));
+    const normalizedDay = (dayKey || 'DAY_1').toUpperCase();
+    if (isGR) {
+      return normalizedDay === 'DAY_1' ? masterRundowns.RUNDOWN_GR_DAY_1 : masterRundowns.RUNDOWN_GR_DAY_2;
+    }
+    return normalizedDay === 'DAY_1' ? masterRundowns.RUNDOWN_OFFICIAL_DAY_1 : masterRundowns.RUNDOWN_OFFICIAL_DAY_2;
+  }
+
   sanitizeChatsList(chats) {
     if (!Array.isArray(chats)) return [];
     const legacyWelcomeText = 'Selamat datang di ruang Timer & Chat live! Silakan ajukan pertanyaan atau koordinasi di sini.';
@@ -41,29 +55,65 @@ class TimerChatEngine {
   }
 
   initDefaultStructureOnly() {
-    const defaultId = 'event-educamp-2026';
-    if (!this.events[defaultId]) {
-      this.events[defaultId] = {
-        id: defaultId,
-        sessionId: 'educamp-2026',
-        joinCode: 'EDU2026',
-        name: 'Educamp & Team Building 2026',
-        date: '2026-10-25',
-        description: 'Sesi utama Educamp, sharing session, dan live presentation.',
+    if (!this.events['event-hc-tpm-gk-2026']) {
+      this.events['event-hc-tpm-gk-2026'] = {
+        id: 'event-hc-tpm-gk-2026',
+        sessionId: 'gk-tpm-stage2',
+        joinCode: 'GK-TPM-2026',
+        name: 'Gladi Kotor (GK) TPM Stage 2',
+        date: '2026-10-30',
+        description: 'Sesi Gladi Kotor (GK) Health Check Stage 2 TPM PT Sanghiang Perkasa',
         createdAt: new Date().toISOString(),
-        timer: {
-          durationSeconds: 300,
-          remainingSeconds: 300,
-          isRunning: false,
-          targetEndTime: null,
-          pausedAt: null
-        },
+        timer: { mode: 'COUNTDOWN', durationSeconds: 300, remainingSeconds: 300, status: 'IDLE', isRunning: false, targetEndTime: null },
         chats: [],
-        sessionState: { ...this.sessionState }
+        sessionState: {
+          rundownDay1: masterRundowns.RUNDOWN_GR_DAY_1,
+          rundownDay2: masterRundowns.RUNDOWN_GR_DAY_2,
+          completedSessionsDay1: [],
+          completedSessionsDay2: []
+        }
+      };
+    }
+    if (!this.events['event-hc-tpm-gr-2026']) {
+      this.events['event-hc-tpm-gr-2026'] = {
+        id: 'event-hc-tpm-gr-2026',
+        sessionId: 'gr-tpm-stage2',
+        joinCode: 'GR-TPM-2026',
+        name: 'Gladi Resik (GR) TPM Stage 2',
+        date: '2026-11-02',
+        description: 'Sesi Gladi Resik (GR) Health Check Stage 2 TPM PT Sanghiang Perkasa',
+        createdAt: new Date().toISOString(),
+        timer: { mode: 'COUNTDOWN', durationSeconds: 300, remainingSeconds: 300, status: 'IDLE', isRunning: false, targetEndTime: null },
+        chats: [],
+        sessionState: {
+          rundownDay1: masterRundowns.RUNDOWN_GR_DAY_1,
+          rundownDay2: masterRundowns.RUNDOWN_GR_DAY_2,
+          completedSessionsDay1: [],
+          completedSessionsDay2: []
+        }
+      };
+    }
+    if (!this.events['event-hc-tpm-stage2-2026']) {
+      this.events['event-hc-tpm-stage2-2026'] = {
+        id: 'event-hc-tpm-stage2-2026',
+        sessionId: 'hari-h-tpm-stage2',
+        joinCode: 'HARI-H-TPM-2026',
+        name: 'Health Check TPM Stage 2 (Hari-H)',
+        date: '2026-11-03',
+        description: 'Health Check Stage 2 TPM PT Sanghiang Perkasa bersama JMAC (Mr. Otsuka)',
+        createdAt: new Date().toISOString(),
+        timer: { mode: 'COUNTDOWN', durationSeconds: 300, remainingSeconds: 300, status: 'IDLE', isRunning: false, targetEndTime: null },
+        chats: [],
+        sessionState: {
+          rundownDay1: masterRundowns.RUNDOWN_OFFICIAL_DAY_1,
+          rundownDay2: masterRundowns.RUNDOWN_OFFICIAL_DAY_2,
+          completedSessionsDay1: [],
+          completedSessionsDay2: []
+        }
       };
     }
     if (!this.activeEventId || !this.events[this.activeEventId]) {
-      this.activeEventId = Object.keys(this.events)[0] || defaultId;
+      this.activeEventId = 'event-hc-tpm-gr-2026';
     }
   }
 
@@ -1073,7 +1123,9 @@ class TimerChatEngine {
 
   getCleanSeparatorTitle(raw) {
     if (!raw) return '';
-    return String(raw).split(' - Aktual (')[0].split(' • Actual:')[0].trim().toLowerCase();
+    let clean = String(raw).split(' - Aktual (')[0].split(' • Actual:')[0].split(' - Aktual:')[0].trim();
+    clean = clean.replace(/\s*\(\d+m\)$/i, '').trim();
+    return clean.toLowerCase().replace(/\s+/g, ' ');
   }
 
   addSessionSeparator(eventId, sessionTitle, sessionDuration = null) {

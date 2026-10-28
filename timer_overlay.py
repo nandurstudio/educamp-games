@@ -35,11 +35,11 @@ class TransparentTimerOverlay:
         except Exception as e:
             print(f"[Warning] Transparent color not supported on this platform: {e}")
 
-        # Position default on screen (top-right)
-        win_w, win_h = 420, 200
+        # Position default on screen (top-right) - Compact height & width
+        win_w, win_h = 360, 126
         screen_w = self.root.winfo_screenwidth()
-        start_x = max(20, screen_w - win_w - 40)
-        start_y = 40
+        start_x = max(20, screen_w - win_w - 30)
+        start_y = 30
         self.root.geometry(f"{win_w}x{win_h}+{start_x}+{start_y}")
 
         # Dragging State
@@ -49,7 +49,7 @@ class TransparentTimerOverlay:
         self.font_scale = 1.0
         self.timer_font_color = "#ffffff"
 
-        # UI Components
+        # UI Components - Compact styling
         self.card_bg = "#0f172a"
         self.card_border = "#334155"
 
@@ -57,33 +57,33 @@ class TransparentTimerOverlay:
             self.root, 
             bg=self.card_bg, 
             highlightbackground=self.card_border, 
-            highlightthickness=2, 
-            padx=16, 
-            pady=8
+            highlightthickness=1, 
+            padx=12, 
+            pady=4
         )
-        self.card_frame.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
+        self.card_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
 
-        # Event Badge / Header
+        # Event Badge / Header (Compact top margin)
         self.lbl_event = tk.Label(
             self.card_frame,
             text="EDUCAMP 2026",
-            font=("Segoe UI", 11, "bold"),
+            font=("Segoe UI", 10, "bold"),
             fg="#38bdf8",
             bg=self.card_bg
         )
-        self.lbl_event.pack(anchor="center", pady=(0, 1))
+        self.lbl_event.pack(anchor="center", pady=(1, 0))
 
-        # Main Digits Label
+        # Main Digits Label (Tighter vertical footprint)
         self.lbl_timer = tk.Label(
             self.card_frame,
             text="05:00",
-            font=("Consolas", 56, "bold"),
+            font=("Consolas", 52, "bold"),
             fg=self.timer_font_color,
             bg=self.card_bg
         )
-        self.lbl_timer.pack(anchor="center", pady=0)
+        self.lbl_timer.pack(anchor="center", pady=(0, 0))
 
-        # Status / Subtitle Label - Lebih mepet ke angka timer agar compact
+        # Status / Subtitle Label - Tepat mepet di bawah angka timer
         self.lbl_status = tk.Label(
             self.card_frame,
             text="0ms SYNC • GESER UNTUK PINDAH",
@@ -91,19 +91,20 @@ class TransparentTimerOverlay:
             fg="#94a3b8",
             bg=self.card_bg
         )
-        self.lbl_status.pack(anchor="center", pady=(0, 0))
+        self.lbl_status.pack(anchor="center", pady=(0, 2))
 
         # Setup Drag Handlers on all components
         for widget in (self.root, self.card_frame, self.lbl_event, self.lbl_timer, self.lbl_status):
             widget.bind("<Button-1>", self.on_drag_start)
             widget.bind("<B1-Motion>", self.on_drag_motion)
             widget.bind("<Button-3>", self.show_context_menu)  # Right click menu
+            widget.bind("<Double-Button-1>", lambda e: self.toggle_pure_mode()) # Double click toggle glass
 
         # Context Menu
         self.context_menu = tk.Menu(self.root, tearoff=0)
         self.context_menu.add_command(label="Toggle Glass Card / Pure Transparent", command=self.toggle_pure_mode)
         
-        # Submenu Warna Font
+        # Submenu Warna Font Lengkap
         self.color_menu = tk.Menu(self.context_menu, tearoff=0)
         self.color_menu.add_command(label="⚪ Putih Bersih (#ffffff)", command=lambda: self.set_font_color("#ffffff"))
         self.color_menu.add_command(label="⚫ Hitam Pekat (#000000 - Slide Terang)", command=lambda: self.set_font_color("#000000"))
@@ -111,16 +112,18 @@ class TransparentTimerOverlay:
         self.color_menu.add_command(label="🔷 Cyan Biru (#38bdf8)", command=lambda: self.set_font_color("#38bdf8"))
         self.color_menu.add_command(label="🟢 Hijau Neon (#22c55e)", command=lambda: self.set_font_color("#22c55e"))
         self.color_menu.add_command(label="🔴 Merah Elektrik (#ef4444)", command=lambda: self.set_font_color("#ef4444"))
+        self.color_menu.add_command(label="🟣 Ungu Lavender (#c084fc)", command=lambda: self.set_font_color("#c084fc"))
+        self.color_menu.add_command(label="🟠 Oranye Flame (#fb923c)", command=lambda: self.set_font_color("#fb923c"))
         self.context_menu.add_cascade(label="🎨 Ganti Warna Font Timer", menu=self.color_menu)
 
         self.context_menu.add_separator()
         self.context_menu.add_command(label="Server: Localhost (:3002)", command=lambda: self.switch_server(DEFAULT_LOCAL_URL))
         self.context_menu.add_command(label="Server: Cloud (educamp.ai.studio)", command=lambda: self.switch_server(DEFAULT_CLOUD_URL))
         self.context_menu.add_separator()
-        self.context_menu.add_command(label="Font Ukuran: Kecil", command=lambda: self.set_scale(0.75))
+        self.context_menu.add_command(label="Font Ukuran: Kecil", command=lambda: self.set_scale(0.8))
         self.context_menu.add_command(label="Font Ukuran: Normal", command=lambda: self.set_scale(1.0))
-        self.context_menu.add_command(label="Font Ukuran: Besar", command=lambda: self.set_scale(1.3))
-        self.context_menu.add_command(label="Font Ukuran: Raksasa", command=lambda: self.set_scale(1.6))
+        self.context_menu.add_command(label="Font Ukuran: Besar", command=lambda: self.set_scale(1.25))
+        self.context_menu.add_command(label="Font Ukuran: Raksasa", command=lambda: self.set_scale(1.5))
         self.context_menu.add_separator()
         self.context_menu.add_command(label="Tutup Overlay (Exit)", command=self.root.quit)
 
@@ -158,25 +161,28 @@ class TransparentTimerOverlay:
             self.lbl_event.config(bg=self.trans_color)
             self.lbl_timer.config(bg=self.trans_color)
             self.lbl_status.config(bg=self.trans_color)
+            if self.timer_font_color == "#000000":
+                self.lbl_status.config(fg="#334155")
         else:
             # Elegant dark pill backing
-            self.card_frame.config(bg=self.card_bg, highlightthickness=2, highlightbackground=self.card_border)
+            self.card_frame.config(bg=self.card_bg, highlightthickness=1, highlightbackground=self.card_border)
             self.lbl_event.config(bg=self.card_bg)
             self.lbl_timer.config(bg=self.card_bg)
             self.lbl_status.config(bg=self.card_bg)
+            self.lbl_status.config(fg="#94a3b8")
 
     def set_scale(self, scale):
         self.font_scale = scale
-        event_size = int(11 * scale)
-        timer_size = int(56 * scale)
+        event_size = int(10 * scale)
+        timer_size = int(52 * scale)
         status_size = int(8 * scale)
         
         self.lbl_event.config(font=("Segoe UI", event_size, "bold"))
         self.lbl_timer.config(font=("Consolas", timer_size, "bold"))
         self.lbl_status.config(font=("Segoe UI", status_size, "bold"))
 
-        w = int(420 * scale)
-        h = int(200 * scale)
+        w = int(360 * scale)
+        h = int(126 * scale)
         cur_x = self.root.winfo_x()
         cur_y = self.root.winfo_y()
         self.root.geometry(f"{w}x{h}+{cur_x}+{cur_y}")
@@ -202,7 +208,6 @@ class TransparentTimerOverlay:
         self.timer_font_color = color
         self.lbl_timer.config(fg=color)
         if self.is_pure_mode and color == "#000000":
-            # Bila pure transparent dengan font hitam, buat label status kontras abu gelap
             self.lbl_status.config(fg="#334155")
         elif not self.is_pure_mode:
             self.lbl_status.config(fg="#94a3b8")
