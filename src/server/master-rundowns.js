@@ -5,67 +5,460 @@
 // 1. GLADI KOTOR / GK (Friday, October 30, 2026)
 // =========================================================================
 const RUNDOWN_GK_DAY_1 = [
-  { no: 1, time: "08:30 - 08:35", durMin: 5, sec: 300, title: "Opening MC (Pray, Indonesia Raya, Kalbe Panca Sradha)", pic: "Ms. Anisa Septia Azhara", area: "KNLC A-C", isYellow: false },
-  { no: 2, time: "08:35 - 08:40", durMin: 5, sec: 300, title: "Video : Safety Briefing", pic: "Ms. Anisa Septia Azhara", area: "KNLC A-C", isYellow: false },
-  { no: 3, time: "08:40 - 08:45", durMin: 5, sec: 300, title: "Video Journey TPM", pic: "Ms. Anisa Septia Azhara", area: "KNLC A-C", isYellow: false },
-  { no: 4, time: "08:45 - 08:50", durMin: 5, sec: 300, title: "Video Rundown (Day 1)", pic: "Ms. Anisa Septia Azhara", area: "KNLC A-C", isYellow: false },
-  { no: 5, time: "08:50 - 08:51", durMin: 1, sec: 60, title: "Opening Speech Top Management PT Sanghiang Perkasa", pic: "-", area: "KNLC A-C", isYellow: false },
-  { no: 6, time: "08:51 - 08:52", durMin: 1, sec: 60, title: "Opening Speech JMAC", pic: "-", area: "KNLC A-C", isYellow: false },
-  { no: 7, time: "08:52 - 09:22", durMin: 30, sec: 1800, title: "Presentation Chapter 1,2,3,12", pic: "Mrs. Verdiana Zahroh Narendra Bawanti", area: "KNLC A-C", isYellow: false },
-  { no: 8, time: "09:22 - 09:27", durMin: 5, sec: 300, title: "Question & Answer Chapter 1,2,3,12", pic: "Mr. Fajar Fauzan & Mr. Yudha Agus Tri Basuki", area: "KNLC A-C", isYellow: false },
-  { no: 9, time: "09:27 - 09:42", durMin: 15, sec: 900, title: "Break (Day 1)", pic: "KNLC D", area: "KNLC D", isYellow: true },
-  { no: 10, time: "09:42 - 09:57", durMin: 15, sec: 900, title: "Presentation Chapter 4 Focused Improvement", pic: "Mr. Dyanza Arya Perdana", area: "KNLC A-C", isYellow: false },
-  { no: 11, time: "09:57 - 10:12", durMin: 15, sec: 900, title: "Presentation Chapter 5 Autonomous Maintenance", pic: "Mr. Agung Joko Suprihanto", area: "KNLC A-C", isYellow: false },
-  { no: 12, time: "10:12 - 10:17", durMin: 5, sec: 300, title: "Question & Answer Chapter 4 & 5", pic: "Mr. Fajar Fauzan & Mr. Yudha Agus Tri Basuki", area: "KNLC A-C", isYellow: false },
-  { no: 13, time: "10:17 - 10:32", durMin: 15, sec: 900, title: "Presentation Chapter 6 Planned Maintenance", pic: "Mr. Cahyo Agung Martanto", area: "KNLC A-C", isYellow: false },
-  { no: 14, time: "10:32 - 10:47", durMin: 15, sec: 900, title: "Presentation Chapter 7 Quality Maintenance", pic: "Mrs. Sri Rejeki", area: "KNLC A-C", isYellow: false },
-  { no: 15, time: "10:47 - 10:52", durMin: 5, sec: 300, title: "Question & Answer Chapter 6 & 7", pic: "Mr. Fajar Fauzan & Mr. Yudha Agus Tri Basuki", area: "KNLC A-C", isYellow: false },
-  { no: 16, time: "10:52 - 10:53", durMin: 1, sec: 60, title: "Lunch (RD Day 1)", pic: "KNLC D", area: "KNLC D", isYellow: true },
-  { no: 17, time: "10:53 - 10:54", durMin: 1, sec: 60, title: "Back to Main Room", pic: "Ms. Anisa Septia Azhara", area: "KNLC A-C", isYellow: false },
-  { no: 18, time: "10:54 - 11:09", durMin: 15, sec: 900, title: "Go to Highcare Area", pic: "-", area: "IBC lt.2 & 3", isYellow: false },
-  { no: 19, time: "11:09 - 11:16", durMin: 7, sec: 420, title: "Quick Win 1 : AM & EM (Achieving Zero Defect & Safety Through AM STEP 6 Implementation)", pic: "Mr. Lilik Sektiawan & Mr. Reki Maulid", area: "IBC lt.2 & 3", isYellow: false },
-  { no: 20, time: "11:16 - 11:21", durMin: 5, sec: 300, title: "Question & Answer Quick Win 1", pic: "Mr. Fajar Fauzan & Mr. Yudha Agus Tri Basuki", area: "IBC lt.2 & 3", isYellow: false },
-  { no: 21, time: "11:21 - 11:31", durMin: 10, sec: 600, title: "Go to Packing", pic: "-", area: "KNLC A-C", isYellow: false },
-  { no: 22, time: "11:31 - 13:00", durMin: 89, sec: 5340, title: "Lunch (RD GK)", pic: "KNLC D", area: "KNLC D", isYellow: true },
-  { no: 23, time: "13:00 - 13:07", durMin: 7, sec: 420, title: "Quick Win 2 : QM (Zero Defect Prevention System: Eliminating Unseal Defects Through Sealing Pressure Measurement)", pic: "Mr. Budy Sutrisno", area: "Packing Line G", isYellow: false },
-  { no: 24, time: "13:07 - 13:12", durMin: 5, sec: 300, title: "Question & Answer Quick Win 2", pic: "Mr. Fajar Fauzan & Mr. Yudha Agus Tri Basuki", area: "Packing Line G", isYellow: false },
-  { no: 25, time: "13:12 - 13:17", durMin: 5, sec: 300, title: "Prepare to next Quickwin", pic: "-", area: "Packing Line G", isYellow: false },
-  { no: 26, time: "13:17 - 13:24", durMin: 7, sec: 420, title: "Quick Win 3 : PM & ET (Reducing Mechanical Stress, Bending, Twisting on Palletizing Robot Cable)", pic: "Mr. Joko Suprihanto & Mr. Dimas Riyantono", area: "Packing Robot", isYellow: false },
-  { no: 27, time: "13:24 - 13:29", durMin: 5, sec: 300, title: "Question & Answer Quick Win 3", pic: "Mr. Fajar Fauzan & Mr. Yudha Agus Tri Basuki", area: "Packing Robot", isYellow: false },
-  { no: 28, time: "13:29 - 13:39", durMin: 10, sec: 600, title: "Back to Main Room", pic: "-", area: "KNLC A-C", isYellow: false },
-  { no: 29, time: "13:39 - 13:40", durMin: 1, sec: 60, title: "Break (Day 1)", pic: "KNLC D", area: "KNLC D", isYellow: true },
-  { no: 30, time: "13:40 - 13:45", durMin: 5, sec: 300, title: "Closing Day 1", pic: "Mr. Fajar Fauzan", area: "KNLC A-C", isYellow: false },
-  { no: 31, time: "13:45 - 13:50", durMin: 5, sec: 300, title: "Closing MC & Pray", pic: "Ms. Anisa Septia Azhara", area: "KNLC A-C", isYellow: false }
+  {
+    "no": 1,
+    "time": "08:30 - 08:35",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Opening MC ( Pray , Indonesia Raya , Kalbe Panca Sradha )",
+    "pic": "Ms. Anisa Septia Azhara",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 2,
+    "time": "08:35 - 08:36",
+    "durMin": 1,
+    "sec": 60,
+    "title": "Video : Safety Breafing",
+    "pic": "Ms. Anisa Septia Azhara",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 3,
+    "time": "08:36 - 08:37",
+    "durMin": 1,
+    "sec": 60,
+    "title": "Video Journey TPM",
+    "pic": "Ms. Anisa Septia Azhara",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 4,
+    "time": "08:37 - 08:38",
+    "durMin": 1,
+    "sec": 60,
+    "title": "Video Rundown ( Day 1 )",
+    "pic": "Ms. Anisa Septia Azhara",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 5,
+    "time": "08:38 - 08:39",
+    "durMin": 1,
+    "sec": 60,
+    "title": "Opening Speech Top Management PT Sanghiang Perkasa",
+    "pic": "-",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 6,
+    "time": "08:39 - 08:40",
+    "durMin": 1,
+    "sec": 60,
+    "title": "Opening Speech JMAC",
+    "pic": "-",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 7,
+    "time": "08:40 - 09:10",
+    "durMin": 30,
+    "sec": 1800,
+    "title": "Presentation Chapter 1,2,3,12",
+    "pic": "Mrs. Verdiana Zahroh Narendra Bawanti",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 8,
+    "time": "09:10 - 09:15",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Question & Answer",
+    "pic": "Mr. Fajar Fauzan & Mr. Yudha Agus Tri Basuki",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 9,
+    "time": "09:15 - 09:30",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Presentation Chapter 4 Focused Improvement",
+    "pic": "Mr. Dyanza Arya Perdana",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 10,
+    "time": "09:30 - 09:45",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Presentation Chapter 5 Autonomous Maintenance",
+    "pic": "Mr. Agung Joko Suprihanto",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 11,
+    "time": "09:45 - 09:50",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Question & Answer",
+    "pic": "Mr. Fajar Fauzan & Mr. Yudha Agus Tri Basuki",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 12,
+    "time": "09:50 - 10:05",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Presentation Chapter 6 Planned Maintenance",
+    "pic": "Mr. Cahyo Agung Martanto",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 13,
+    "time": "10:05 - 10:20",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Presentation Chapter 7 Quality Maintenance",
+    "pic": "Mrs. Sri Rejeki",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 14,
+    "time": "10:20 - 10:25",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Question & Answer",
+    "pic": "Mr. Fajar Fauzan & Mr. Yudha Agus Tri Basuki",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 15,
+    "time": "10:25 - 10:40",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Presentation Chapter 8 Early Management",
+    "pic": "Mr. Sukaryadi",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 16,
+    "time": "10:40 - 10:55",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Presentation Chapter 9 Education & Training",
+    "pic": "Mr. Andreas Hari Listanto",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 17,
+    "time": "10:55 - 11:00",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Question & Answer",
+    "pic": "Mr. Fajar Fauzan & Mr. Yudha Agus Tri Basuki",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 18,
+    "time": "11:00 - 11:15",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Presentation Chapter 10 Office & Administration",
+    "pic": "Mr. Priyo Anarkie",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 19,
+    "time": "11:15 - 11:30",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Presentation Chapter 11 Safety, Health & Environtment",
+    "pic": "Mr. Ainurrofik",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 20,
+    "time": "11:30 - 11:35",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Question & Answer",
+    "pic": "Mr. Fajar Fauzan & Mr. Yudha Agus Tri Basuki",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 21,
+    "time": "11:35 - 13:00",
+    "durMin": 85,
+    "sec": 5100,
+    "title": "Lunch",
+    "pic": "-",
+    "area": "KNLC D",
+    "isYellow": true
+  },
+  {
+    "no": 22,
+    "time": "13:00 - 13:01",
+    "durMin": 1,
+    "sec": 60,
+    "title": "Back to Main Room",
+    "pic": "Ms. Anisa Septia Azhara",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 23,
+    "time": "13:01 - 13:16",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Go to Highcare Area",
+    "pic": "-",
+    "area": "IBC lt.2 & 3",
+    "isYellow": false
+  },
+  {
+    "no": 24,
+    "time": "13:16 - 13:23",
+    "durMin": 7,
+    "sec": 420,
+    "title": "Quick Win 1 : AM & EM ( Achieving Zero Defect & Safety Through AM STEP 6 Implementation )",
+    "pic": "Mr. Lilik Sektiawan & Mr. Reki Maulid",
+    "area": "IBC lt.2 & 3",
+    "isYellow": false
+  },
+  {
+    "no": 25,
+    "time": "13:23 - 13:28",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Question & Answer",
+    "pic": "Mr. Fajar Fauzan & Mr. Yudha Agus Tri Basuki",
+    "area": "IBC lt.2 & 3",
+    "isYellow": false
+  },
+  {
+    "no": 26,
+    "time": "13:28 - 13:38",
+    "durMin": 10,
+    "sec": 600,
+    "title": "Go to Packing",
+    "pic": "-",
+    "area": "Packing Line G",
+    "isYellow": false
+  },
+  {
+    "no": 27,
+    "time": "13:38 - 13:45",
+    "durMin": 7,
+    "sec": 420,
+    "title": "Quick Win 2 : QM ( Zero Defect Prevention System: Eliminating Unseal Defects Through Sealing Pressure Measurement )",
+    "pic": "Mr. Budy Sutrisno",
+    "area": "Packing Line G",
+    "isYellow": false
+  },
+  {
+    "no": 28,
+    "time": "13:45 - 13:50",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Question & Answer",
+    "pic": "Mr. Fajar Fauzan & Mr. Yudha Agus Tri Basuki",
+    "area": "Packing Line G",
+    "isYellow": false
+  },
+  {
+    "no": 29,
+    "time": "13:50 - 13:55",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Prepare to next Quickwin",
+    "pic": "-",
+    "area": "Packing Robot",
+    "isYellow": false
+  },
+  {
+    "no": 30,
+    "time": "13:55 - 14:02",
+    "durMin": 7,
+    "sec": 420,
+    "title": "Quick Win 3 :PM & ET ( Reducing Mechanical Stress, Bending, Twisting on Palletizing Robot Cable, through Wireless 1/0 and sling ring trough Maintenance Profesional Program )",
+    "pic": "Mr. Joko Suprianto & Mr. Dimas Riyantono",
+    "area": "Packing Robot",
+    "isYellow": false
+  },
+  {
+    "no": 31,
+    "time": "14:02 - 14:07",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Question & Answer",
+    "pic": "Mr. Fajar Fauzan & Mr. Yudha Agus Tri Basuki",
+    "area": "Packing Robot",
+    "isYellow": false
+  },
+  {
+    "no": 32,
+    "time": "14:07 - 14:17",
+    "durMin": 10,
+    "sec": 600,
+    "title": "Go to View Gallery",
+    "pic": "-",
+    "area": "View Gallery",
+    "isYellow": false
+  },
+  {
+    "no": 33,
+    "time": "14:17 - 14:24",
+    "durMin": 7,
+    "sec": 420,
+    "title": "Quick Win 4 : EM & OSA ( Trial Integrated Evaluation Report )",
+    "pic": "Mr. Dimas JP",
+    "area": "View Gallery",
+    "isYellow": false
+  },
+  {
+    "no": 34,
+    "time": "14:24 - 14:29",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Question & Answer",
+    "pic": "Mr. Fajar Fauzan & Mr. Yudha Agus Tri Basuki",
+    "area": "View Gallery",
+    "isYellow": false
+  },
+  {
+    "no": 35,
+    "time": "14:29 - 14:31",
+    "durMin": 2,
+    "sec": 120,
+    "title": "Prepare to next Quickwin",
+    "pic": "-",
+    "area": "View Gallery",
+    "isYellow": false
+  },
+  {
+    "no": 36,
+    "time": "14:31 - 14:38",
+    "durMin": 7,
+    "sec": 420,
+    "title": "Quick Win 5 : FI ( OMEGA: Turning Operational Complexity into Strategic Clarity )",
+    "pic": "Ms. Fifi",
+    "area": "View Gallery",
+    "isYellow": false
+  },
+  {
+    "no": 37,
+    "time": "14:38 - 14:43",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Question & Answer",
+    "pic": "Mr. Fajar Fauzan & Mr. Yudha Agus Tri Basuki",
+    "area": "View Gallery",
+    "isYellow": false
+  },
+  {
+    "no": 38,
+    "time": "14:43 - 14:45",
+    "durMin": 2,
+    "sec": 120,
+    "title": "Prepare next Quickwin",
+    "pic": "-",
+    "area": "View Gallery",
+    "isYellow": false
+  },
+  {
+    "no": 39,
+    "time": "14:45 - 14:52",
+    "durMin": 7,
+    "sec": 420,
+    "title": "Quick Win 6 : SHE ( Transforming Food Surplus into Sustainability Impact )",
+    "pic": "Mr. Isa Dwiyono",
+    "area": "View Gallery",
+    "isYellow": false
+  },
+  {
+    "no": 40,
+    "time": "14:52 - 14:57",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Question & Answer",
+    "pic": "Mr. Fajar Fauzan & Mr. Yudha Agus Tri Basuki",
+    "area": "View Gallery",
+    "isYellow": false
+  },
+  {
+    "no": 41,
+    "time": "14:57 - 15:02",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Back to Main Room",
+    "pic": "Ms. Anisa Septia Azhara",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 42,
+    "time": "15:02 - 15:12",
+    "durMin": 10,
+    "sec": 600,
+    "title": "Break",
+    "pic": "-",
+    "area": "KNLC D",
+    "isYellow": true
+  },
+  {
+    "no": 43,
+    "time": "15:12 - 15:13",
+    "durMin": 1,
+    "sec": 60,
+    "title": "Lecture : \" World Class TPM Benchmarking – Best Practices in Cross-Site Collaboration \" & Feedback",
+    "pic": "-",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 44,
+    "time": "15:13 - 15:18",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Closing Speech",
+    "pic": "Mr. Yudha Agus Tri Basuki",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 45,
+    "time": "15:18 - 15:23",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Closing MC & Pray",
+    "pic": "Ms. Anisa Septia Azhara",
+    "area": "KNLC A-C",
+    "isYellow": false
+  }
 ];
 
-const RUNDOWN_GK_DAY_2 = [
-  { no: 1, time: "13:50 - 13:55", durMin: 5, sec: 300, title: "Opening MC", pic: "Ms. Anisa Septia Azhara", area: "KNLC A-C", isYellow: false },
-  { no: 2, time: "13:55 - 14:00", durMin: 5, sec: 300, title: "Video Rundown (Day 2)", pic: "Ms. Anisa Septia Azhara", area: "KNLC A-C", isYellow: false },
-  { no: 3, time: "14:00 - 14:15", durMin: 15, sec: 900, title: "Presentation Chapter 8 Early Management", pic: "Mr. Sukaryadi", area: "KNLC A-C", isYellow: false },
-  { no: 4, time: "14:15 - 14:30", durMin: 15, sec: 900, title: "Presentation Chapter 9 Education & Training", pic: "Mr. Andreas Hari Listanto", area: "KNLC A-C", isYellow: false },
-  { no: 5, time: "14:30 - 14:35", durMin: 5, sec: 300, title: "Question & Answer Chapter 8 & 9", pic: "Mr. Fajar Fauzan & Mr. Yudha Agus Tri Basuki", area: "KNLC A-C", isYellow: false },
-  { no: 6, time: "14:35 - 14:36", durMin: 1, sec: 60, title: "Break (Day 2)", pic: "KNLC D", area: "KNLC D", isYellow: true },
-  { no: 7, time: "14:36 - 14:51", durMin: 15, sec: 900, title: "Presentation Chapter 10 Office & Administration", pic: "Mr. Priyo Anarkie", area: "KNLC A-C", isYellow: false },
-  { no: 8, time: "14:51 - 15:06", durMin: 15, sec: 900, title: "Presentation Chapter 11 Safety, Health & Environtment", pic: "Mr. Ainurrofik", area: "KNLC A-C", isYellow: false },
-  { no: 9, time: "15:06 - 15:11", durMin: 5, sec: 300, title: "Question & Answer Chapter 10 & 11", pic: "Mr. Fajar Fauzan & Mr. Yudha Agus Tri Basuki", area: "KNLC A-C", isYellow: false },
-  { no: 10, time: "15:11 - 15:16", durMin: 5, sec: 300, title: "Go to View Gallery", pic: "-", area: "View Gallery", isYellow: false },
-  { no: 11, time: "15:16 - 15:23", durMin: 7, sec: 420, title: "Quick Win 4 : EM & OSA (Trial Integrated Evaluation Report)", pic: "Mr. Dimas JP", area: "View Gallery", isYellow: false },
-  { no: 12, time: "15:23 - 15:28", durMin: 5, sec: 300, title: "Question & Answer Quick Win 4", pic: "Mr. Fajar Fauzan & Mr. Yudha Agus Tri Basuki", area: "View Gallery", isYellow: false },
-  { no: 13, time: "15:28 - 15:33", durMin: 5, sec: 300, title: "Back to Main Room", pic: "Ms. Anisa Septia Azhara", area: "KNLC A-C", isYellow: false },
-  { no: 14, time: "15:33 - 15:34", durMin: 1, sec: 60, title: "Lunch (RD Day 2)", pic: "KNLC D", area: "KNLC D", isYellow: true },
-  { no: 15, time: "15:34 - 15:35", durMin: 1, sec: 60, title: "Back to Main Room", pic: "Ms. Anisa Septia Azhara", area: "KNLC A-C", isYellow: false },
-  { no: 16, time: "15:35 - 15:36", durMin: 1, sec: 60, title: "Go to View Gallery", pic: "-", area: "View Gallery", isYellow: false },
-  { no: 17, time: "15:36 - 15:43", durMin: 7, sec: 420, title: "Quick Win 5 : FI (OMEGA: Turning Operational Complexity into Strategic Clarity)", pic: "Ms. Fifi", area: "View Gallery", isYellow: false },
-  { no: 18, time: "15:43 - 15:48", durMin: 5, sec: 300, title: "Question & Answer Quick Win 5", pic: "Mr. Fajar Fauzan & Mr. Yudha Agus Tri Basuki", area: "View Gallery", isYellow: false },
-  { no: 19, time: "15:48 - 15:50", durMin: 2, sec: 120, title: "Prepare next Quickwin", pic: "-", area: "View Gallery", isYellow: false },
-  { no: 20, time: "15:50 - 15:57", durMin: 7, sec: 420, title: "Quick Win 6 : SHE (Transforming Food Surplus into Sustainability Impact)", pic: "Mr. Isa Dwiyono", area: "View Gallery", isYellow: false },
-  { no: 21, time: "15:57 - 16:02", durMin: 5, sec: 300, title: "Question & Answer Quick Win 6", pic: "Mr. Fajar Fauzan & Mr. Yudha Agus Tri Basuki", area: "View Gallery", isYellow: false },
-  { no: 22, time: "16:02 - 16:07", durMin: 5, sec: 300, title: "Back to Main Room", pic: "Ms. Anisa Septia Azhara", area: "KNLC A-C", isYellow: false },
-  { no: 23, time: "16:07 - 16:17", durMin: 10, sec: 600, title: "Break (Day 2)", pic: "KNLC D", area: "KNLC D", isYellow: true },
-  { no: 24, time: "16:17 - 16:18", durMin: 1, sec: 60, title: "Lecture & Feedback", pic: "-", area: "KNLC A-C", isYellow: false },
-  { no: 25, time: "16:18 - 16:23", durMin: 5, sec: 300, title: "Closing Speech", pic: "Mr. Yudha Agus Tri Basuki", area: "KNLC A-C", isYellow: false },
-  { no: 26, time: "16:23 - 16:28", durMin: 5, sec: 300, title: "Closing MC & Pray", pic: "Ms. Anisa Septia Azhara", area: "KNLC A-C", isYellow: false }
-];
+// Gladi Kotor adalah acara 1 hari penuh (tidak ada Day 2)
+const RUNDOWN_GK_DAY_2 = [];
 
 // =========================================================================
 // 2. GLADI RESIK / GR (Monday, November 2, 2026)

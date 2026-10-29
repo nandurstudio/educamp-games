@@ -7672,3 +7672,11 @@ body.focus-mode-active .msg-sticker-wrapper.revealed::after {
 .timer-log-action-tag.reset { background: rgba(148, 163, 184, 0.2); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.4); }
 .timer-log-action-tag.set_mode { background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); }
 
+
+/* HARD GUARD SINGLE-DAY (GLADI KOTOR): Day 2 Tab & Rundown Tabs Hidden */
+html.is-single-day-event, body.is-single-day-event .rundown-tabs,
+html.is-single-day-event, body.is-single-day-event #tab-day2,
+.is-single-day-event .rundown-tabs,
+.is-single-day-event #tab-day2 {
+  display: none !important;
+}
