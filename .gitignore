@@ -18,3 +18,5 @@ backups/
 # PyInstaller Build Artifacts
 build/
 *.spec
+__pycache__/
+timer_overlay_config.json

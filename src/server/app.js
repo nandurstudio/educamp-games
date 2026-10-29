@@ -1569,6 +1569,7 @@ app.post('/api/timer-chat/events/select', (req, res) => {
     const active = timerChatEngine.setActiveEvent(eventId);
     io.emit('TC_EVENT_SELECTED', active);
     io.emit('TC_STATE_UPDATE', timerChatEngine.getState());
+    io.emit('TC_SESSION_STATE_UPDATED', timerChatEngine.getSessionState(active.id));
     res.json({ success: true, activeEvent: active });
   } catch (err) {
     res.status(400).json({ error: err.message });
