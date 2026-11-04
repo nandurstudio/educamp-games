@@ -1439,9 +1439,12 @@ app.get('/api/timer-chat/session/validate', async (req, res) => {
     if (!queryId) {
       return res.status(400).json({ valid: false, error: 'Parameter ID atau Session ID wajib disertakan.' });
     }
-    const ev = timerChatEngine.findEventByIdOrSession(queryId);
+    let ev = timerChatEngine.findEventByIdOrSession(queryId);
+    if (!ev) {
+      ev = timerChatEngine.getActiveEvent();
+    }
     if (ev) {
-      const cleanSession = ev.sessionId || ev.id.replace(/^event-/, '') || 'educamp-2026';
+      const cleanSession = ev.sessionId || ev.id.replace(/^event-/, '') || 'hari-h-tpm-stage2';
       return res.json({
         valid: true,
         event: {
@@ -2168,10 +2171,13 @@ io.on('connection', (socket) => {
     try {
       await timerChatEngine.ensureHydrated();
       const target = data?.sessionId || data?.eventId || data?.id || '';
-      const ev = timerChatEngine.findEventByIdOrSession(target);
+      let ev = timerChatEngine.findEventByIdOrSession(target);
+      if (!ev) {
+        ev = timerChatEngine.getActiveEvent();
+      }
       if (ev) {
         socket.join(`tc_session_${ev.id}`);
-        const cleanSession = ev.sessionId || ev.id.replace(/^event-/, '') || 'educamp-2026';
+        const cleanSession = ev.sessionId || ev.id.replace(/^event-/, '') || 'hari-h-tpm-stage2';
         socket.emit('TC_SESSION_JOINED', {
           success: true,
           event: {

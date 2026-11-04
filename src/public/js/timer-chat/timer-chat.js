@@ -8331,7 +8331,7 @@ let currentDayTab = 'DAY_1';
 
         const guestName = guestNameInput ? guestNameInput.value.trim() : '';
 
-        if (!guestName || guestCooldownRemaining > 0) {
+        if (!guestName) {
 
           btnSendChat.disabled = true;
 
@@ -9737,7 +9737,7 @@ let currentDayTab = 'DAY_1';
 
     function startGuestCooldown() {
 
-      guestCooldownRemaining = 15;
+      guestCooldownRemaining = 0;
 
       if (cooldownIndicator) cooldownIndicator.classList.add('active');
 
@@ -9817,7 +9817,7 @@ let currentDayTab = 'DAY_1';
 
         }
 
-        if (guestCooldownRemaining > 0) {
+      if (false) {
 
           showAlertDialog({
 
@@ -9897,7 +9897,7 @@ let currentDayTab = 'DAY_1';
 
       if (!currentUser) {
 
-        startGuestCooldown();
+      // Cooldown 15s dinonaktifkan
 
       }
 
@@ -14674,7 +14674,7 @@ let currentDayTab = 'DAY_1';
 
         // Buka URL polos tanpa parameter: Otomatis masuk ke sesi aktif/default tanpa blokir layar
 
-        const previouslyJoined = sessionStorage.getItem('tc_joined_session_id') || 'educamp-2026';
+        const previouslyJoined = sessionStorage.getItem('tc_joined_session_id') || 'hari-h-tpm-stage2';
 
         validateAndJoinSession(previouslyJoined);
 
@@ -14710,7 +14710,7 @@ let currentDayTab = 'DAY_1';
 
         btnGatewayDefault.addEventListener('click', () => {
 
-          validateAndJoinSession('educamp-2026');
+          validateAndJoinSession('hari-h-tpm-stage2');
 
         });
 
