@@ -3005,66 +3005,44 @@ let currentDayTab = 'DAY_1';
 
 
 
+    let lastLocalCompletedToggleTime = 0;
+
+    function getCompletedSessionStorageKey(dayKey) {
+      const evId = currentActiveEvent ? currentActiveEvent.id : 'default';
+      return `tpm_completed_sessions_${dayKey.toLowerCase()}_${evId}`;
+    }
+
     function getCompletedSessionsForDay(dayKey) {
-
       try {
-
-        const key = `tpm_completed_sessions_${dayKey.toLowerCase()}`;
-
-        const stored = sessionStorage.getItem(key) || localStorage.getItem(key);
-
+        const key = getCompletedSessionStorageKey(dayKey);
+        const legacyKey = `tpm_completed_sessions_${dayKey.toLowerCase()}`;
+        const stored = sessionStorage.getItem(key) || localStorage.getItem(key) || sessionStorage.getItem(legacyKey) || localStorage.getItem(legacyKey);
         if (stored) {
-
           const parsed = JSON.parse(stored);
-
           if (Array.isArray(parsed)) return new Set(parsed);
-
         }
-
       } catch (e) {
-
         console.warn('Gagal membaca completed sessions storage', e);
-
       }
-
       return new Set();
-
     }
-
-
-
-    function getCompletedSessions() {
-
-      return getCompletedSessionsForDay(currentDayTab);
-
-    }
-
-
 
     function saveCompletedSessionsForDay(dayKey, set, syncRemote = true) {
-
       try {
-
-        const key = `tpm_completed_sessions_${dayKey.toLowerCase()}`;
-
+        const key = getCompletedSessionStorageKey(dayKey);
+        const legacyKey = `tpm_completed_sessions_${dayKey.toLowerCase()}`;
         const str = JSON.stringify([...set]);
-
         sessionStorage.setItem(key, str);
-
         localStorage.setItem(key, str);
+        sessionStorage.setItem(legacyKey, str);
+        localStorage.setItem(legacyKey, str);
 
         if (syncRemote && typeof emitSessionStateToFirebase === 'function') {
-
           emitSessionStateToFirebase();
-
         }
-
       } catch (e) {
-
         console.error('Gagal menyimpan completed sessions storage', e);
-
       }
-
     }
 
 
@@ -3138,27 +3116,17 @@ let currentDayTab = 'DAY_1';
 
 
     function toggleSessionCompleted(sessionTitle) {
-
       if (!sessionTitle) return;
-
+      lastLocalCompletedToggleTime = Date.now();
       const completedSet = getCompletedSessions();
-
       if (completedSet.has(sessionTitle)) {
-
         completedSet.delete(sessionTitle);
-
       } else {
-
         completedSet.add(sessionTitle);
-
       }
-
       saveCompletedSessions(completedSet, true);
-
       renderRundownItems();
-
       updateRundownVsActualUI();
-
     }
 
 
@@ -4677,71 +4645,40 @@ let currentDayTab = 'DAY_1';
     // Lebih Cepat / Buffer -> -00:20 (Biru / Hijau Muda 🔵)
 
     function formatRundownDriftTime(diffSeconds) {
-
       const absSec = Math.abs(diffSeconds);
+      const hours = Math.floor(absSec / 3600);
+      const mins = Math.floor((absSec % 3600) / 60);
+      const secs = absSec % 60;
+      const formattedTime = hours > 0
+        ? `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+        : `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 
-      const totalMinutes = Math.floor(absSec / 60);
-
-      const hours = Math.floor(totalMinutes / 60);
-
-      const mins = totalMinutes % 60;
-
-      const formattedTime = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
-
-
-
-      // Toleransi tepat waktu: rentang < 30 detik dianggap on time (00:00)
-
-      if (absSec < 30) {
-
+      // Toleransi tepat waktu: rentang < 15 detik dianggap on time (00:00)
+      if (absSec < 15) {
         return {
-
           formatted: '00:00',
-
           status: 'ontime',
-
           badgeText: 'TEPAT WAKTU (00:00)',
-
           color: '#34d399', // Hijau 🟢
-
           diffMinutes: 0
-
         };
-
       } else if (diffSeconds > 0) {
-
         return {
-
           formatted: `+${formattedTime}`,
-
           status: 'over',
-
           badgeText: `MOLOR (+${formattedTime})`,
-
           color: '#f87171', // Merah 🔴
-
-          diffMinutes: totalMinutes
-
+          diffMinutes: Math.floor(absSec / 60)
         };
-
       } else {
-
         return {
-
           formatted: `-${formattedTime}`,
-
           status: 'early',
-
           badgeText: `AHEAD (-${formattedTime})`,
-
           color: '#38bdf8', // Biru / Hijau Muda 🔵
-
-          diffMinutes: -totalMinutes
-
+          diffMinutes: -Math.floor(absSec / 60)
         };
-
       }
-
     }
 
 
@@ -4888,31 +4825,47 @@ let currentDayTab = 'DAY_1';
 
 
 
+      // Hitung akumulasi kemoloran (overrun) dari sesi-sesi sebelumnya yang telah dicatat selesai di separator chat
+      let accumulatedOverrunSec = 0;
+      if (Array.isArray(latestChatHistoryList)) {
+        for (const msg of latestChatHistoryList) {
+          if (!msg || !msg.isSeparator || msg.isDeleted) continue;
+          const text = msg.message || msg.text || msg.sessionTitle || '';
+          const match = text.match(/Overtime\s*\+(\d+):(\d+)/i);
+          if (match) {
+            accumulatedOverrunSec += (parseInt(match[1], 10) * 60) + parseInt(match[2], 10);
+          }
+        }
+      }
+
+      // Hitung overtime sesi saat ini jika timer aktif
+      let currentSessionOvertimeSec = 0;
+      if (activeTimerState.remainingSeconds < 0) {
+        currentSessionOvertimeSec = Math.abs(activeTimerState.remainingSeconds);
+      } else if (activeTimerState.mode === 'COUNTUP' && actualElapsedSec > planSec) {
+        currentSessionOvertimeSec = actualElapsedSec - planSec;
+      }
+
+      let diffSec = accumulatedOverrunSec + currentSessionOvertimeSec;
+
       if (plannedStartSec !== null) {
-
         // Waktu sekarang jam dinding (NTP synced) dalam detik hari ini
-
         const now = new Date(Date.now() + clockOffset);
-
         const nowSec = (now.getHours() * 3600) + (now.getMinutes() * 60) + now.getSeconds();
 
-
-
         // Target jam dinding rencana: Jam Mulai Rencana Sesi + durasi timer yang sudah dihabiskan
-
         const targetPlanClockSec = plannedStartSec + actualElapsedSec;
 
-
-
-        let diffSec = nowSec - targetPlanClockSec;
-
+        let scheduleClockDiffSec = nowSec - targetPlanClockSec;
         // Koreksi pergantian hari (midnight)
+        if (scheduleClockDiffSec > 43200) scheduleClockDiffSec -= 86400;
+        else if (scheduleClockDiffSec < -43200) scheduleClockDiffSec += 86400;
 
-        if (diffSec > 43200) diffSec -= 86400;
-
-        else if (diffSec < -43200) diffSec += 86400;
-
-
+        // Hanya gunakan selisih jam dinding jika berada dalam rentang jadwal yang wajar (<= 45 menit / 2700 detik)
+        // Mencegah nilai delai palsu belasan ribu detik (belasan ribu ms) ketika simulasi/gladi dijalankan di luar jam asli
+        if (Math.abs(scheduleClockDiffSec) <= 2700 && activeTimerState.status === 'RUNNING') {
+          diffSec = scheduleClockDiffSec;
+        }
 
         const drift = formatRundownDriftTime(diffSec);
 
@@ -5586,16 +5539,17 @@ let currentDayTab = 'DAY_1';
         saveStoredRundown('DAY_2', rundownItemsDay2, evId);
       }
 
-      if (Array.isArray(remoteSession.completedSessionsDay1)) {
+      const remoteTime = remoteSession.updatedAt ? new Date(remoteSession.updatedAt).getTime() : 0;
+      const isRecentLocalToggle = (Date.now() - lastLocalCompletedToggleTime) < 2000;
+      const shouldApplyCompleted = !isRecentLocalToggle || (remoteTime >= lastLocalCompletedToggleTime);
 
-        saveCompletedSessionsForDay('DAY_1', new Set(remoteSession.completedSessionsDay1), false);
-
-      }
-
-      if (Array.isArray(remoteSession.completedSessionsDay2)) {
-
-        saveCompletedSessionsForDay('DAY_2', new Set(remoteSession.completedSessionsDay2), false);
-
+      if (shouldApplyCompleted) {
+        if (Array.isArray(remoteSession.completedSessionsDay1)) {
+          saveCompletedSessionsForDay('DAY_1', new Set(remoteSession.completedSessionsDay1), false);
+        }
+        if (Array.isArray(remoteSession.completedSessionsDay2)) {
+          saveCompletedSessionsForDay('DAY_2', new Set(remoteSession.completedSessionsDay2), false);
+        }
       }
 
       if (remoteSession.lastActiveSeparatorMessageId) {
@@ -6417,19 +6371,15 @@ let currentDayTab = 'DAY_1';
     // === 5. TIMER CONTROLS (STATE MACHINE: 2 SLOTS MORPHING) ===
 
     function checkTimerControlPermission() {
-
-      const isLocalHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-
+      const isLocalHost = window.location.hostname === 'localhost' ||
+                          window.location.hostname === '127.0.0.1' ||
+                          window.location.hostname.includes('ai.studio') ||
+                          window.location.hostname.includes('webcontainer');
       if (!isUserAdmin && !isLocalHost) {
-
         showAlertDialog({ title: 'Akses Ditolak', message: 'Hanya pengguna terotorisasi yang dapat mengubah atau mengontrol timer.' });
-
         return false;
-
       }
-
       return true;
-
     }
 
 

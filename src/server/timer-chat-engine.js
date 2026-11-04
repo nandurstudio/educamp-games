@@ -462,21 +462,14 @@ class TimerChatEngine {
 
 
 
-    const completedDay1 = Array.from(new Set([
-
-      ...(Array.isArray(secondary.completedSessionsDay1) ? secondary.completedSessionsDay1 : []),
-
-      ...(Array.isArray(primary.completedSessionsDay1) ? primary.completedSessionsDay1 : [])
-
-    ]));
-
-    const completedDay2 = Array.from(new Set([
-
-      ...(Array.isArray(secondary.completedSessionsDay2) ? secondary.completedSessionsDay2 : []),
-
-      ...(Array.isArray(primary.completedSessionsDay2) ? primary.completedSessionsDay2 : [])
-
-    ]));
+    // Autoritatif: primary adalah state yang lebih baru (cloud atau client/lokal).
+    // Jangan gunakan union Set, karena jika user meng-uncheck item, item tersebut akan bangkit kembali (resurrect) dari secondary!
+    const completedDay1 = Array.isArray(primary.completedSessionsDay1)
+      ? primary.completedSessionsDay1
+      : (Array.isArray(secondary.completedSessionsDay1) ? secondary.completedSessionsDay1 : []);
+    const completedDay2 = Array.isArray(primary.completedSessionsDay2)
+      ? primary.completedSessionsDay2
+      : (Array.isArray(secondary.completedSessionsDay2) ? secondary.completedSessionsDay2 : []);
 
 
 
@@ -815,65 +808,42 @@ class TimerChatEngine {
 
 
   saveLocalDisk() {
-
-    try {
-
-      const dir = path.dirname(STORAGE_FILE);
-
-      if (!fs.existsSync(dir)) {
-
-        fs.mkdirSync(dir, { recursive: true });
-
+    if (this._diskSaveTimeout) return;
+    this._diskSaveTimeout = setTimeout(() => {
+      this._diskSaveTimeout = null;
+      try {
+        const dir = path.dirname(STORAGE_FILE);
+        if (!fs.existsSync(dir)) {
+          fs.mkdirSync(dir, { recursive: true });
+        }
+        const dataStr = JSON.stringify(this.exportData());
+        fs.writeFile(STORAGE_FILE, dataStr, 'utf-8', (err) => {
+          if (err) console.error('[TimerChatEngine] Gagal menyimpan storage lokal:', err.message);
+        });
+      } catch (err) {
+        console.error('[TimerChatEngine] Gagal menyimpan storage lokal:', err.message);
       }
-
-      fs.writeFileSync(STORAGE_FILE, JSON.stringify(this.exportData(), null, 2), 'utf-8');
-
-    } catch (err) {
-
-      console.error('[TimerChatEngine] Gagal menyimpan storage lokal:', err.message);
-
-    }
-
+    }, 150);
   }
 
-
-
-  saveStorage(immediate = true) {
-
+  saveStorage(immediate = false) {
     this.updatedAt = new Date().toISOString();
-
     this.saveLocalDisk();
 
-
-
     // Simpan persisten ke Cloud Firestore (pastikan sudah hydrate agar tidak menimpa data cloud!)
-
     if (firebaseService.isAvailable()) {
-
       if (!this.isHydrated && this.hydrationPromise) {
-
         this.hydrationPromise.then(() => {
-
-          firebaseService.saveDoc('timer_chat', this.exportData(), true).catch(err => {
-
+          firebaseService.saveDoc('timer_chat', this.exportData(), immediate).catch(err => {
             console.warn('[TimerChatEngine] Firestore post-hydration save warning:', err.message);
-
           });
-
         }).catch(() => {});
-
         return;
-
       }
-
       firebaseService.saveDoc('timer_chat', this.exportData(), immediate).catch(err => {
-
         console.warn('[TimerChatEngine] Firestore async save warning:', err.message);
-
       });
-
     }
-
   }
 
 
