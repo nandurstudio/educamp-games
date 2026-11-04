@@ -563,32 +563,266 @@ const RUNDOWN_OFFICIAL_DAY_1 = [
 ];
 
 const RUNDOWN_OFFICIAL_DAY_2 = [
-  { no: 1, time: "08:30 - 08:35", durMin: 5, sec: 300, title: "Opening MC", pic: "Ms. Anisa Septia Azhara (Interpreter: Mr. Arief)", area: "KNLC A-C", isYellow: false },
-  { no: 2, time: "08:35 - 08:40", durMin: 5, sec: 300, title: "Video Rundown (Day 2)", pic: "Ms. Anisa Septia Azhara (Interpreter: Mr. Arief)", area: "KNLC A-C", isYellow: false },
-  { no: 3, time: "08:40 - 08:55", durMin: 15, sec: 900, title: "Presentation Chapter 8 Early Management", pic: "Mr. Sukaryadi (Interpreter: Mr. Arief)", area: "KNLC A-C", isYellow: false },
-  { no: 4, time: "08:55 - 09:10", durMin: 15, sec: 900, title: "Presentation Chapter 9 Education & Training", pic: "Mr. Andreas Hari Listanto (Interpreter: Mr. Arief)", area: "KNLC A-C", isYellow: false },
-  { no: 5, time: "09:10 - 09:40", durMin: 30, sec: 1800, title: "Question & Answer Chapter 8 & 9", pic: "Mr. Otsuka (Interpreter: Mr. Arief)", area: "KNLC A-C", isYellow: false },
-  { no: 6, time: "09:40 - 09:55", durMin: 15, sec: 900, title: "Break", pic: "KNLC D", area: "KNLC D", isYellow: true },
-  { no: 7, time: "09:55 - 10:10", durMin: 15, sec: 900, title: "Presentation Chapter 10 Office & Administration", pic: "Mr. Priyo Anarkie (Interpreter: Mr. Arief)", area: "KNLC A-C", isYellow: false },
-  { no: 8, time: "10:10 - 10:25", durMin: 15, sec: 900, title: "Presentation Chapter 11 Safety, Health & Environtment", pic: "Mr. Ainurrofik (Interpreter: Mr. Arief)", area: "KNLC A-C", isYellow: false },
-  { no: 9, time: "10:25 - 10:55", durMin: 30, sec: 1800, title: "Question & Answer Chapter 10 & 11", pic: "Mr. Otsuka (Interpreter: Mr. Arief)", area: "KNLC A-C", isYellow: false },
-  { no: 10, time: "10:55 - 11:00", durMin: 5, sec: 300, title: "Go to View Gallery", pic: "-", area: "View Gallery", isYellow: false },
-  { no: 11, time: "11:00 - 11:07", durMin: 7, sec: 420, title: "Quick Win 4 : EM & OSA (Trial Integrated Evaluation Report)", pic: "Mr. Dimas JP (Interpreter: Mr. Arief)", area: "View Gallery", isYellow: false },
-  { no: 12, time: "11:07 - 11:37", durMin: 30, sec: 1800, title: "Question & Answer Quick Win 4", pic: "Mr. Otsuka (Interpreter: Mr. Arief)", area: "View Gallery", isYellow: false },
-  { no: 13, time: "11:37 - 11:42", durMin: 5, sec: 300, title: "Back to Main Room", pic: "Ms. Anisa Septia Azhara (Interpreter: Mr. Arief)", area: "KNLC A-C", isYellow: false },
-  { no: 14, time: "11:42 - 12:42", durMin: 60, sec: 3600, title: "Lunch", pic: "KNLC D", area: "KNLC D", isYellow: true },
-  { no: 15, time: "12:42 - 12:47", durMin: 5, sec: 300, title: "Back to Main Room", pic: "Ms. Anisa Septia Azhara (Interpreter: Mr. Arief)", area: "KNLC A-C", isYellow: false },
-  { no: 16, time: "12:47 - 12:52", durMin: 5, sec: 300, title: "Go to View Gallery", pic: "-", area: "View Gallery", isYellow: false },
-  { no: 17, time: "12:52 - 12:59", durMin: 7, sec: 420, title: "Quick Win 5 : FI (OMEGA: Turning Operational Complexity into Strategic Clarity)", pic: "Ms. Fifi (Interpreter: Mr. Arief)", area: "View Gallery", isYellow: false },
-  { no: 18, time: "12:59 - 13:29", durMin: 30, sec: 1800, title: "Question & Answer Quick Win 5", pic: "Mr. Otsuka (Interpreter: Mr. Arief)", area: "View Gallery", isYellow: false },
-  { no: 19, time: "13:29 - 13:31", durMin: 2, sec: 120, title: "Prepare next Quickwin", pic: "-", area: "View Gallery", isYellow: false },
-  { no: 20, time: "13:31 - 13:38", durMin: 7, sec: 420, title: "Quick Win 6 : SHE (Transforming Food Surplus into Sustainability Impact)", pic: "Mr. Isa Dwiyono (Interpreter: Mr. Arief)", area: "View Gallery", isYellow: false },
-  { no: 21, time: "13:38 - 14:08", durMin: 30, sec: 1800, title: "Question & Answer Quick Win 6", pic: "Mr. Otsuka (Interpreter: Mr. Arief)", area: "View Gallery", isYellow: false },
-  { no: 22, time: "14:08 - 14:13", durMin: 5, sec: 300, title: "Back to Main Room", pic: "Ms. Anisa Septia Azhara (Interpreter: Mr. Arief)", area: "KNLC A-C", isYellow: false },
-  { no: 23, time: "14:13 - 14:28", durMin: 15, sec: 900, title: "Break", pic: "KNLC D", area: "KNLC D", isYellow: true },
-  { no: 24, time: "14:28 - 15:58", durMin: 90, sec: 5400, title: "Lecture & Feedback", pic: "Mr. Otsuka (Interpreter: Mr. Arief)", area: "KNLC A-C", isYellow: false },
-  { no: 25, time: "15:58 - 16:03", durMin: 5, sec: 300, title: "Closing Speech", pic: "Mr. Yudha Agus Tri Basuki (Interpreter: Mr. Arief)", area: "KNLC A-C", isYellow: false },
-  { no: 26, time: "16:03 - 16:08", durMin: 5, sec: 300, title: "Closing MC & Pray", pic: "Ms. Anisa Septia Azhara (Interpreter: Mr. Arief)", area: "KNLC A-C", isYellow: false }
+  {
+    "no": 1,
+    "time": "08:30 - 08:35",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Opening MC",
+    "pic": "Ms. Anisa Septia Azhara (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 2,
+    "time": "08:35 - 08:40",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Video Rundown ( Day 2 )",
+    "pic": "Ms. Anisa Septia Azhara (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 3,
+    "time": "08:40 - 08:55",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Presentation Chapter 8 Early Management",
+    "pic": "Mr. Sukaryadi (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 4,
+    "time": "08:55 - 09:10",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Presentation Chapter 9 Education & Training",
+    "pic": "Mr. Andreas Hari Listanto (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 5,
+    "time": "09:10 - 09:40",
+    "durMin": 30,
+    "sec": 1800,
+    "title": "Question & Answer",
+    "pic": "Mr. Otsuka (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 6,
+    "time": "09:40 - 09:55",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Break",
+    "pic": "-",
+    "area": "KNLC D",
+    "isYellow": true
+  },
+  {
+    "no": 7,
+    "time": "09:55 - 10:10",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Presentation Chapter 10 Office & Administration",
+    "pic": "Mr. Priyo Anarkie Yuseptyo (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 8,
+    "time": "10:10 - 10:25",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Presentation Chapter 11 Safety, Health & Environtment",
+    "pic": "Mr. Ainurrofik (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 9,
+    "time": "10:25 - 10:55",
+    "durMin": 30,
+    "sec": 1800,
+    "title": "Question & Answer",
+    "pic": "Mr. Otsuka (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 10,
+    "time": "10:55 - 11:00",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Go to View Gallery",
+    "pic": "-",
+    "area": "View Gallery",
+    "isYellow": false
+  },
+  {
+    "no": 11,
+    "time": "11:00 - 11:07",
+    "durMin": 7,
+    "sec": 420,
+    "title": "Quick Win 4 : EM & OSA ( Trial Integrated Evaluation Report )",
+    "pic": "Mr. Dimas JP (Interpreter: Mr. Arief)",
+    "area": "View Gallery",
+    "isYellow": false
+  },
+  {
+    "no": 12,
+    "time": "11:07 - 11:37",
+    "durMin": 30,
+    "sec": 1800,
+    "title": "Question & Answer",
+    "pic": "Mr. Otsuka (Interpreter: Mr. Arief)",
+    "area": "View Gallery",
+    "isYellow": false
+  },
+  {
+    "no": 13,
+    "time": "11:37 - 11:42",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Back to Main Room",
+    "pic": "Ms. Anisa Septia Azhara (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 14,
+    "time": "11:42 - 12:42",
+    "durMin": 60,
+    "sec": 3600,
+    "title": "Lunch",
+    "pic": "-",
+    "area": "KNLC D",
+    "isYellow": true
+  },
+  {
+    "no": 15,
+    "time": "12:42 - 12:47",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Back to Main Room",
+    "pic": "Ms. Anisa Septia Azhara (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 16,
+    "time": "12:47 - 12:52",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Go to View Gallery",
+    "pic": "-",
+    "area": "View Gallery",
+    "isYellow": false
+  },
+  {
+    "no": 17,
+    "time": "12:52 - 12:59",
+    "durMin": 7,
+    "sec": 420,
+    "title": "Quick Win 5 : FI ( OMEGA: Turning Operational Complexity into Strategic Clarity )",
+    "pic": "Ms. Fifi Trista Andriyani (Interpreter: Mr. Arief)",
+    "area": "View Gallery",
+    "isYellow": false
+  },
+  {
+    "no": 18,
+    "time": "12:59 - 13:29",
+    "durMin": 30,
+    "sec": 1800,
+    "title": "Question & Answer",
+    "pic": "Mr. Otsuka (Interpreter: Mr. Arief)",
+    "area": "View Gallery",
+    "isYellow": false
+  },
+  {
+    "no": 19,
+    "time": "13:29 - 13:31",
+    "durMin": 2,
+    "sec": 120,
+    "title": "Prepare next Quickwin",
+    "pic": "-",
+    "area": "View Gallery",
+    "isYellow": false
+  },
+  {
+    "no": 20,
+    "time": "13:31 - 13:38",
+    "durMin": 7,
+    "sec": 420,
+    "title": "Quick Win 6 : SHE ( Transforming Product Surplus into Sustainability Impact )",
+    "pic": "Mr. Isa Dwiyono (Interpreter: Mr. Arief)",
+    "area": "View Gallery",
+    "isYellow": false
+  },
+  {
+    "no": 21,
+    "time": "13:38 - 14:08",
+    "durMin": 30,
+    "sec": 1800,
+    "title": "Question & Answer",
+    "pic": "Mr. Otsuka (Interpreter: Mr. Arief)",
+    "area": "View Gallery",
+    "isYellow": false
+  },
+  {
+    "no": 22,
+    "time": "14:08 - 14:13",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Back to Main Room",
+    "pic": "Ms. Anisa Septia Azhara (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 23,
+    "time": "14:13 - 14:28",
+    "durMin": 15,
+    "sec": 900,
+    "title": "Break",
+    "pic": "-",
+    "area": "KNLC D",
+    "isYellow": true
+  },
+  {
+    "no": 24,
+    "time": "14:28 - 15:58",
+    "durMin": 90,
+    "sec": 5400,
+    "title": "Lecture : \" World Class TPM Benchmarking – Best Practices in Cross-Site Collaboration \" & Feedback",
+    "pic": "Mr. Otsuka (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 25,
+    "time": "15:58 - 16:03",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Closing Speech",
+    "pic": "Mr. Yudha Agus Tri Basuki (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  },
+  {
+    "no": 26,
+    "time": "16:03 - 16:08",
+    "durMin": 5,
+    "sec": 300,
+    "title": "Closing MC & Pray",
+    "pic": "Ms. Anisa Septia Azhara (Interpreter: Mr. Arief)",
+    "area": "KNLC A-C",
+    "isYellow": false
+  }
 ];
 
 module.exports = {
