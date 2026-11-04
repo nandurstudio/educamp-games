@@ -3298,9 +3298,72 @@ body.is-rundown-dragging .btn-insert-between,
   border: 1px solid rgba(255, 255, 255, 0.08);
   transition: background 0.2s ease;
 }
-.chat-messages-container::-webkit-scrollbar-thumb:hover {
-  background: var(--accent-cyan);
-  box-shadow: 0 0 8px rgba(56, 189, 248, 0.5);
+
+/* Floating Scroll to Bottom Button */
+.btn-scroll-to-bottom {
+  position: absolute;
+  right: 24px;
+  bottom: 84px;
+  background: rgba(15, 23, 42, 0.92);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  color: #38bdf8;
+  border-radius: 20px;
+  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  z-index: 40;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(10px) scale(0.95);
+  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.btn-scroll-to-bottom:hover {
+  background: rgba(56, 189, 248, 0.18);
+  border-color: #38bdf8;
+  transform: translateY(0) scale(1.02);
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.4);
+}
+.btn-scroll-to-bottom.visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+}
+.btn-scroll-to-bottom svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+.btn-scroll-to-bottom .scroll-unread-badge {
+  display: none;
+  background: #38bdf8;
+  color: #020617;
+  border-radius: 10px;
+  padding: 1px 7px;
+  font-size: 10px;
+  font-weight: 700;
+}
+.btn-scroll-to-bottom.has-unread .scroll-unread-badge {
+  display: inline-block;
+}
+[data-theme="light"] .btn-scroll-to-bottom {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: #cbd5e1;
+  color: #0284c7;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+[data-theme="light"] .btn-scroll-to-bottom:hover {
+  background: #f0f9ff;
+  border-color: #0284c7;
+}
+[data-theme="light"] .btn-scroll-to-bottom .scroll-unread-badge {
+  background: #0284c7;
+  color: #ffffff;
 }
 
 /* SEPARATOR TIAP SESI PILLAR TPM */

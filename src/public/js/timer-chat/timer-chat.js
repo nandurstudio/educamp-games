@@ -2844,13 +2844,40 @@ let currentDayTab = 'DAY_1';
 
 
     try {
+      const initUrlParams = new URLSearchParams(window.location.search);
+      const initSessionParam = initUrlParams.get('session') || initUrlParams.get('chat') || initUrlParams.get('id') || initUrlParams.get('event') || sessionStorage.getItem('tc_joined_session_id');
+      if (initSessionParam) {
+        const cleanSess = initSessionParam.trim().toLowerCase();
+        if (cleanSess.includes('stage2') || cleanSess.includes('hari-h')) {
+          currentActiveEvent = {
+            id: 'event-hc-tpm-stage2-2026',
+            sessionId: 'hari-h-tpm-stage2',
+            joinCode: 'HARI-H-TPM-2026',
+            name: 'Health Check TPM Stage 2 (Hari-H)',
+            date: '2026-11-03'
+          };
+        } else if (cleanSess.includes('gk') || cleanSess.includes('kotor')) {
+          currentActiveEvent = {
+            id: 'event-hc-tpm-gk-2026',
+            sessionId: 'gk-tpm-stage2',
+            joinCode: 'GK-TPM-2026',
+            name: 'Gladi Kotor (GK) TPM Stage 2',
+            date: '2026-10-30'
+          };
+        } else if (cleanSess.includes('gr') || cleanSess.includes('resik')) {
+          currentActiveEvent = {
+            id: 'event-hc-tpm-gr-2026',
+            sessionId: 'gr-tpm-stage2',
+            joinCode: 'GR-TPM-2026',
+            name: 'Gladi Resik (GR) TPM Stage 2',
+            date: '2026-11-02'
+          };
+        }
+      }
 
       const savedTab = sessionStorage.getItem('tpm_current_day_tab') || localStorage.getItem('tpm_current_day_tab');
-
       if (savedTab === 'DAY_1' || savedTab === 'DAY_2') {
-
         currentDayTab = savedTab;
-
       }
 
       const savedActiveSess = sessionStorage.getItem('tpm_active_session') || localStorage.getItem('tpm_active_session');
@@ -3094,43 +3121,56 @@ let currentDayTab = 'DAY_1';
 
 
       saveCompletedSessions(completedSet, true);
-
       renderRundownItems();
-
+      if (socket && socket.connected && currentActiveEvent) {
+        socket.emit('TC_TOGGLE_SESSION_COMPLETED', {
+          eventId: currentActiveEvent.id,
+          dayKey: currentDayTab,
+          sessionTitle,
+          isCompleted: true
+        });
+      }
     }
-
-
 
     function unmarkSessionCompleted(sessionTitle) {
-
       if (!sessionTitle) return;
-
+      lastLocalCompletedToggleTime = Date.now();
       const completedSet = getCompletedSessions();
-
       completedSet.delete(sessionTitle);
-
       saveCompletedSessions(completedSet, true);
-
       renderRundownItems();
-
       updateRundownVsActualUI();
-
+      if (socket && socket.connected && currentActiveEvent) {
+        socket.emit('TC_TOGGLE_SESSION_COMPLETED', {
+          eventId: currentActiveEvent.id,
+          dayKey: currentDayTab,
+          sessionTitle,
+          isCompleted: false
+        });
+      }
     }
-
-
 
     function toggleSessionCompleted(sessionTitle) {
       if (!sessionTitle) return;
       lastLocalCompletedToggleTime = Date.now();
       const completedSet = getCompletedSessions();
-      if (completedSet.has(sessionTitle)) {
-        completedSet.delete(sessionTitle);
-      } else {
+      const isNowCompleted = !completedSet.has(sessionTitle);
+      if (isNowCompleted) {
         completedSet.add(sessionTitle);
+      } else {
+        completedSet.delete(sessionTitle);
       }
       saveCompletedSessions(completedSet, true);
       renderRundownItems();
       updateRundownVsActualUI();
+      if (socket && socket.connected && currentActiveEvent) {
+        socket.emit('TC_TOGGLE_SESSION_COMPLETED', {
+          eventId: currentActiveEvent.id,
+          dayKey: currentDayTab,
+          sessionTitle,
+          isCompleted: isNowCompleted
+        });
+      }
     }
 
 
@@ -4342,30 +4382,13 @@ let currentDayTab = 'DAY_1';
 
 
 
-      // Saat ditutup (collapsed), otomatis scroll chat ke bawah agar area chat yang melebar terisi pesan
-
+      // Saat ditutup (collapsed), hanya scroll jika user tidak sedang membaca riwayat di atas
       if (willBeCollapsed) {
-
-        const chatContainer = document.getElementById('chat-messages');
-    let isUserScrolledUp = false;
-
-    if (chatContainer) {
-      chatContainer.addEventListener('scroll', () => {
-        const distFromBottom = chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight;
-        isUserScrolledUp = distFromBottom > 80;
-      }, { passive: true });
-    }
-
-        if (chatContainer) {
-
+        if (chatContainer && !isUserScrolledUp) {
           setTimeout(() => {
-
             chatContainer.scrollTop = chatContainer.scrollHeight;
-
           }, 60);
-
         }
-
       }
 
     }
@@ -4964,34 +4987,49 @@ let currentDayTab = 'DAY_1';
 
 
 
+    let lastValidLatency = 28;
+
+    function handleTimePong(data) {
+      if (!data) return;
+      const t3 = Date.now();
+      const t0 = (typeof data.clientTimestamp === 'number') ? data.clientTimestamp : t3;
+      const t1 = (typeof data.serverTimestamp === 'number') ? data.serverTimestamp : t3;
+      const rawRtt = Math.max(0, t3 - t0);
+
+      // Filter anomali outlier ping (> 3000ms) akibat background tab sleep
+      if (rawRtt < 3000) {
+        clockOffset = t1 - (t3 - (rawRtt / 2));
+        lastValidLatency = Math.max(1, Math.round(rawRtt / 2));
+      }
+
+      const syncBadge = document.getElementById('sync-latency-label');
+      if (syncBadge) {
+        // Tampilkan latency aktual (one-way delay ~ RTT/2), jangan pernah paksa 999ms jika outlier
+        const displayLatency = (rawRtt >= 3000)
+          ? lastValidLatency
+          : Math.max(1, Math.min(Math.round(rawRtt / 2), 350));
+        syncBadge.textContent = `${displayLatency}ms`;
+      }
+    }
+
     function syncNTPClock() {
       if (!socket || !socket.connected) return;
       const t0 = Date.now();
-      socket.emit('TC_TIME_SYNC', { clientTimestamp: t0 });
+      // Gunakan callback instant ACK Socket.io agar tidak menunggu siklus HTTP polling
+      socket.emit('TC_TIME_SYNC', { clientTimestamp: t0 }, (ackData) => {
+        if (ackData) handleTimePong(ackData);
+      });
     }
 
     socket.on('TC_TIME_PONG', (data) => {
-      const t3 = Date.now();
-      const t0 = data.clientTimestamp;
-      const t1 = data.serverTimestamp;
-      const rtt = t3 - t0;
-      // Filter out invalid / delayed outlier ping (> 4000ms) caused by background tab sleep or reconnect queue
-      if (rtt >= 0 && rtt <= 4000) {
-        clockOffset = t1 - (t3 - (rtt / 2));
-      }
-      const syncBadge = document.getElementById('sync-latency-label');
-      if (syncBadge) {
-        const displayLatency = (rtt > 4000) ? Math.min(Math.round(rtt / 2), 999) : Math.round(rtt / 2);
-        syncBadge.textContent = `${displayLatency}ms`;
-      }
+      handleTimePong(data);
     });
 
     socket.on('connect', () => {
       syncNTPClock();
     });
 
-    setInterval(syncNTPClock, 15000);
-
+    setInterval(syncNTPClock, 10000);
     syncNTPClock();
 
 
@@ -5653,172 +5691,73 @@ let currentDayTab = 'DAY_1';
 
 
     socket.on('TC_STATE_UPDATE', (state) => {
-
       if (!state) return;
 
+      const urlParams = new URLSearchParams(window.location.search);
+      const lockedSession = urlParams.get('session') || urlParams.get('chat') || urlParams.get('id') || urlParams.get('event') || sessionStorage.getItem('tc_joined_session_id');
+
+      // Jika user sedang berada di session spesifik (misal ?session=hari-h-tpm-stage2),
+      // jangan biarkan TC_STATE_UPDATE dari event lain menimpa currentActiveEvent!
+      if (lockedSession && currentActiveEvent && state.activeEvent && state.activeEvent.id !== currentActiveEvent.id) {
+        return;
+      }
+
       if (state.timer) {
-
         activeTimerState = state.timer;
-
       }
 
       if (chkAllowOvertime && activeTimerState && activeTimerState.allowOvertime !== undefined) {
-
         chkAllowOvertime.checked = !!activeTimerState.allowOvertime;
-
       }
 
       if (state.activeEvent) {
-
         currentActiveEvent = state.activeEvent;
-
         updateEventLabels(currentActiveEvent);
-
         try {
-
           const evStr = JSON.stringify({
-
             id: state.activeEvent.id,
-
             name: state.activeEvent.name,
-
             date: state.activeEvent.date,
-
             chatsClearedAt: state.activeEvent.chatsClearedAt || null
-
           });
-
           sessionStorage.setItem('tc_cached_active_event', evStr);
-
           localStorage.setItem('tc_cached_active_event', evStr);
-
         } catch (e) {}
-
       }
 
       if (state.overlayConfig && typeof updateOverlayChatToggleUI === 'function') {
-
         updateOverlayChatToggleUI(state.overlayConfig.showChat);
-
       }
 
       if (state.sessionState) {
-
         applyRemoteSessionState(state.sessionState);
-
       }
 
       if (state.chatHistory) {
-
         const evId = state.activeEvent ? state.activeEvent.id : (currentActiveEvent ? currentActiveEvent.id : 'event-educamp-2026');
-
         const serverChats = sanitizeClientChatList(state.chatHistory);
 
-        const cachedChats = getCachedChatHistory(evId);
+        // Server adalah sumber kebenaran (authoritative source of truth).
+        // Jangan mereinkarnasi pesan atau separator yang sudah dihapus secara permanen di server!
+        latestChatHistoryList = serverChats;
+        saveCachedChatHistory(evId, serverChats);
 
-        const clearedAtMs = (state.activeEvent && state.activeEvent.chatsClearedAt)
-
-          ? new Date(state.activeEvent.chatsClearedAt).getTime()
-
-          : 0;
-
-
-
-        // Gabungkan chat dari server/Firebase dan sessionStorage/localStorage agar chat tidak pernah hilang saat reload
-
-        const map = new Map();
-
-        serverChats.forEach(m => {
-
-          if (m && m.id) map.set(m.id, m);
-
-        });
-
-        let clientHasMissingMessages = false;
-
-        cachedChats.forEach(m => {
-
-          if (!m || !m.id) return;
-
-          const mTime = m.timestamp ? new Date(m.timestamp).getTime() : 0;
-
-          if (clearedAtMs && mTime > 0 && mTime < clearedAtMs) return;
-
-          if (!map.has(m.id)) {
-
-            map.set(m.id, m);
-
-            clientHasMissingMessages = true;
-
-          }
-
-        });
-
-
-
-        const finalChats = Array.from(map.values()).sort((a, b) => {
-
-          return new Date(a.timestamp || 0).getTime() - new Date(b.timestamp || 0).getTime();
-
-        });
-
-
-
-        latestChatHistoryList = finalChats;
-
-        saveCachedChatHistory(evId, finalChats);
-
-
-
-        if (shouldRerenderChat(finalChats, evId)) {
-
-          renderChatMessages(finalChats, evId);
-
+        if (shouldRerenderChat(serverChats, evId)) {
+          renderChatMessages(serverChats, evId);
         }
-
-
-
-        // Jika client memiliki chat di session/localStorage yang belum ada di server, sinkronkan balik ke server & Firebase
-
-        if (clientHasMissingMessages) {
-
-          socket.emit('TC_SYNC_CLIENT_SESSION', {
-
-            eventId: evId,
-
-            chatHistory: finalChats,
-
-            sessionState: buildCurrentSessionStatePayload()
-
-          });
-
-        }
-
-
 
         // Inisialisasi lastActiveSeparatorMessageId dari separator terakhir yang aktif
-
-        const lastSep = finalChats.slice().reverse().find(m => m.isSeparator && !m.isDeleted);
-
+        const lastSep = serverChats.slice().reverse().find(m => m.isSeparator && !m.isDeleted);
         if (lastSep) {
-
           lastActiveSeparatorMessageId = lastSep.id;
-
           const rawTitle = lastSep.sessionTitle || lastSep.message || lastSep.text || 'Sesi Acara';
-
           lastActiveSeparatorBaseTitle = rawTitle.split(' - Aktual (')[0].split(' • Actual:')[0].trim();
-
         }
-
       }
 
       updateRundownVsActualUI();
-
       renderTimerControlsStateMachine();
-
     });
-
-
 
     socket.on('TC_OVERLAY_CHAT_VISIBILITY_CHANGED', (data) => {
 
@@ -8067,10 +8006,37 @@ let currentDayTab = 'DAY_1';
 
 
     const chatForm = document.getElementById('chat-form');
-
     const chatInput = document.getElementById('chat-input');
-
     const chatContainer = document.getElementById('chat-messages');
+    const btnScrollToBottom = document.getElementById('btn-scroll-to-bottom');
+
+    let isUserScrolledUp = false;
+    let isChatInitiallyRendered = false;
+
+    if (chatContainer) {
+      chatContainer.addEventListener('scroll', () => {
+        const distFromBottom = chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight;
+        // User dianggap sedang membaca riwayat obrolan di atas jika jarak dari dasar > 60px
+        isUserScrolledUp = distFromBottom > 60;
+
+        if (btnScrollToBottom) {
+          btnScrollToBottom.classList.toggle('visible', isUserScrolledUp);
+          if (!isUserScrolledUp) {
+            btnScrollToBottom.classList.remove('has-unread');
+          }
+        }
+      }, { passive: true });
+    }
+
+    if (btnScrollToBottom) {
+      btnScrollToBottom.addEventListener('click', () => {
+        isUserScrolledUp = false;
+        if (chatContainer) {
+          chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior: 'smooth' });
+        }
+        btnScrollToBottom.classList.remove('visible', 'has-unread');
+      });
+    }
 
 
 
@@ -9749,15 +9715,12 @@ let currentDayTab = 'DAY_1';
 
 
     chatInput.addEventListener('focus', () => {
-
-      setTimeout(() => {
-
-        chatContainer.scrollTop = chatContainer.scrollHeight;
-
-        chatInput.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-
-      }, 300);
-
+      if (!isUserScrolledUp && chatContainer) {
+        setTimeout(() => {
+          chatContainer.scrollTop = chatContainer.scrollHeight;
+          chatInput.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 300);
+      }
     });
 
 
@@ -9848,10 +9811,16 @@ let currentDayTab = 'DAY_1';
 
       socket.emit('TC_SEND_MESSAGE', payload);
 
-
+      // Reset scroll state on user's own sent message
+      isUserScrolledUp = false;
+      if (chatContainer) {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      }
+      if (btnScrollToBottom) {
+        btnScrollToBottom.classList.remove('visible', 'has-unread');
+      }
 
       // 3. Reset Input
-
       chatInput.value = '';
 
       chatInput.style.height = '';
@@ -9998,10 +9967,8 @@ let currentDayTab = 'DAY_1';
 
 
 
-        if (chatContainer) {
-
+        if (chatContainer && !isUserScrolledUp) {
           chatContainer.scrollTop = chatContainer.scrollHeight;
-
         }
 
 
@@ -10229,43 +10196,40 @@ let currentDayTab = 'DAY_1';
       if (!chatContainer) return;
 
       const targetEventId = eventId || (currentActiveEvent ? currentActiveEvent.id : null);
-
+      if (currentRenderedEventId !== targetEventId) {
+        isChatInitiallyRendered = false;
+        isUserScrolledUp = false;
+      }
       currentRenderedEventId = targetEventId;
 
-
+      const prevScrollTop = chatContainer.scrollTop;
+      const prevScrollHeight = chatContainer.scrollHeight;
+      const wasScrolledUp = isUserScrolledUp;
 
       const fragment = document.createDocumentFragment();
-
       lastRenderedMessage = null;
-
       messages.forEach(msg => appendChatMessage(msg, false, false, fragment));
 
-
-
       // Sinkronkan separator aktif terakhir jika ada
-
       const lastSep = [...messages].reverse().find(m => m.isSeparator);
-
       if (lastSep) {
-
         lastActiveSeparatorMessageId = lastSep.id;
-
         const rawTitle = lastSep.sessionTitle || lastSep.message || 'Sesi Acara';
-
         lastActiveSeparatorBaseTitle = rawTitle.split(' • Actual:')[0].trim();
-
       }
 
-
-
       chatContainer.innerHTML = '';
-
       chatContainer.appendChild(fragment);
-
       updateMessagesGrouping();
 
-      chatContainer.scrollTop = chatContainer.scrollHeight;
-
+      if (!isChatInitiallyRendered || !wasScrolledUp) {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+        isUserScrolledUp = false;
+        isChatInitiallyRendered = true;
+      } else {
+        const scrollDiff = chatContainer.scrollHeight - prevScrollHeight;
+        chatContainer.scrollTop = prevScrollTop + (scrollDiff > 0 ? scrollDiff : 0);
+      }
     }
 
 
@@ -10377,9 +10341,11 @@ let currentDayTab = 'DAY_1';
         targetParent.appendChild(sep);
 
         if (isNew) {
-
-          chatContainer.scrollTop = chatContainer.scrollHeight;
-
+          if (!isUserScrolledUp) {
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+          } else if (btnScrollToBottom) {
+            btnScrollToBottom.classList.add('has-unread');
+          }
         }
 
         return;
@@ -11053,19 +11019,20 @@ let currentDayTab = 'DAY_1';
       
 
       // Auto-scroll dan highlight hanya untuk pesan baru yang masuk (live)
-
       if (isNew) {
-
         markMessageAsNew(row, msg.id);
 
-        setTimeout(() => {
-
-          chatContainer.scrollTop = chatContainer.scrollHeight + 120;
-
-          row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-
-        }, 50);
-
+        if (isSender || !isUserScrolledUp) {
+          setTimeout(() => {
+            chatContainer.scrollTop = chatContainer.scrollHeight + 120;
+            row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }, 50);
+        } else {
+          // Pengguna sedang membaca riwayat di atas: jangan paksa auto-scroll ke bawah!
+          if (btnScrollToBottom) {
+            btnScrollToBottom.classList.add('has-unread');
+          }
+        }
       }
 
     }
@@ -11407,41 +11374,10 @@ let currentDayTab = 'DAY_1';
         const chats = await chatRes.json();
 
         if (Array.isArray(chats)) {
-
           const cleanServer = sanitizeClientChatList(chats);
-
-          const cached = getCachedChatHistory(evId);
-
-          const clearedAtMs = (currentActiveEvent && currentActiveEvent.chatsClearedAt)
-
-            ? new Date(currentActiveEvent.chatsClearedAt).getTime()
-
-            : 0;
-
-          const map = new Map();
-
-          cleanServer.forEach(m => { if (m && m.id) map.set(m.id, m); });
-
-          cached.forEach(m => {
-
-            if (!m || !m.id) return;
-
-            const mTime = m.timestamp ? new Date(m.timestamp).getTime() : 0;
-
-            if (clearedAtMs && mTime > 0 && mTime < clearedAtMs) return;
-
-            if (!map.has(m.id)) map.set(m.id, m);
-
-          });
-
-          const merged = Array.from(map.values()).sort((a, b) => new Date(a.timestamp || 0).getTime() - new Date(b.timestamp || 0).getTime());
-
-          latestChatHistoryList = merged;
-
-          saveCachedChatHistory(evId, merged);
-
-          renderChatMessages(merged, evId);
-
+          latestChatHistoryList = cleanServer;
+          saveCachedChatHistory(evId, cleanServer);
+          renderChatMessages(cleanServer, evId);
         } else {
 
           const cached = getCachedChatHistory(evId);
@@ -14544,13 +14480,18 @@ let currentDayTab = 'DAY_1';
             
 
             currentActiveEvent = data.event;
-
             updateEventLabels(currentActiveEvent);
 
-
+            if (data.event.sessionState) {
+              applyRemoteSessionState(data.event.sessionState);
+            } else {
+              rundownItemsDay1 = getStoredRundown('DAY_1', currentActiveEvent.id);
+              rundownItemsDay2 = getStoredRundown('DAY_2', currentActiveEvent.id);
+              renderRundownItems();
+              updateRundownVsActualUI();
+            }
 
             const activeSessionId = data.event.sessionId || data.event.id.replace(/^event-/, '') || 'educamp-2026';
-
             sessionStorage.setItem('tc_joined_session_id', activeSessionId);
 
 
@@ -14962,17 +14903,28 @@ let currentDayTab = 'DAY_1';
 
 
       // Listen respon event joined via socket
-
       socket.on('TC_SESSION_JOINED', (resData) => {
-
-        if (resData && resData.event) {
-
+        if (!resData) return;
+        if (resData.event) {
           currentActiveEvent = resData.event;
-
           updateEventLabels(currentActiveEvent);
-
         }
-
+        if (resData.state) {
+          if (resData.state.timer) {
+            activeTimerState = resData.state.timer;
+          }
+          if (resData.state.sessionState) {
+            applyRemoteSessionState(resData.state.sessionState);
+          }
+          if (Array.isArray(resData.state.chatHistory) && currentActiveEvent) {
+            const cleanChats = sanitizeClientChatList(resData.state.chatHistory);
+            latestChatHistoryList = cleanChats;
+            saveCachedChatHistory(currentActiveEvent.id, cleanChats);
+            renderChatMessages(cleanChats, currentActiveEvent.id);
+          }
+          updateRundownVsActualUI();
+          renderTimerControlsStateMachine();
+        }
       });
 
     }

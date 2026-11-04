@@ -1470,7 +1470,8 @@ app.get('/api/timer-chat/session/validate', async (req, res) => {
           name: ev.name,
           date: ev.date,
           description: ev.description,
-          chatCount: ev.chats ? ev.chats.length : 0
+          chatCount: ev.chats ? ev.chats.length : 0,
+          sessionState: ev.sessionState || timerChatEngine.getSessionState(ev.id)
         }
       });
     }
@@ -2167,12 +2168,18 @@ io.on('connection', (socket) => {
     console.warn('[TC Initial State Emit Error]', err.message);
   });
 
-  // 1. High Precision NTP Time Sync (Ping - Pong)
-  socket.on('TC_TIME_SYNC', (clientData) => {
-    socket.emit('TC_TIME_PONG', {
-      clientTimestamp: clientData?.clientTimestamp || Date.now(),
-      serverTimestamp: Date.now()
-    });
+  // 1. High Precision NTP Time Sync (Ping - Pong) with instant ACK callback
+  socket.on('TC_TIME_SYNC', (clientData, callback) => {
+    const serverTimestamp = Date.now();
+    const payload = {
+      clientTimestamp: (clientData && typeof clientData.clientTimestamp === 'number') ? clientData.clientTimestamp : serverTimestamp,
+      serverTimestamp
+    };
+    if (typeof callback === 'function') {
+      callback(payload);
+    } else {
+      socket.emit('TC_TIME_PONG', payload);
+    }
   });
 
   // Client requesting full state (anti-stuck on reconnect / cloud view)
@@ -2232,7 +2239,7 @@ io.on('connection', (socket) => {
     try {
       await timerChatEngine.ensureHydrated();
       const sessionState = timerChatEngine.updateSessionState(data, data.eventId);
-      socket.broadcast.emit('TC_SESSION_STATE_UPDATED', sessionState);
+      io.emit('TC_SESSION_STATE_UPDATED', { ...sessionState, eventId: data.eventId || sessionState.eventId });
     } catch (err) {
       console.warn('[TC_UPDATE_SESSION_STATE]', err.message);
     }

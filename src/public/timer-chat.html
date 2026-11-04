@@ -15,7 +15,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 
-  <link rel="stylesheet" href="/css/timer-chat.css?v=1.6.8">
+  <link rel="stylesheet" href="/css/timer-chat.css?v=1.7.0">
   <script>
     (function() {
       try {
@@ -380,6 +380,13 @@
       <div class="chat-messages-container" id="chat-messages">
         <!-- Rendered dynamically -->
       </div>
+
+      <!-- Floating Scroll to Bottom Button -->
+      <button type="button" class="btn-scroll-to-bottom" id="btn-scroll-to-bottom" title="Scroll ke pesan terbaru">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
+        <span>Ke Bawah</span>
+        <span class="scroll-unread-badge">Pesan Baru</span>
+      </button>
 
       <!-- Live Typing Indicator (VibeLocator Behaviour) -->
       <div class="typing-indicator-bubble" id="typing-indicator-bubble">
@@ -978,12 +985,12 @@
       <div class="footer-semver" title="Semantic Versioning">
         <span class="semver-dot"></span>
         <span class="semver-label">SemVer</span>
-        <span>v1.6.8</span>
+        <span>v1.7.1</span>
       </div>
     </div>
   </footer>
 
   <!-- Application Logic -->
-  <script src="/js/timer-chat/timer-chat.js?v=1.6.8" defer></script>
+  <script src="/js/timer-chat/timer-chat.js?v=1.7.1" defer></script>
 </body>
 </html>

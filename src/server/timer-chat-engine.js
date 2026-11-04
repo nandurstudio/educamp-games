@@ -1357,36 +1357,26 @@ class TimerChatEngine {
 
 
 
-    this.sessionState = {
-
-      ...this.sessionState,
-
-      ...cleanPatch
-
-    };
-
-
-
     const ev = this.events[targetId];
-
     if (ev) {
-
       ev.sessionState = {
-
-        ...(ev.sessionState || this.sessionState),
-
+        ...(ev.sessionState || {}),
         ...cleanPatch
-
       };
-
     }
 
-
+    if (targetId === this.activeEventId) {
+      this.sessionState = {
+        ...this.sessionState,
+        ...cleanPatch
+      };
+    }
 
     this.saveStorage(true);
-
-    return this.getSessionState(targetId);
-
+    return {
+      eventId: targetId,
+      ...this.getSessionState(targetId)
+    };
   }
 
 
