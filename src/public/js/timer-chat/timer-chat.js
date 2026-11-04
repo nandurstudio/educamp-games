@@ -3047,6 +3047,10 @@ let currentDayTab = 'DAY_1';
 
 
 
+    function getCompletedSessions() {
+      return getCompletedSessionsForDay(currentDayTab);
+    }
+
     function saveCompletedSessions(set, syncRemote = true) {
 
       saveCompletedSessionsForDay(currentDayTab, set, syncRemote);
