@@ -7674,8 +7674,10 @@ body.focus-mode-active .msg-sticker-wrapper.revealed::after {
 
 
 /* HARD GUARD SINGLE-DAY (GLADI KOTOR): Day 2 Tab & Rundown Tabs Hidden */
-html.is-single-day-event, body.is-single-day-event .rundown-tabs,
-html.is-single-day-event, body.is-single-day-event #tab-day2,
+html.is-single-day-event .rundown-tabs,
+html.is-single-day-event #tab-day2,
+body.is-single-day-event .rundown-tabs,
+body.is-single-day-event #tab-day2,
 .is-single-day-event .rundown-tabs,
 .is-single-day-event #tab-day2 {
   display: none !important;

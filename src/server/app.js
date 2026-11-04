@@ -185,6 +185,7 @@ app.use(express.static(path.join(__dirname, '../public')));
 // Standalone Windows Executable & Python Overlay App Routes
 app.get('/TimerOverlay.exe', (req, res) => {
   const candidates = [
+    path.join(__dirname, '../public/downloads/TimerOverlay.exe'),
     path.join(__dirname, '../../dist/TimerOverlay.exe'),
     path.join(__dirname, '../public/TimerOverlay.exe'),
     path.join(__dirname, '../../TimerOverlay.exe')
@@ -199,10 +200,25 @@ app.get('/TimerOverlay.exe', (req, res) => {
       }
     });
   }
+  // Fallback: Jika file .exe belum dicompile di server Linux, berikan paket ZIP portable lengkap
+  const zipPath = path.join(__dirname, '../public/downloads/TimerOverlay_Windows.zip');
+  if (fs.existsSync(zipPath)) {
+    return res.download(zipPath, 'TimerOverlay_Windows.zip');
+  }
   res.status(404).send('TimerOverlay.exe sedang disiapkan di server. Harap tunggu proses build selesai.');
 });
 app.get('/TimerOverlay_Windows.zip', (req, res) => {
-  res.download(path.join(__dirname, '../../dist/TimerOverlay_Windows.zip'), 'TimerOverlay_Windows.zip');
+  const candidates = [
+    path.join(__dirname, '../public/downloads/TimerOverlay_Windows.zip'),
+    path.join(__dirname, '../../dist/TimerOverlay_Windows.zip'),
+    path.join(__dirname, '../public/TimerOverlay_Windows.zip'),
+    path.join(__dirname, '../../TimerOverlay_Windows.zip')
+  ];
+  const found = candidates.find(p => fs.existsSync(p));
+  if (found) {
+    return res.download(found, 'TimerOverlay_Windows.zip');
+  }
+  res.status(404).send('File TimerOverlay_Windows.zip tidak ditemukan.');
 });
 app.get('/timer_overlay.py', (req, res) => {
   res.download(path.join(__dirname, '../../timer_overlay.py'), 'timer_overlay.py');

@@ -464,6 +464,7 @@ const RUNDOWN_GK_DAY_1 = [
 
 
 // Gladi Kotor adalah acara 1 hari penuh (tidak ada Day 2)
+// Gladi Kotor adalah acara 1 hari penuh (tidak ada Day 2)
 const RUNDOWN_GK_DAY_2 = [];
 
 
