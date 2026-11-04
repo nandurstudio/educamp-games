@@ -4347,6 +4347,14 @@ let currentDayTab = 'DAY_1';
       if (willBeCollapsed) {
 
         const chatContainer = document.getElementById('chat-messages');
+    let isUserScrolledUp = false;
+
+    if (chatContainer) {
+      chatContainer.addEventListener('scroll', () => {
+        const distFromBottom = chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight;
+        isUserScrolledUp = distFromBottom > 80;
+      }, { passive: true });
+    }
 
         if (chatContainer) {
 
@@ -5620,6 +5628,21 @@ let currentDayTab = 'DAY_1';
     } catch (e) {}
 
 
+
+    socket.on('TC_SESSION_COMPLETED_CHANGED', (data) => {
+      if (!data || !data.eventId) return;
+      const currentEvId = currentActiveEvent ? currentActiveEvent.id : 'default';
+      if (data.eventId !== currentEvId && data.eventId !== 'event-educamp-2026') return;
+
+      if (Array.isArray(data.completedSessionsDay1)) {
+        saveCompletedSessionsForDay('DAY_1', new Set(data.completedSessionsDay1), false);
+      }
+      if (Array.isArray(data.completedSessionsDay2)) {
+        saveCompletedSessionsForDay('DAY_2', new Set(data.completedSessionsDay2), false);
+      }
+      renderRundownItems();
+      updateRundownVsActualUI();
+    });
 
     socket.on('TC_SESSION_STATE_UPDATED', (sessionState) => {
 

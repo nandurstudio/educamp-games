@@ -2216,6 +2216,18 @@ io.on('connection', (socket) => {
   });
 
   // Sinkronisasi state sesi rundown & riwayat chat dari session/localStorage client ke server & Firebase
+  socket.on('TC_TOGGLE_SESSION_COMPLETED', async (data = {}) => {
+    try {
+      await timerChatEngine.ensureHydrated();
+      const res = timerChatEngine.toggleSessionCompletedItem(data);
+      if (res) {
+        io.emit('TC_SESSION_COMPLETED_CHANGED', res);
+      }
+    } catch (err) {
+      console.warn('[TC_TOGGLE_SESSION_COMPLETED]', err.message);
+    }
+  });
+
   socket.on('TC_UPDATE_SESSION_STATE', async (data = {}) => {
     try {
       await timerChatEngine.ensureHydrated();

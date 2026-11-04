@@ -1300,6 +1300,41 @@ class TimerChatEngine {
 
 
 
+  toggleSessionCompletedItem({ eventId, dayKey, sessionTitle, isCompleted }) {
+    if (!sessionTitle) return null;
+    let targetId = eventId || this.activeEventId;
+    if (!this.events[targetId]) {
+      targetId = this.activeEventId || Object.keys(this.events)[0];
+    }
+    const ev = this.events[targetId];
+    if (!ev) return null;
+    if (!ev.sessionState) ev.sessionState = { ...(this.sessionState || {}) };
+
+    const prop = (dayKey === 'DAY_1') ? 'completedSessionsDay1' : 'completedSessionsDay2';
+    const list = Array.isArray(ev.sessionState[prop]) ? [...ev.sessionState[prop]] : [];
+    const set = new Set(list);
+    if (isCompleted) {
+      set.add(sessionTitle);
+    } else {
+      set.delete(sessionTitle);
+    }
+    const arr = Array.from(set);
+    ev.sessionState[prop] = arr;
+    ev.sessionState.updatedAt = new Date().toISOString();
+    if (this.sessionState) {
+      this.sessionState[prop] = arr;
+      this.sessionState.updatedAt = ev.sessionState.updatedAt;
+    }
+    this.saveStorage(true);
+    return {
+      eventId: targetId,
+      dayKey,
+      completedSessionsDay1: ev.sessionState.completedSessionsDay1,
+      completedSessionsDay2: ev.sessionState.completedSessionsDay2,
+      updatedAt: ev.sessionState.updatedAt
+    };
+  }
+
   updateSessionState(sessionPatch = {}, eventId = null) {
 
     if (!sessionPatch || typeof sessionPatch !== 'object') return this.getSessionState(eventId);
