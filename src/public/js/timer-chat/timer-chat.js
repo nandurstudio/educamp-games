@@ -4398,7 +4398,12 @@ let currentDayTab = 'DAY_1';
 
     // === 2. GLOBAL STATE & NTP SYNC VARIABLES ===
 
-    const socket = io();
+    const socket = io({
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000
+    });
 
     let clockOffset = 0;
 
@@ -4948,38 +4953,30 @@ let currentDayTab = 'DAY_1';
 
 
     function syncNTPClock() {
-
+      if (!socket || !socket.connected) return;
       const t0 = Date.now();
-
       socket.emit('TC_TIME_SYNC', { clientTimestamp: t0 });
-
     }
 
-
-
     socket.on('TC_TIME_PONG', (data) => {
-
       const t3 = Date.now();
-
       const t0 = data.clientTimestamp;
-
       const t1 = data.serverTimestamp;
-
       const rtt = t3 - t0;
-
-      clockOffset = t1 - (t3 - (rtt / 2));
-
-      const syncBadge = document.getElementById('sync-latency-label');
-
-      if (syncBadge) {
-
-        syncBadge.textContent = `${Math.round(rtt / 2)}ms`;
-
+      // Filter out invalid / delayed outlier ping (> 4000ms) caused by background tab sleep or reconnect queue
+      if (rtt >= 0 && rtt <= 4000) {
+        clockOffset = t1 - (t3 - (rtt / 2));
       }
-
+      const syncBadge = document.getElementById('sync-latency-label');
+      if (syncBadge) {
+        const displayLatency = (rtt > 4000) ? Math.min(Math.round(rtt / 2), 999) : Math.round(rtt / 2);
+        syncBadge.textContent = `${displayLatency}ms`;
+      }
     });
 
-
+    socket.on('connect', () => {
+      syncNTPClock();
+    });
 
     setInterval(syncNTPClock, 15000);
 
